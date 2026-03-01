@@ -208,12 +208,13 @@ function enterApp() {
 // ═══════════════════════════════════════════════════════════════
 
 function showView(viewId, clickedLink) {
-    const views = ["dashboardPage", "boardView", "customersView", "subsView", "equipmentView", "warrantyView", "pmView", "apView", "pricingView", "adminView"];
+    const views = ["dashboardPage", "boardView", "todoView", "customersView", "subsView", "equipmentView", "warrantyView", "pmView", "apView", "pricingView", "adminView"];
     views.forEach(v => { const el = document.getElementById(v); if (el) el.style.display = "none"; });
     document.getElementById(viewId).style.display = "block";
     if (clickedLink) { document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active")); clickedLink.classList.add("active"); }
     if (viewId === "dashboardPage") loadDashboard();
     if (viewId === "boardView") loadBoard();
+    if (viewId === "todoView") loadTodos();
     if (viewId === "warrantyView") loadWarrantyClaims();
     if (viewId === "customersView") loadCustomers();
     if (viewId === "subsView") loadSubcontractors();
@@ -1021,6 +1022,82 @@ ${companyName}`
             </div>
             <p style="margin-top:10px; font-size:12px; color:#64748b;">Click to open your email client or messaging app with a pre-written message.</p>
         </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TO-DO LIST
+// ═══════════════════════════════════════════════════════════════
+
+async function loadTodos() {
+    const res = await api("/todos");
+    if (!res || !res.ok) return;
+    const todos = await res.json();
+
+    const wrap = document.getElementById("todoList");
+    if (todos.length === 0) {
+        wrap.innerHTML = '<div class="card" style="background:#1e293b; text-align:center; padding:40px;"><p class="muted">No tasks yet. Add one above.</p></div>';
+        return;
+    }
+
+    const incomplete = todos.filter(t => !t.isCompleted);
+    const completed = todos.filter(t => t.isCompleted);
+
+    let html = '';
+
+    if (incomplete.length > 0) {
+        html += incomplete.map(t => renderTodoItem(t)).join("");
+    }
+
+    if (completed.length > 0) {
+        html += `<div style="margin-top:20px; margin-bottom:8px; font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Completed (${completed.length})</div>`;
+        html += completed.map(t => renderTodoItem(t)).join("");
+    }
+
+    wrap.innerHTML = html;
+}
+
+function renderTodoItem(t) {
+    const checked = t.isCompleted ? "checked" : "";
+    const textStyle = t.isCompleted ? "text-decoration:line-through; color:#475569;" : "color:#e2e8f0;";
+    const descStyle = t.isCompleted ? "text-decoration:line-through; color:#334155;" : "color:#94a3b8;";
+    const completedInfo = t.completedAt ? `<span style="font-size:11px; color:#475569; margin-left:8px;">Done ${new Date(t.completedAt).toLocaleDateString()}</span>` : "";
+
+    return `<div class="todo-item" style="display:flex; align-items:flex-start; gap:12px; padding:12px 16px; background:#1e293b; border:1px solid #334155; border-radius:10px; margin-bottom:6px;">
+        <input type="checkbox" ${checked} onchange="toggleTodo('${t.id}')" style="width:20px; height:20px; margin-top:2px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;" />
+        <div style="flex:1; min-width:0;">
+            <div style="${textStyle} font-size:14px; font-weight:500;">${t.title}${completedInfo}</div>
+            ${t.description ? `<div style="${descStyle} font-size:12px; margin-top:2px;">${t.description}</div>` : ""}
+        </div>
+        <button onclick="deleteTodo('${t.id}')" style="background:none; border:none; color:#475569; cursor:pointer; font-size:16px; padding:0 4px; flex-shrink:0;" title="Delete">✕</button>
+    </div>`;
+}
+
+async function addTodo() {
+    const title = document.getElementById("todoTitle").value.trim();
+    const description = document.getElementById("todoDesc").value.trim();
+    if (!title) { toast("Enter a task.", "error"); return; }
+
+    const res = await api("/todos", {
+        method: "POST",
+        body: JSON.stringify({ title, description: description || null })
+    });
+
+    if (res && res.ok) {
+        document.getElementById("todoTitle").value = "";
+        document.getElementById("todoDesc").value = "";
+        await loadTodos();
+        toast("Task added.", "success");
+    }
+}
+
+async function toggleTodo(id) {
+    const res = await api(`/todos/${id}/toggle`, { method: "PUT" });
+    if (res && res.ok) await loadTodos();
+}
+
+async function deleteTodo(id) {
+    const res = await api(`/todos/${id}`, { method: "DELETE" });
+    if (res && res.ok) { await loadTodos(); toast("Deleted.", "success"); }
 }
 
 // ═══════════════════════════════════════════════════════════════

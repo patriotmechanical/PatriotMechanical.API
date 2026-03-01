@@ -43,6 +43,7 @@ namespace PatriotMechanical.API.Domain.Entities
         // Flags
         public bool DefectivePartReturned { get; set; } = false;
         public bool IsClosed { get; set; } = false;
+        public bool IsDemo { get; set; } = false;
 
         // Notes
         public List<WarrantyClaimNote> Notes { get; set; } = new();

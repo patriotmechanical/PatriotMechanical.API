@@ -122,7 +122,8 @@ using (var scope = app.Services.CreateScope())
                 ""DefectiveReturnedDate"" timestamp with time zone,
                 ""ClosedDate"" timestamp with time zone,
                 ""DefectivePartReturned"" boolean NOT NULL DEFAULT false,
-                ""IsClosed"" boolean NOT NULL DEFAULT false
+                ""IsClosed"" boolean NOT NULL DEFAULT false,
+                ""IsDemo"" boolean NOT NULL DEFAULT false
             );
 
             CREATE TABLE IF NOT EXISTS ""WarrantyClaimNotes"" (
@@ -134,6 +135,17 @@ using (var scope = app.Services.CreateScope())
             );
 
             CREATE INDEX IF NOT EXISTS ""IX_WarrantyClaimNotes_WarrantyClaimId"" ON ""WarrantyClaimNotes""(""WarrantyClaimId"");
+
+            CREATE TABLE IF NOT EXISTS ""TodoItems"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""Title"" text NOT NULL,
+                ""Description"" text,
+                ""IsCompleted"" boolean NOT NULL DEFAULT false,
+                ""IsDemo"" boolean NOT NULL DEFAULT false,
+                ""SortOrder"" integer NOT NULL DEFAULT 0,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""CompletedAt"" timestamp with time zone
+            );
         ");
         Console.WriteLine("[Startup] Board tables ready.");
     }

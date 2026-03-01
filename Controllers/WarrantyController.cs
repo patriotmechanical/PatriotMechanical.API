@@ -26,7 +26,8 @@ namespace PatriotMechanical.API.Controllers
             var isDemo = DemoFilter.IsDemo(User);
 
             var query = _context.WarrantyClaims
-                .Where(w => !isDemo || (w.CustomerName != null && w.CustomerName.StartsWith("[DEMO]")))
+                .Where(w => !isDemo || w.IsDemo)
+                .Where(w => isDemo || !w.IsDemo)
                 .AsQueryable();
 
             if (!includeClosed)
@@ -109,7 +110,8 @@ namespace PatriotMechanical.API.Controllers
                 Supplier = req.Supplier,
                 Manufacturer = req.Manufacturer,
                 ClaimType = req.ClaimType ?? "Replacement",
-                Status = "Diagnosis"
+                Status = "Diagnosis",
+                IsDemo = DemoFilter.IsDemo(User)
             };
 
             _context.WarrantyClaims.Add(claim);

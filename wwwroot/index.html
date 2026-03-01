@@ -59,6 +59,7 @@
                 <nav class="sidebar-nav">
                     <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)"><span class="nav-icon">◉</span> Dashboard</a>
                     <a href="#" class="nav-link" onclick="showView('boardView', this)"><span class="nav-icon">▦</span> WO Board</a>
+                    <a href="#" class="nav-link" onclick="showView('todoView', this)"><span class="nav-icon">☑</span> To-Do</a>
                     <a href="#" class="nav-link" onclick="showView('customersView', this)"><span class="nav-icon">◎</span> Customers</a>
                     <a href="#" class="nav-link" onclick="showView('subsView', this)"><span class="nav-icon">◆</span> Subcontractors</a>
                     <a href="#" class="nav-link" onclick="showView('equipmentView', this)"><span class="nav-icon">▣</span> Equipment</a>
@@ -136,6 +137,25 @@
                         </div>
                     </div>
                     <div id="kanbanBoard" class="kanban-board"></div>
+                </div>
+
+                <!-- ═══ TO-DO ═══ -->
+                <div id="todoView" style="display:none;">
+                    <div class="page-header"><h1>To-Do List</h1></div>
+                    <div class="card" style="background:#1e293b; margin-bottom:16px;">
+                        <div style="display:flex; gap:10px; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                                <label>Task</label>
+                                <input type="text" id="todoTitle" placeholder="What needs to be done?" onkeydown="if(event.key==='Enter') addTodo()" />
+                            </div>
+                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                                <label>Description (optional)</label>
+                                <input type="text" id="todoDesc" placeholder="Additional details..." onkeydown="if(event.key==='Enter') addTodo()" />
+                            </div>
+                            <button class="btn-primary" style="height:40px;" onclick="addTodo()">Add</button>
+                        </div>
+                    </div>
+                    <div id="todoList"></div>
                 </div>
 
                 <!-- ═══ CUSTOMERS ═══ -->

@@ -39,6 +39,9 @@ namespace PatriotMechanical.API.Infrastructure.Data
         public DbSet<WarrantyClaim> WarrantyClaims { get; set; }
         public DbSet<WarrantyClaimNote> WarrantyClaimNotes { get; set; }
 
+        // Todos
+        public DbSet<TodoItem> TodoItems { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()
