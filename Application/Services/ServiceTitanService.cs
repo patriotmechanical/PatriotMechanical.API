@@ -168,6 +168,24 @@ namespace PatriotMechanical.API.Application.Services
 
         // ─── Paged invoices ───────────────────────────────────────────
 
+        public async Task<string> GetRawJobByIdAsync(long jobId)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{baseUrl}/jpm/v2/tenant/{tenantId}/jobs/{jobId}");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
+
         public async Task<string> GetInvoicesPageAsync(int page = 1)
         {
             var token = await GetAccessTokenAsync();
