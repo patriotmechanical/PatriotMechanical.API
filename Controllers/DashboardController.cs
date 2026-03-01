@@ -6,7 +6,7 @@ using PatriotMechanical.API.Infrastructure.Data;
 namespace PatriotMechanical.API.Controllers;
 
 [Authorize]
-    [ApiController]
+[ApiController]
 [Route("dashboard")]
 public class DashboardController : ControllerBase
 {
@@ -20,8 +20,11 @@ public class DashboardController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetDashboard()
     {
+        var isDemo = DemoFilter.IsDemo(User);
+
         var ar = await _context.Invoices
             .Where(i => i.BalanceRemaining > 0)
+            .Where(i => !isDemo || i.Customer.Name.StartsWith("[DEMO]"))
             .GroupBy(i => i.Customer.Name)
             .Select(g => new
             {
@@ -33,6 +36,7 @@ public class DashboardController : ControllerBase
 
         var ap = await _context.ApBills
             .Where(b => !b.IsPaid)
+            .Where(b => !isDemo || b.Vendor.Name.StartsWith("[DEMO]"))
             .GroupBy(b => b.Vendor.Name)
             .Select(g => new
             {
@@ -47,11 +51,11 @@ public class DashboardController : ControllerBase
         var totalAr = ar.Sum(x => x.TotalOwed);
         var totalAp = ap.Sum(x => x.TotalOwed);
 
-        // Exclude completed and all variations of canceled
         var excludedStatuses = new[] { "Completed", "Cancelled", "Canceled", "Cancelled", "canceled", "cancelled" };
 
         var openWorkOrders = await _context.WorkOrders
             .Where(w => !excludedStatuses.Contains(w.Status))
+            .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
             .OrderBy(w => w.CreatedAt)
             .Select(w => new

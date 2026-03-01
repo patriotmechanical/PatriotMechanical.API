@@ -11,10 +11,7 @@ namespace PatriotMechanical.API.Controllers
     public class PmController : ControllerBase
     {
         private readonly AppDbContext _context;
-
-        // Job type names that count as a PM
-        private static readonly string[] PmKeywords = 
-            { "maintenance", "tune up", "tune-up", "pm" };
+        private static readonly string[] PmKeywords = { "maintenance", "tune up", "tune-up", "pm" };
 
         public PmController(AppDbContext context)
         {
@@ -24,9 +21,12 @@ namespace PatriotMechanical.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPmSummary()
         {
+            var isDemo = DemoFilter.IsDemo(User);
+
             var pmJobs = await _context.WorkOrders
                 .Where(w => w.JobTypeName != null &&
                     PmKeywords.Any(k => w.JobTypeName.ToLower().Contains(k)))
+                .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
                 .Include(w => w.Customer)
                 .ToListAsync();
 
@@ -37,7 +37,6 @@ namespace PatriotMechanical.API.Controllers
                     var lastJob = g.OrderByDescending(w => w.CompletedAt ?? w.CreatedAt).First();
                     var lastDate = lastJob.CompletedAt ?? lastJob.CreatedAt;
                     var daysSince = (DateTime.UtcNow - lastDate).Days;
-
                     return new
                     {
                         CustomerId = g.Key.CustomerId,

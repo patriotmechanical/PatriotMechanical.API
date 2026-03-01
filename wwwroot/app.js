@@ -102,6 +102,14 @@ async function checkAppState() {
             document.body.prepend(banner);
             document.body.style.paddingTop = "36px";
         }
+        // Hide real-data features for demo
+        setTimeout(() => {
+            const syncBtn = document.getElementById("hardRefreshBtn");
+            if (syncBtn) syncBtn.style.display = "none";
+            document.querySelectorAll(".nav-link").forEach(link => {
+                if (link.textContent.trim().includes("Settings")) link.style.display = "none";
+            });
+        }, 100);
     }
     try {
         const res = await fetch("/auth/status");
