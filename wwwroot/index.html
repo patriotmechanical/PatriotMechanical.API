@@ -87,6 +87,16 @@
 
             <div class="content">
 
+                <!-- Global Search -->
+                <div class="global-search-wrap">
+                    <div class="global-search-box">
+                        <span class="search-icon">⌕</span>
+                        <input type="text" id="globalSearchInput" placeholder="Search customers, jobs, equipment, vendors..." autocomplete="off" oninput="onGlobalSearch()" onkeydown="onSearchKeydown(event)" onfocus="onSearchFocus()" />
+                        <span id="searchShortcut" class="search-shortcut">Ctrl+K</span>
+                    </div>
+                    <div id="searchResults" class="search-results hidden"></div>
+                </div>
+
                 <!-- ═══ DASHBOARD ═══ -->
                 <div id="dashboardPage">
                     <div class="page-header"><h1>Dashboard</h1><button id="hardRefreshBtn" class="btn-refresh" onclick="hardRefresh()">↻ Sync Data</button></div>
