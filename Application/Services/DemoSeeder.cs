@@ -10,9 +10,11 @@ namespace PatriotMechanical.API.Application.Services
         public static readonly Guid DemoUserId = Guid.Parse("demo0000-0000-0000-0000-000000000002");
         public const string DemoEmail = "demo@patriotmechanical.app";
 
+        private static readonly Random Rng = new Random(42);
+
         public static async Task ResetDemoDataAsync(AppDbContext db)
         {
-            // Clean up all demo data using raw SQL (much simpler than LINQ for cascading deletes)
+            // Clean all demo-prefixed data with raw SQL
             await db.Database.ExecuteSqlRawAsync(@"
                 DELETE FROM ""BoardCardNotes"" WHERE ""BoardCardId"" IN (
                     SELECT bc.""Id"" FROM ""BoardCards"" bc
@@ -55,114 +57,139 @@ namespace PatriotMechanical.API.Application.Services
                 DELETE FROM ""Subcontractors"" WHERE ""Name"" LIKE '[DEMO]%';
             ");
 
-            // Ensure demo company exists
-            var demoCompany = await db.CompanySettings.FindAsync(DemoCompanyId);
-            if (demoCompany == null)
+            // Clear EF change tracker to avoid stale references
+            db.ChangeTracker.Clear();
+
+            // Ensure demo company
+            var hasCompany = await db.CompanySettings.AnyAsync(c => c.Id == DemoCompanyId);
+            if (!hasCompany)
             {
-                demoCompany = new CompanySettings
-                {
-                    Id = DemoCompanyId,
-                    CompanyName = "Freedom Air Heating & Cooling",
-                    CreditCardFeePercent = 2.5m
-                };
-                db.CompanySettings.Add(demoCompany);
+                await db.Database.ExecuteSqlRawAsync(@"
+                    INSERT INTO ""CompanySettings"" (""Id"", ""CompanyName"", ""CreditCardFeePercent"", ""AutoSyncEnabled"", ""SyncIntervalMinutes"")
+                    VALUES ({0}, 'Freedom Air Heating & Cooling', 2.5, false, 60)
+                    ON CONFLICT (""Id"") DO NOTHING
+                ", DemoCompanyId);
             }
 
-            // Ensure demo user exists
-            var demoUser = await db.Users.FindAsync(DemoUserId);
-            if (demoUser == null)
+            // Ensure demo user
+            var hasUser = await db.Users.AnyAsync(u => u.Id == DemoUserId);
+            if (!hasUser)
             {
-                db.Users.Add(new User
-                {
-                    Id = DemoUserId,
-                    Email = DemoEmail,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("demo1234"),
-                    FullName = "Demo User",
-                    CompanySettingsId = DemoCompanyId,
-                    IsActive = true
-                });
+                var hash = BCrypt.Net.BCrypt.HashPassword("demo1234");
+                await db.Database.ExecuteSqlRawAsync(@"
+                    INSERT INTO ""Users"" (""Id"", ""Email"", ""PasswordHash"", ""FullName"", ""IsActive"", ""CompanySettingsId"", ""CreatedAt"")
+                    VALUES ({0}, {1}, {2}, 'Demo User', true, {3}, now())
+                    ON CONFLICT (""Id"") DO NOTHING
+                ", DemoUserId, DemoEmail, hash, DemoCompanyId);
             }
 
-            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
 
-            // ─── SEED CUSTOMERS ───────────────────────────────────────
-            var customers = new[]
+            // Now seed fresh demo data
+            await SeedCustomersAndData(db);
+        }
+
+        private static async Task SeedCustomersAndData(AppDbContext db)
+        {
+            var now = DateTime.UtcNow;
+            var customerNames = new[]
             {
-                ("Johnson Residence", "Phone", "817-555-0142", "johnson.family@email.com"),
-                ("Smith Commercial", "Phone", "972-555-0198", "accounting@smithcommercial.com"),
-                ("Martinez Family", "MobilePhone", "469-555-0234", "carlos.martinez@email.com"),
-                ("Oakwood Apartments", "Phone", "214-555-0301", "maintenance@oakwoodapts.com"),
-                ("Chen Dental Office", "Phone", "817-555-0455", "drchen@chendental.com"),
-                ("First Baptist Church", "Phone", "940-555-0187", "facilities@firstbaptist.org"),
-                ("Riverside Restaurant", "MobilePhone", "682-555-0321", "mike@riversidedining.com"),
-                ("Thompson Estate", "Phone", "817-555-0567", "sarah.thompson@email.com"),
-                ("Valley View Elementary", "Phone", "940-555-0432", "principal@valleyview.edu"),
-                ("Garcia Auto Body", "MobilePhone", "469-555-0189", "rgarcia@garciaautobody.com"),
-                ("Lakeside Veterinary", "Phone", "817-555-0654", "office@lakesidevet.com"),
-                ("Premier Real Estate", "Phone", "972-555-0444", "ops@premierrealestate.com"),
-                ("Williams Home", "MobilePhone", "214-555-0876", "dwilliams@email.com"),
-                ("CrossFit Iron Will", "Phone", "682-555-0222", "owner@ironwillcf.com"),
-                ("Sunset Senior Living", "Phone", "940-555-0999", "facilities@sunsetliving.com"),
+                "Johnson Residence", "Smith Commercial", "Martinez Family", "Oakwood Apartments",
+                "Chen Dental Office", "First Baptist Church", "Riverside Restaurant", "Thompson Estate",
+                "Valley View Elementary", "Garcia Auto Body", "Lakeside Veterinary", "Premier Real Estate",
+                "Williams Home", "CrossFit Iron Will", "Sunset Senior Living"
             };
 
-            var customerEntities = new List<Customer>();
-            var now = DateTime.UtcNow;
-
-            foreach (var (name, phoneType, phone, email) in customers)
+            var phones = new[]
             {
-                var c = new Customer
+                "817-555-0142", "972-555-0198", "469-555-0234", "214-555-0301",
+                "817-555-0455", "940-555-0187", "682-555-0321", "817-555-0567",
+                "940-555-0432", "469-555-0189", "817-555-0654", "972-555-0444",
+                "214-555-0876", "682-555-0222", "940-555-0999"
+            };
+
+            var emails = new[]
+            {
+                "johnson.family@email.com", "accounting@smithcommercial.com", "carlos.martinez@email.com",
+                "maintenance@oakwoodapts.com", "drchen@chendental.com", "facilities@firstbaptist.org",
+                "mike@riversidedining.com", "sarah.thompson@email.com", "principal@valleyview.edu",
+                "rgarcia@garciaautobody.com", "office@lakesidevet.com", "ops@premierrealestate.com",
+                "dwilliams@email.com", "owner@ironwillcf.com", "facilities@sunsetliving.com"
+            };
+
+            var streetNames = new[] { "Oak Dr", "Maple Ave", "Main St", "Elm St", "Cedar Ln", "Pine Rd", "Hickory Blvd", "Pecan Way", "Walnut St", "Birch Ct" };
+            var cities = new[] { "Denton", "Fort Worth", "Dallas", "Arlington", "Keller", "Southlake", "Flower Mound", "Lewisville", "Frisco", "McKinney" };
+            var jobTypes = new[] { "AC Repair", "Heating Repair", "AC Install", "Furnace Install", "Maintenance", "Tune-Up", "Duct Work", "Thermostat Install", "Refrigerant Recharge", "Compressor Replacement" };
+            var statuses = new[] { "Completed", "Completed", "Completed", "Completed", "Open", "Open", "Hold", "Completed" };
+            var equipTypes = new[] { "AC Unit", "Furnace", "Heat Pump", "Mini Split", "RTU", "Thermostat" };
+            var brands = new[] { "Carrier", "Trane", "Lennox", "Goodman", "Rheem", "Daikin", "York" };
+
+            var customerIds = new List<Guid>();
+            var allWorkOrders = new List<WorkOrder>();
+            int jobNum = 80001;
+
+            // ─── Customers with contacts and locations ────────────────
+            for (int i = 0; i < customerNames.Length; i++)
+            {
+                var custId = Guid.NewGuid();
+                customerIds.Add(custId);
+
+                db.Customers.Add(new Customer
                 {
-                    Id = Guid.NewGuid(),
-                    Name = "[DEMO] " + name,
+                    Id = custId,
+                    Name = "[DEMO] " + customerNames[i],
                     ServiceTitanCustomerId = 0,
                     LastSyncedFromServiceTitan = now
-                };
-                db.Customers.Add(c);
-                customerEntities.Add(c);
+                });
 
-                db.CustomerContacts.Add(new CustomerContact { Id = Guid.NewGuid(), CustomerId = c.Id, Type = phoneType, Value = phone, Active = true });
-                db.CustomerContacts.Add(new CustomerContact { Id = Guid.NewGuid(), CustomerId = c.Id, Type = "Email", Value = email, Active = true });
+                db.CustomerContacts.Add(new CustomerContact
+                {
+                    Id = Guid.NewGuid(), CustomerId = custId, Type = "Phone",
+                    Value = phones[i], Active = true
+                });
 
+                db.CustomerContacts.Add(new CustomerContact
+                {
+                    Id = Guid.NewGuid(), CustomerId = custId, Type = "Email",
+                    Value = emails[i], Active = true
+                });
+
+                var streetNum = 100 + (i * 137) % 9000;
                 db.CustomerLocations.Add(new CustomerLocation
                 {
-                    Id = Guid.NewGuid(), CustomerId = c.Id, Name = name,
-                    Street = $"{Random.Shared.Next(100, 9999)} {StreetNames[Random.Shared.Next(StreetNames.Length)]}",
-                    City = Cities[Random.Shared.Next(Cities.Length)], State = "TX",
-                    Zip = $"76{Random.Shared.Next(100, 299)}", Active = true
+                    Id = Guid.NewGuid(), CustomerId = custId,
+                    Name = customerNames[i],
+                    Street = $"{streetNum} {streetNames[i % streetNames.Length]}",
+                    City = cities[i % cities.Length], State = "TX",
+                    Zip = $"76{100 + (i * 17) % 200}", Active = true
                 });
             }
 
             await db.SaveChangesAsync();
 
-            // ─── SEED WORK ORDERS ─────────────────────────────────────
-            var jobTypes = new[] { "AC Repair", "Heating Repair", "AC Install", "Furnace Install", "Maintenance", "Tune-Up", "Duct Work", "Thermostat Install", "Refrigerant Recharge", "Compressor Replacement" };
-            var statuses = new[] { "Completed", "Completed", "Completed", "Completed", "Open", "Open", "Hold", "Completed" };
-            int jobNum = 80001;
-
-            var allWorkOrders = new List<WorkOrder>();
-
-            foreach (var cust in customerEntities)
+            // ─── Work Orders ──────────────────────────────────────────
+            for (int ci = 0; ci < customerIds.Count; ci++)
             {
-                int woCount = Random.Shared.Next(2, 6);
-                for (int i = 0; i < woCount; i++)
+                int woCount = 2 + (ci % 4);
+                for (int w = 0; w < woCount; w++)
                 {
-                    var daysAgo = Random.Shared.Next(5, 400);
-                    var status = statuses[Random.Shared.Next(statuses.Length)];
-                    var jobType = jobTypes[Random.Shared.Next(jobTypes.Length)];
-                    var amount = Math.Round((decimal)(Random.Shared.NextDouble() * 4000 + 150), 2);
+                    int daysAgo = 5 + ((ci * 7 + w * 53) % 395);
+                    string status = statuses[(ci + w) % statuses.Length];
+                    string jobType = jobTypes[(ci + w) % jobTypes.Length];
+                    decimal amount = Math.Round(150m + (decimal)((ci * 371 + w * 197) % 4000), 2);
                     var created = now.AddDays(-daysAgo);
 
                     var wo = new WorkOrder
                     {
                         Id = Guid.NewGuid(),
                         JobNumber = (jobNum++).ToString(),
-                        CustomerId = cust.Id,
+                        CustomerId = customerIds[ci],
                         Status = status,
                         JobTypeName = jobType,
                         TotalAmount = amount,
                         TotalRevenueCalculated = amount,
                         CreatedAt = created,
-                        CompletedAt = status == "Completed" ? created.AddDays(Random.Shared.Next(1, 5)) : null
+                        CompletedAt = status == "Completed" ? created.AddDays(1 + (w % 4)) : null
                     };
                     db.WorkOrders.Add(wo);
                     allWorkOrders.Add(wo);
@@ -171,10 +198,11 @@ namespace PatriotMechanical.API.Application.Services
 
             await db.SaveChangesAsync();
 
-            // ─── SEED INVOICES ────────────────────────────────────────
+            // ─── Invoices ─────────────────────────────────────────────
+            int invIdx = 0;
             foreach (var wo in allWorkOrders.Where(w => w.Status == "Completed"))
             {
-                var balance = Random.Shared.Next(0, 4) == 0 ? wo.TotalAmount : 0; // ~25% unpaid
+                decimal balance = (invIdx++ % 4 == 0) ? wo.TotalAmount : 0;
                 db.Invoices.Add(new Invoice
                 {
                     Id = Guid.NewGuid(),
@@ -191,85 +219,86 @@ namespace PatriotMechanical.API.Application.Services
 
             await db.SaveChangesAsync();
 
-            // ─── SEED EQUIPMENT ───────────────────────────────────────
-            var equipTypes = new[] { "AC Unit", "Furnace", "Heat Pump", "Mini Split", "RTU", "Thermostat" };
-            var brands = new[] { "Carrier", "Trane", "Lennox", "Goodman", "Rheem", "Daikin", "York" };
-
-            foreach (var cust in customerEntities.Take(10))
+            // ─── Equipment ────────────────────────────────────────────
+            for (int ci = 0; ci < Math.Min(10, customerIds.Count); ci++)
             {
-                int eqCount = Random.Shared.Next(1, 4);
-                for (int i = 0; i < eqCount; i++)
+                int eqCount = 1 + (ci % 3);
+                for (int e = 0; e < eqCount; e++)
                 {
-                    var installYearsAgo = Random.Shared.Next(1, 12);
+                    int installYearsAgo = 1 + ((ci + e * 3) % 11);
                     db.Equipment.Add(new Equipment
                     {
                         Id = Guid.NewGuid(),
-                        CustomerId = cust.Id,
-                        Type = equipTypes[Random.Shared.Next(equipTypes.Length)],
-                        Brand = brands[Random.Shared.Next(brands.Length)],
-                        ModelNumber = $"{(char)('A' + Random.Shared.Next(26))}{Random.Shared.Next(100, 999)}{(char)('A' + Random.Shared.Next(26))}",
-                        SerialNumber = $"SN-{Random.Shared.Next(100000, 999999)}",
+                        CustomerId = customerIds[ci],
+                        Type = equipTypes[(ci + e) % equipTypes.Length],
+                        Brand = brands[(ci + e) % brands.Length],
+                        ModelNumber = $"{(char)('A' + (ci % 26))}{100 + ci * 13 + e}{(char)('A' + (e % 26))}",
+                        SerialNumber = $"SN-{100000 + ci * 1000 + e}",
                         InstallDate = now.AddYears(-installYearsAgo),
                         WarrantyExpiration = now.AddYears(-installYearsAgo + 5),
-                        WarrantyRegistered = Random.Shared.Next(0, 2) == 1
+                        WarrantyRegistered = ci % 2 == 0
                     });
                 }
             }
 
             await db.SaveChangesAsync();
 
-            // ─── SEED VENDORS & AP BILLS ──────────────────────────────
-            var vendorData = new[]
+            // ─── Vendors & AP Bills ───────────────────────────────────
+            var vendorData = new (string Name, decimal Amount)[]
             {
                 ("[DEMO] United Refrigeration", 3200m),
                 ("[DEMO] Johnstone Supply", 1800m),
-                ("[DEMO] Ferguson GNAC", 950m),
+                ("[DEMO] Ferguson HVAC", 950m),
                 ("[DEMO] R.E. Michel", 2400m),
                 ("[DEMO] Comfort Products", 675m)
             };
 
-            foreach (var (vName, totalOwed) in vendorData)
+            for (int vi = 0; vi < vendorData.Length; vi++)
             {
-                var vendor = new Vendor { Id = Guid.NewGuid(), Name = vName };
-                db.Vendors.Add(vendor);
+                var vendorId = Guid.NewGuid();
+                db.Vendors.Add(new Vendor { Id = vendorId, Name = vendorData[vi].Name });
                 db.ApBills.Add(new ApBill
                 {
                     Id = Guid.NewGuid(),
-                    VendorId = vendor.Id,
-                    Amount = totalOwed * 0.6m,
-                    TotalAmount = totalOwed,
-                    DueDate = now.AddDays(Random.Shared.Next(-5, 25)),
+                    VendorId = vendorId,
+                    Amount = vendorData[vi].Amount * 0.6m,
+                    TotalAmount = vendorData[vi].Amount,
+                    DueDate = now.AddDays(-5 + vi * 6),
                     IsPaid = false
                 });
             }
 
             await db.SaveChangesAsync();
 
-            // ─── SEED SUBCONTRACTORS ──────────────────────────────────
-            var subs = new[]
+            // ─── Subcontractors ───────────────────────────────────────
+            var subData = new (string Name, string Company, string Trade)[]
             {
                 ("[DEMO] Tony Ramirez", "Ramirez Plumbing", "Plumbing"),
                 ("[DEMO] Jake Mitchell", "Mitchell Electric", "Electrical"),
                 ("[DEMO] Dave Cooper", "Cooper Sheet Metal", "Sheet Metal")
             };
 
-            foreach (var (sName, company, trade) in subs)
-            {
-                var sub = new Subcontractor { Id = Guid.NewGuid(), Name = sName, Company = company, Trade = trade };
-                db.Subcontractors.Add(sub);
+            var openWos = allWorkOrders.Where(w => w.Status == "Open").Take(4).ToList();
 
-                // Add some entries
-                var openWos = allWorkOrders.Where(w => w.Status == "Open").Take(2).ToList();
-                foreach (var wo in openWos)
+            for (int si = 0; si < subData.Length; si++)
+            {
+                var subId = Guid.NewGuid();
+                db.Subcontractors.Add(new Subcontractor
+                {
+                    Id = subId, Name = subData[si].Name,
+                    Company = subData[si].Company, Trade = subData[si].Trade
+                });
+
+                if (si < openWos.Count)
                 {
                     db.SubcontractorEntries.Add(new SubcontractorEntry
                     {
                         Id = Guid.NewGuid(),
-                        SubcontractorId = sub.Id,
-                        WorkOrderId = wo.Id,
-                        Hours = Random.Shared.Next(2, 10),
-                        HourlyRate = Random.Shared.Next(35, 75),
-                        Date = now.AddDays(-Random.Shared.Next(1, 30)),
+                        SubcontractorId = subId,
+                        WorkOrderId = openWos[si].Id,
+                        Hours = 3 + si * 2,
+                        HourlyRate = 40 + si * 10,
+                        Date = now.AddDays(-(1 + si * 5)),
                         Notes = "Demo entry"
                     });
                 }
@@ -277,49 +306,48 @@ namespace PatriotMechanical.API.Application.Services
 
             await db.SaveChangesAsync();
 
-            // ─── SEED BOARD CARDS ─────────────────────────────────────
+            // ─── Board Cards ──────────────────────────────────────────
             var boardCols = await db.BoardColumns.OrderBy(c => c.SortOrder).ToListAsync();
             if (boardCols.Count > 0)
             {
-                var openWos = allWorkOrders.Where(w => w.Status == "Open" || w.Status == "Hold").ToList();
-                for (int i = 0; i < Math.Min(openWos.Count, boardCols.Count); i++)
+                var boardWos = allWorkOrders.Where(w => w.Status == "Open" || w.Status == "Hold").Take(6).ToList();
+                var demoNotes = new[]
                 {
-                    var wo = openWos[i];
-                    var custName = customerEntities.FirstOrDefault(c => c.Id == wo.CustomerId)?.Name ?? "Unknown";
-                    var card = new BoardCard
+                    "Customer called — prefers morning appointments",
+                    "Waiting on 3-ton condenser from United Refrigeration",
+                    "Quote sent via email, following up Friday",
+                    "Need 410A refrigerant — check stock",
+                    "Thermostat wiring issue — need to return with multimeter",
+                    "Parts on backorder, ETA next Tuesday"
+                };
+
+                for (int bi = 0; bi < boardWos.Count && bi < boardCols.Count; bi++)
+                {
+                    var wo = boardWos[bi];
+                    var custIdx = customerIds.IndexOf(wo.CustomerId);
+                    var custName = custIdx >= 0 ? "[DEMO] " + customerNames[custIdx] : "Unknown";
+
+                    var cardId = Guid.NewGuid();
+                    db.BoardCards.Add(new BoardCard
                     {
-                        Id = Guid.NewGuid(),
-                        BoardColumnId = boardCols[i % boardCols.Count].Id,
+                        Id = cardId,
+                        BoardColumnId = boardCols[bi].Id,
                         WorkOrderId = wo.Id,
                         JobNumber = wo.JobNumber,
                         CustomerName = custName,
                         SortOrder = 0
-                    };
-                    db.BoardCards.Add(card);
+                    });
                     db.BoardCardNotes.Add(new BoardCardNote
                     {
                         Id = Guid.NewGuid(),
-                        BoardCardId = card.Id,
-                        Text = DemoNotes[Random.Shared.Next(DemoNotes.Length)],
+                        BoardCardId = cardId,
+                        Text = demoNotes[bi],
                         Author = "Demo User"
                     });
                 }
+
+                await db.SaveChangesAsync();
             }
-
-            await db.SaveChangesAsync();
         }
-
-        private static readonly string[] StreetNames = { "Oak Dr", "Maple Ave", "Main St", "Elm St", "Cedar Ln", "Pine Rd", "Hickory Blvd", "Pecan Way", "Walnut St", "Birch Ct" };
-        private static readonly string[] Cities = { "Denton", "Fort Worth", "Dallas", "Arlington", "Keller", "Southlake", "Flower Mound", "Lewisville", "Frisco", "McKinney" };
-        private static readonly string[] DemoNotes = {
-            "Customer called — prefers morning appointments",
-            "Waiting on 3-ton condenser from United Refrigeration",
-            "Quote sent via email, following up Friday",
-            "Need 410A refrigerant — check stock",
-            "Thermostat wiring issue — need to return with multimeter",
-            "Parts on backorder, ETA next Tuesday",
-            "Customer approved quote — ready to schedule",
-            "Ductwork measurements needed before ordering"
-        };
     }
 }
