@@ -66,7 +66,20 @@
                     <a href="#" class="nav-link" onclick="showView('pricingView', this)"><span class="nav-icon">$</span> Pricing</a>
                     <a href="#" class="nav-link" onclick="showView('adminView', this)"><span class="nav-icon">⚙</span> Settings</a>
                 </nav>
-                <div class="sidebar-footer"><div class="user-info"><span id="sidebarUserName">User</span></div><button class="btn-logout" onclick="doLogout()">Sign Out</button></div>
+                <div class="sidebar-footer">
+                    <div class="sidebar-theme">
+                        <button class="theme-dot" data-theme="red" style="background:#dc2626;" title="Red"></button>
+                        <button class="theme-dot" data-theme="blue" style="background:#2563eb;" title="Blue"></button>
+                        <button class="theme-dot" data-theme="green" style="background:#16a34a;" title="Green"></button>
+                        <button class="theme-dot" data-theme="purple" style="background:#9333ea;" title="Purple"></button>
+                        <button class="theme-dot" data-theme="orange" style="background:#ea580c;" title="Orange"></button>
+                        <button class="theme-dot" data-theme="teal" style="background:#0d9488;" title="Teal"></button>
+                        <button class="theme-dot" data-theme="pink" style="background:#db2777;" title="Pink"></button>
+                        <button class="theme-dot" data-theme="amber" style="background:#d97706;" title="Amber"></button>
+                    </div>
+                    <div class="user-info"><span id="sidebarUserName">User</span></div>
+                    <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+                </div>
             </div>
 
             <div class="content">

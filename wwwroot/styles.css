@@ -192,6 +192,38 @@ body {
 .sidebar-footer { border-top: 1px solid #1e293b; padding-top: 16px; }
 .user-info { font-size: 13px; color: #94a3b8; margin-bottom: 8px; }
 
+.sidebar-theme {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #1e293b;
+}
+
+.theme-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 0;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.theme-dot:hover {
+    transform: scale(1.2);
+    border-color: rgba(255,255,255,0.5);
+}
+
+.theme-dot.active {
+    border-color: white;
+    box-shadow: 0 0 8px rgba(255,255,255,0.3);
+}
+
 .content {
     flex: 1; padding: 30px; overflow-y: auto;
     background: #0f172a; color: #e2e8f0;
@@ -557,18 +589,21 @@ table:not(.data-table) td {
 
 .theme-picker {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex-wrap: wrap;
 }
 
 .theme-swatch {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
     border: 3px solid transparent;
     cursor: pointer;
     transition: all 0.15s;
     position: relative;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .theme-swatch:hover {
@@ -589,7 +624,7 @@ table:not(.data-table) td {
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 700;
     text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }

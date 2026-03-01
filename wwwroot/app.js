@@ -735,10 +735,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const saved = localStorage.getItem("theme") || "red";
     applyTheme(saved);
 
-    // Bind swatch clicks
+    // Bind settings swatches
     document.getElementById("themePicker")?.addEventListener("click", e => {
         const swatch = e.target.closest(".theme-swatch");
         if (swatch) applyTheme(swatch.dataset.theme);
+    });
+
+    // Bind sidebar dots
+    document.querySelector(".sidebar-theme")?.addEventListener("click", e => {
+        const dot = e.target.closest(".theme-dot");
+        if (dot) applyTheme(dot.dataset.theme);
     });
 });
 
