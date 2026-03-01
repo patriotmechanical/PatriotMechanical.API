@@ -28,18 +28,19 @@ namespace PatriotMechanical.API.Controllers
         {
             try
             {
-                // Ensure demo data exists
+                // Use local variables to avoid LINQ parameter evaluation issues
+                var demoUserId = DemoSeeder.DemoUserId;
+                
                 var demoUser = await _context.Users
                     .Include(u => u.Company)
-                    .FirstOrDefaultAsync(u => u.Id == DemoSeeder.DemoUserId);
+                    .FirstOrDefaultAsync(u => u.Id == demoUserId);
 
                 if (demoUser == null)
                 {
-                    // Seed demo data
                     await DemoSeeder.ResetDemoDataAsync(_context);
                     demoUser = await _context.Users
                         .Include(u => u.Company)
-                        .FirstOrDefaultAsync(u => u.Id == DemoSeeder.DemoUserId);
+                        .FirstOrDefaultAsync(u => u.Id == demoUserId);
                 }
 
                 if (demoUser == null)
@@ -65,7 +66,14 @@ namespace PatriotMechanical.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message, inner = ex.InnerException?.Message, stack = ex.StackTrace?.Substring(0, Math.Min(500, ex.StackTrace?.Length ?? 0)) });
+                var msg = ex.Message;
+                var inner = ex.InnerException;
+                while (inner != null)
+                {
+                    msg += " --> " + inner.Message;
+                    inner = inner.InnerException;
+                }
+                return StatusCode(500, new { message = msg });
             }
         }
 
