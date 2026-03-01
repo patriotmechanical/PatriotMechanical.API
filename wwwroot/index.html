@@ -62,6 +62,7 @@
                     <a href="#" class="nav-link" onclick="showView('customersView', this)"><span class="nav-icon">◎</span> Customers</a>
                     <a href="#" class="nav-link" onclick="showView('subsView', this)"><span class="nav-icon">◆</span> Subcontractors</a>
                     <a href="#" class="nav-link" onclick="showView('equipmentView', this)"><span class="nav-icon">▣</span> Equipment</a>
+                    <a href="#" class="nav-link" onclick="showView('warrantyView', this)"><span class="nav-icon">🛡</span> Warranty</a>
                     <a href="#" class="nav-link" onclick="showView('pmView', this)"><span class="nav-icon">⏱</span> PM Tracker</a>
                     <a href="#" class="nav-link" onclick="showView('apView', this)"><span class="nav-icon">◈</span> AP</a>
                     <a href="#" class="nav-link" onclick="showView('pricingView', this)"><span class="nav-icon">$</span> Pricing</a>
@@ -217,6 +218,107 @@
                 </div>
 
                 <!-- ═══ PRICING CALCULATOR ═══ -->
+                <!-- ═══ WARRANTY CLAIMS ═══ -->
+                <div id="warrantyView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Warranty Claims</h1>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <label style="font-size:12px; color:#64748b; display:flex; align-items:center; gap:4px;">
+                                <input type="checkbox" id="warrantyShowClosed" onchange="loadWarrantyClaims()" /> Show closed
+                            </label>
+                            <button class="btn-secondary" onclick="showNewClaimForm()">+ New Claim</button>
+                        </div>
+                    </div>
+
+                    <!-- New Claim Form -->
+                    <div id="newClaimForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
+                        <h3 style="margin-bottom:12px; color:#e2e8f0; font-size:15px; font-weight:600;">New Warranty Claim</h3>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                            <div class="form-group" style="margin-bottom:0;"><label>Part Name *</label><input type="text" id="wcPartName" placeholder="Compressor, TXV, etc." /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Part Model #</label><input type="text" id="wcPartModel" /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Unit Model #</label><input type="text" id="wcUnitModel" /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Unit Serial #</label><input type="text" id="wcUnitSerial" /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Original Job #</label><input type="text" id="wcJobNumber" /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Customer Name</label><input type="text" id="wcCustomer" placeholder="Auto-fills from job #" /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Supplier</label><input type="text" id="wcSupplier" placeholder="Johnstone, United, etc." /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Manufacturer</label><input type="text" id="wcManufacturer" placeholder="Carrier, Trane, etc." /></div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Claim Type</label>
+                                <select id="wcClaimType"><option value="Replacement">Replacement</option><option value="Credit">Credit</option></select>
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;"><label>Initial Note</label><input type="text" id="wcNote" placeholder="Details..." /></div>
+                        </div>
+                        <div style="margin-top:12px; display:flex; gap:8px;">
+                            <button class="btn-primary" onclick="createWarrantyClaim()">Create Claim</button>
+                            <button class="btn-secondary" onclick="hideNewClaimForm()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Claims Table -->
+                    <div id="warrantyTableWrap"></div>
+                </div>
+
+                <!-- Warranty Detail Modal -->
+                <div class="modal hidden" id="warrantyModal">
+                    <div class="modal-content" style="width:650px; max-height:90vh; overflow-y:auto;">
+                        <div class="modal-header">
+                            <h2 id="wmTitle">Warranty Claim</h2>
+                            <button class="modal-close" onclick="closeWarrantyModal()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Status Pipeline -->
+                            <div id="wmPipeline" style="margin-bottom:16px;"></div>
+
+                            <!-- Details Grid -->
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; font-size:13px;">
+                                <div><span class="muted">Part:</span> <span id="wmPart" class="bold"></span></div>
+                                <div><span class="muted">Part Model:</span> <span id="wmPartModel"></span></div>
+                                <div><span class="muted">Unit Model:</span> <span id="wmUnitModel"></span></div>
+                                <div><span class="muted">Unit Serial:</span> <span id="wmUnitSerial"></span></div>
+                                <div><span class="muted">Customer:</span> <span id="wmCustomer"></span></div>
+                                <div><span class="muted">Original Job:</span> <span id="wmJob"></span></div>
+                                <div><span class="muted">Supplier:</span> <span id="wmSupplier"></span></div>
+                                <div><span class="muted">Manufacturer:</span> <span id="wmManufacturer"></span></div>
+                                <div><span class="muted">RMA #:</span> <span id="wmRma"></span></div>
+                                <div><span class="muted">Type:</span> <span id="wmType"></span></div>
+                                <div><span class="muted">ETA:</span> <span id="wmEta"></span></div>
+                                <div><span class="muted">Return Job:</span> <span id="wmReturnJob"></span></div>
+                            </div>
+
+                            <!-- Quick Update Fields -->
+                            <div class="profile-section">
+                                <h3>Update Details</h3>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                                    <div class="form-group" style="margin-bottom:0;"><label>RMA Number</label><input type="text" id="wmEditRma" /></div>
+                                    <div class="form-group" style="margin-bottom:0;"><label>Expected Ship Date</label><input type="date" id="wmEditEta" /></div>
+                                    <div class="form-group" style="margin-bottom:0;"><label>Return Job #</label><input type="text" id="wmEditReturnJob" /></div>
+                                    <div class="form-group" style="margin-bottom:0;"><label>Credit Amount</label><input type="number" id="wmEditCredit" step="0.01" /></div>
+                                </div>
+                                <button class="btn-primary" style="margin-top:8px; font-size:13px; padding:6px 16px;" onclick="updateWarrantyDetails()">Save Changes</button>
+                            </div>
+
+                            <!-- Advance Status -->
+                            <div class="profile-section">
+                                <h3>Change Status</h3>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap;" id="wmStatusButtons"></div>
+                            </div>
+
+                            <!-- Notes -->
+                            <div class="profile-section">
+                                <h3>Notes</h3>
+                                <div style="display:flex; gap:8px; margin-bottom:12px;">
+                                    <input type="text" id="wmNoteInput" placeholder="Add a note..." style="flex:1; padding:8px 12px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px;" onkeydown="if(event.key==='Enter') addWarrantyNote()" />
+                                    <button class="btn-primary" style="padding:8px 16px; font-size:13px;" onclick="addWarrantyNote()">Add</button>
+                                </div>
+                                <div id="wmNotesList"></div>
+                            </div>
+
+                            <div style="margin-top:16px; padding-top:16px; border-top:1px solid #334155;">
+                                <button class="btn-table btn-danger-text" onclick="deleteWarrantyClaim()">Delete Claim</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="pricingView" style="display:none;">
                     <div class="page-header"><h1>Pricing Calculator</h1></div>
                     <p style="font-size:14px; color:#94a3b8; margin-bottom:20px;">Enter your cost to see auto-tiered and custom pricing side by side.</p>

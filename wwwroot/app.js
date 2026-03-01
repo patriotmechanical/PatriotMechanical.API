@@ -208,12 +208,13 @@ function enterApp() {
 // ═══════════════════════════════════════════════════════════════
 
 function showView(viewId, clickedLink) {
-    const views = ["dashboardPage", "boardView", "customersView", "subsView", "equipmentView", "pmView", "apView", "pricingView", "adminView"];
+    const views = ["dashboardPage", "boardView", "customersView", "subsView", "equipmentView", "warrantyView", "pmView", "apView", "pricingView", "adminView"];
     views.forEach(v => { const el = document.getElementById(v); if (el) el.style.display = "none"; });
     document.getElementById(viewId).style.display = "block";
     if (clickedLink) { document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active")); clickedLink.classList.add("active"); }
     if (viewId === "dashboardPage") loadDashboard();
     if (viewId === "boardView") loadBoard();
+    if (viewId === "warrantyView") loadWarrantyClaims();
     if (viewId === "customersView") loadCustomers();
     if (viewId === "subsView") loadSubcontractors();
     if (viewId === "equipmentView") loadEquipment();
@@ -1020,6 +1021,192 @@ ${companyName}`
             </div>
             <p style="margin-top:10px; font-size:12px; color:#64748b;">Click to open your email client or messaging app with a pre-written message.</p>
         </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WARRANTY CLAIMS
+// ═══════════════════════════════════════════════════════════════
+
+const warrantyStatuses = ["Diagnosis", "Claim Filed", "Approved", "Part Ordered", "Part Shipped", "Part Received", "Installed", "Defective Returned", "Closed"];
+let currentWarrantyId = null;
+
+async function loadWarrantyClaims() {
+    const showClosed = document.getElementById("warrantyShowClosed")?.checked ? "true" : "false";
+    const res = await api(`/warranty?includeClosed=${showClosed}`);
+    if (!res || !res.ok) return;
+    const claims = await res.json();
+
+    const wrap = document.getElementById("warrantyTableWrap");
+    if (claims.length === 0) {
+        wrap.innerHTML = '<div class="card" style="background:#1e293b; text-align:center; padding:40px;"><p class="muted">No warranty claims yet. Click "+ New Claim" to start tracking.</p></div>';
+        return;
+    }
+
+    const statusColors = {
+        "Diagnosis": "#64748b", "Claim Filed": "#2563eb", "Approved": "#16a34a",
+        "Part Ordered": "#d97706", "Part Shipped": "#ea580c", "Part Received": "#0d9488",
+        "Installed": "#16a34a", "Defective Returned": "#9333ea", "Closed": "#475569"
+    };
+
+    let html = '<table class="data-table"><thead><tr>';
+    html += '<th>Part</th><th>Customer</th><th>Job #</th><th>Supplier</th><th>RMA</th><th>Type</th><th>Status</th><th>ETA</th><th>Age</th>';
+    html += '</tr></thead><tbody>';
+
+    claims.forEach(c => {
+        const age = Math.floor((Date.now() - new Date(c.createdAt).getTime()) / 86400000);
+        const color = statusColors[c.status] || "#64748b";
+        const eta = c.expectedShipDate ? new Date(c.expectedShipDate).toLocaleDateString() : "—";
+        html += `<tr style="cursor:pointer;" onclick="openWarrantyModal('${c.id}')">`;
+        html += `<td><strong>${c.partName}</strong>${c.partModelNumber ? '<br><span class="muted" style="font-size:11px;">' + c.partModelNumber + '</span>' : ''}</td>`;
+        html += `<td>${c.customerName || "—"}</td>`;
+        html += `<td>${c.jobNumber || "—"}</td>`;
+        html += `<td>${c.supplier || "—"}</td>`;
+        html += `<td>${c.rmaNumber || "—"}</td>`;
+        html += `<td>${c.claimType}</td>`;
+        html += `<td><span class="status-badge" style="background:${color}; color:white; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:600;">${c.status}</span></td>`;
+        html += `<td>${eta}</td>`;
+        html += `<td>${age}d</td>`;
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+}
+
+function showNewClaimForm() { document.getElementById("newClaimForm").classList.remove("hidden"); document.getElementById("wcPartName").focus(); }
+function hideNewClaimForm() { document.getElementById("newClaimForm").classList.add("hidden"); }
+
+async function createWarrantyClaim() {
+    const partName = document.getElementById("wcPartName").value.trim();
+    if (!partName) { toast("Part name is required.", "error"); return; }
+
+    const body = {
+        partName,
+        partModelNumber: document.getElementById("wcPartModel").value.trim() || null,
+        unitModelNumber: document.getElementById("wcUnitModel").value.trim() || null,
+        unitSerialNumber: document.getElementById("wcUnitSerial").value.trim() || null,
+        jobNumber: document.getElementById("wcJobNumber").value.trim() || null,
+        customerName: document.getElementById("wcCustomer").value.trim() || null,
+        supplier: document.getElementById("wcSupplier").value.trim() || null,
+        manufacturer: document.getElementById("wcManufacturer").value.trim() || null,
+        claimType: document.getElementById("wcClaimType").value,
+        note: document.getElementById("wcNote").value.trim() || null
+    };
+
+    const res = await api("/warranty", { method: "POST", body: JSON.stringify(body) });
+    if (res && res.ok) {
+        hideNewClaimForm();
+        ["wcPartName","wcPartModel","wcUnitModel","wcUnitSerial","wcJobNumber","wcCustomer","wcSupplier","wcManufacturer","wcNote"].forEach(id => document.getElementById(id).value = "");
+        await loadWarrantyClaims();
+        toast("Warranty claim created.", "success");
+    } else { toast("Failed to create claim.", "error"); }
+}
+
+async function openWarrantyModal(id) {
+    currentWarrantyId = id;
+    const res = await api(`/warranty/${id}`);
+    if (!res || !res.ok) return;
+    const c = await res.json();
+
+    document.getElementById("wmTitle").innerText = c.partName;
+    document.getElementById("wmPart").innerText = c.partName;
+    document.getElementById("wmPartModel").innerText = c.partModelNumber || "—";
+    document.getElementById("wmUnitModel").innerText = c.unitModelNumber || "—";
+    document.getElementById("wmUnitSerial").innerText = c.unitSerialNumber || "—";
+    document.getElementById("wmCustomer").innerText = c.customerName || "—";
+    document.getElementById("wmJob").innerText = c.jobNumber || "—";
+    document.getElementById("wmSupplier").innerText = c.supplier || "—";
+    document.getElementById("wmManufacturer").innerText = c.manufacturer || "—";
+    document.getElementById("wmRma").innerText = c.rmaNumber || "—";
+    document.getElementById("wmType").innerText = c.claimType + (c.creditAmount ? ` ($${c.creditAmount.toFixed(2)})` : "");
+    document.getElementById("wmEta").innerText = c.expectedShipDate ? new Date(c.expectedShipDate).toLocaleDateString() : "—";
+    document.getElementById("wmReturnJob").innerText = c.returnJobNumber || "—";
+
+    // Fill edit fields
+    document.getElementById("wmEditRma").value = c.rmaNumber || "";
+    document.getElementById("wmEditEta").value = c.expectedShipDate ? c.expectedShipDate.substring(0, 10) : "";
+    document.getElementById("wmEditReturnJob").value = c.returnJobNumber || "";
+    document.getElementById("wmEditCredit").value = c.creditAmount || "";
+
+    // Status pipeline
+    const pipelineEl = document.getElementById("wmPipeline");
+    const currentIdx = warrantyStatuses.indexOf(c.status);
+    pipelineEl.innerHTML = '<div style="display:flex; gap:4px; flex-wrap:wrap;">' +
+        warrantyStatuses.map((s, i) => {
+            let bg = i < currentIdx ? "#16a34a" : i === currentIdx ? "#2563eb" : "#334155";
+            let color = i <= currentIdx ? "white" : "#64748b";
+            return `<span style="background:${bg}; color:${color}; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600; white-space:nowrap;">${s}</span>`;
+        }).join("") + '</div>';
+
+    // Status buttons
+    const btnWrap = document.getElementById("wmStatusButtons");
+    btnWrap.innerHTML = warrantyStatuses.map(s =>
+        `<button class="preset-btn${s === c.status ? ' active' : ''}" onclick="changeWarrantyStatus('${s}')" ${s === c.status ? 'disabled' : ''}>${s}</button>`
+    ).join("");
+
+    // Notes
+    const notesList = document.getElementById("wmNotesList");
+    if (c.notes && c.notes.length > 0) {
+        notesList.innerHTML = c.notes.map(n => `
+            <div class="note-item">
+                <div>${n.text}</div>
+                <div class="note-meta">${n.author || "System"} — ${new Date(n.createdAt).toLocaleString()}</div>
+            </div>
+        `).join("");
+    } else {
+        notesList.innerHTML = '<div class="muted" style="padding:8px 0;">No notes yet</div>';
+    }
+
+    document.getElementById("wmNoteInput").value = "";
+    document.getElementById("warrantyModal").classList.remove("hidden");
+}
+
+function closeWarrantyModal() { document.getElementById("warrantyModal").classList.add("hidden"); currentWarrantyId = null; }
+
+async function changeWarrantyStatus(status) {
+    if (!currentWarrantyId) return;
+    const res = await api(`/warranty/${currentWarrantyId}/status`, {
+        method: "PUT", body: JSON.stringify({ status })
+    });
+    if (res && res.ok) {
+        await loadWarrantyClaims();
+        await openWarrantyModal(currentWarrantyId);
+        toast(`Status: ${status}`, "success");
+    }
+}
+
+async function updateWarrantyDetails() {
+    if (!currentWarrantyId) return;
+    const body = {
+        rmaNumber: document.getElementById("wmEditRma").value.trim() || null,
+        returnJobNumber: document.getElementById("wmEditReturnJob").value.trim() || null,
+        creditAmount: parseFloat(document.getElementById("wmEditCredit").value) || null,
+        expectedShipDate: document.getElementById("wmEditEta").value || null
+    };
+    const res = await api(`/warranty/${currentWarrantyId}`, { method: "PUT", body: JSON.stringify(body) });
+    if (res && res.ok) {
+        await loadWarrantyClaims();
+        await openWarrantyModal(currentWarrantyId);
+        toast("Details updated.", "success");
+    }
+}
+
+async function addWarrantyNote() {
+    const text = document.getElementById("wmNoteInput").value.trim();
+    if (!text || !currentWarrantyId) return;
+    const res = await api(`/warranty/${currentWarrantyId}/notes`, {
+        method: "POST", body: JSON.stringify({ text })
+    });
+    if (res && res.ok) {
+        await openWarrantyModal(currentWarrantyId);
+        toast("Note added.", "success");
+    }
+}
+
+async function deleteWarrantyClaim() {
+    if (!currentWarrantyId || !confirm("Delete this warranty claim?")) return;
+    const res = await api(`/warranty/${currentWarrantyId}`, { method: "DELETE" });
+    if (res && res.ok) { closeWarrantyModal(); await loadWarrantyClaims(); toast("Claim deleted.", "success"); }
 }
 
 // ═══════════════════════════════════════════════════════════════

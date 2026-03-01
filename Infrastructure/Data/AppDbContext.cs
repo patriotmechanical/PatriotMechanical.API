@@ -35,6 +35,10 @@ namespace PatriotMechanical.API.Infrastructure.Data
         public DbSet<BoardCard> BoardCards { get; set; }
         public DbSet<BoardCardNote> BoardCardNotes { get; set; }
 
+        // Warranty Claims
+        public DbSet<WarrantyClaim> WarrantyClaims { get; set; }
+        public DbSet<WarrantyClaimNote> WarrantyClaimNotes { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()
@@ -63,6 +67,18 @@ namespace PatriotMechanical.API.Infrastructure.Data
                 .WithMany(c => c.Notes)
                 .HasForeignKey(n => n.BoardCardId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<WarrantyClaimNote>()
+                .HasOne(n => n.Claim)
+                .WithMany(c => c.Notes)
+                .HasForeignKey(n => n.WarrantyClaimId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<WarrantyClaim>()
+                .HasOne(w => w.Customer)
+                .WithMany()
+                .HasForeignKey(w => w.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             base.OnModelCreating(modelBuilder);
         }

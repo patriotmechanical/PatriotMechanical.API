@@ -95,6 +95,45 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS ""IX_BoardCards_BoardColumnId"" ON ""BoardCards""(""BoardColumnId"");
             CREATE INDEX IF NOT EXISTS ""IX_BoardCardNotes_BoardCardId"" ON ""BoardCardNotes""(""BoardCardId"");
+
+            CREATE TABLE IF NOT EXISTS ""WarrantyClaims"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""PartName"" text NOT NULL,
+                ""PartModelNumber"" text,
+                ""PartSerialNumber"" text,
+                ""UnitModelNumber"" text,
+                ""UnitSerialNumber"" text,
+                ""CustomerId"" uuid NULL REFERENCES ""Customers""(""Id"") ON DELETE SET NULL,
+                ""CustomerName"" text,
+                ""JobNumber"" text,
+                ""ReturnJobNumber"" text,
+                ""Supplier"" text,
+                ""Manufacturer"" text,
+                ""RmaNumber"" text,
+                ""Status"" text NOT NULL DEFAULT 'Diagnosis',
+                ""ClaimType"" text NOT NULL DEFAULT 'Replacement',
+                ""CreditAmount"" numeric,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                ""ClaimFiledDate"" timestamp with time zone,
+                ""ApprovedDate"" timestamp with time zone,
+                ""ExpectedShipDate"" timestamp with time zone,
+                ""PartReceivedDate"" timestamp with time zone,
+                ""InstalledDate"" timestamp with time zone,
+                ""DefectiveReturnedDate"" timestamp with time zone,
+                ""ClosedDate"" timestamp with time zone,
+                ""DefectivePartReturned"" boolean NOT NULL DEFAULT false,
+                ""IsClosed"" boolean NOT NULL DEFAULT false
+            );
+
+            CREATE TABLE IF NOT EXISTS ""WarrantyClaimNotes"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""WarrantyClaimId"" uuid NOT NULL REFERENCES ""WarrantyClaims""(""Id"") ON DELETE CASCADE,
+                ""Text"" text NOT NULL,
+                ""Author"" text,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE INDEX IF NOT EXISTS ""IX_WarrantyClaimNotes_WarrantyClaimId"" ON ""WarrantyClaimNotes""(""WarrantyClaimId"");
         ");
         Console.WriteLine("[Startup] Board tables ready.");
     }
