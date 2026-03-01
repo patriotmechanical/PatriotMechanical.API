@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using PatriotMechanical.API.Infrastructure.Data;
 
 namespace PatriotMechanical.API.Application.Services
 {
@@ -17,6 +18,8 @@ namespace PatriotMechanical.API.Application.Services
             // Wait 30 seconds before first sync to let the app fully start
             await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
+            DateTime lastDemoReset = DateTime.MinValue;
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -33,6 +36,23 @@ namespace PatriotMechanical.API.Application.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[BackgroundSync] Error: {ex.Message}");
+                }
+
+                // Reset demo data once per day
+                try
+                {
+                    if (DateTime.UtcNow - lastDemoReset > TimeSpan.FromHours(24))
+                    {
+                        using var scope = _services.CreateScope();
+                        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                        await DemoSeeder.ResetDemoDataAsync(db);
+                        lastDemoReset = DateTime.UtcNow;
+                        Console.WriteLine("[BackgroundSync] Demo data reset complete.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[BackgroundSync] Demo reset error: {ex.Message}");
                 }
 
                 await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken);

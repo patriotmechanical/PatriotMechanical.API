@@ -92,6 +92,17 @@ async function api(url, options = {}) {
 document.addEventListener("DOMContentLoaded", async () => { await checkAppState(); });
 
 async function checkAppState() {
+    // Demo mode banner
+    if (localStorage.getItem("isDemo") === "true") {
+        if (!document.getElementById("demoBanner")) {
+            const banner = document.createElement("div");
+            banner.id = "demoBanner";
+            banner.style.cssText = "background:#d97706; color:white; text-align:center; padding:8px; font-size:13px; font-weight:600; position:fixed; top:0; left:0; right:0; z-index:9999;";
+            banner.innerHTML = '🔶 DEMO MODE — Sample data resets daily. <a href="/" style="color:white; text-decoration:underline; margin-left:8px;" onclick="localStorage.removeItem(\'isDemo\'); localStorage.removeItem(\'jwt\');">Exit Demo</a>';
+            document.body.prepend(banner);
+            document.body.style.paddingTop = "36px";
+        }
+    }
     try {
         const res = await fetch("/auth/status");
         const data = await res.json();

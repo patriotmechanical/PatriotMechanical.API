@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patriot Mechanical — Live Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .demo-card {
+            background: #1e293b;
+            padding: 48px;
+            border-radius: 20px;
+            width: 480px;
+            max-width: 92vw;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            border: 1px solid #334155;
+        }
+        .demo-logo {
+            width: 72px; height: 72px;
+            background: #dc2626;
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px; font-weight: 800; color: white;
+            margin: 0 auto 24px;
+        }
+        h1 { font-size: 28px; font-weight: 700; color: white; margin-bottom: 8px; }
+        .subtitle { color: #94a3b8; font-size: 15px; margin-bottom: 32px; line-height: 1.6; }
+        .features {
+            text-align: left;
+            margin-bottom: 32px;
+            padding: 20px;
+            background: #0f172a;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+        .features h3 { font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+        .feature-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 0; font-size: 14px; color: #cbd5e1;
+        }
+        .feature-dot { width: 6px; height: 6px; background: #dc2626; border-radius: 50%; flex-shrink: 0; }
+        .btn-demo {
+            background: #dc2626; color: white; border: none;
+            padding: 14px 32px; border-radius: 10px;
+            font-size: 16px; font-weight: 700; cursor: pointer;
+            width: 100%; transition: all 0.2s;
+        }
+        .btn-demo:hover { background: #b91c1c; transform: translateY(-1px); }
+        .btn-demo:disabled { background: #475569; cursor: not-allowed; transform: none; }
+        .note { font-size: 12px; color: #64748b; margin-top: 16px; line-height: 1.5; }
+        .back-link { display: inline-block; margin-top: 20px; color: #64748b; font-size: 13px; text-decoration: none; }
+        .back-link:hover { color: #94a3b8; }
+        .error { background: #7f1d1d; border: 1px solid #dc2626; color: #fca5a5; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="demo-card">
+        <div class="demo-logo">P</div>
+        <h1>Patriot Mechanical</h1>
+        <p class="subtitle">Field service management built for mechanical contractors. See it in action with live demo data.</p>
+
+        <div class="features">
+            <h3>What you'll see</h3>
+            <div class="feature-item"><span class="feature-dot"></span> Dashboard with AR/AP and open work orders</div>
+            <div class="feature-item"><span class="feature-dot"></span> Customer profiles with contacts & service history</div>
+            <div class="feature-item"><span class="feature-dot"></span> Drag & drop work order board</div>
+            <div class="feature-item"><span class="feature-dot"></span> Equipment tracking with warranty alerts</div>
+            <div class="feature-item"><span class="feature-dot"></span> PM tracker with overdue notifications</div>
+            <div class="feature-item"><span class="feature-dot"></span> Subcontractor hour logging</div>
+            <div class="feature-item"><span class="feature-dot"></span> Accounts payable management</div>
+            <div class="feature-item"><span class="feature-dot"></span> Parts pricing calculator</div>
+        </div>
+
+        <div id="demoError" class="error"></div>
+        <button class="btn-demo" id="launchBtn" onclick="launchDemo()">Launch Demo →</button>
+        <p class="note">Demo data resets every 24 hours. Feel free to click around — you can't break anything.</p>
+        <a href="/" class="back-link">← Back to login</a>
+    </div>
+
+    <script>
+        async function launchDemo() {
+            const btn = document.getElementById("launchBtn");
+            const err = document.getElementById("demoError");
+            btn.disabled = true;
+            btn.innerText = "Loading demo...";
+            err.style.display = "none";
+
+            try {
+                const res = await fetch("/demo/login", { method: "POST" });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    err.innerText = data.message || "Failed to launch demo.";
+                    err.style.display = "block";
+                    btn.disabled = false;
+                    btn.innerText = "Launch Demo →";
+                    return;
+                }
+
+                localStorage.setItem("jwt", data.token);
+                localStorage.setItem("isDemo", "true");
+                window.location.href = "/";
+            } catch (e) {
+                err.innerText = "Connection error. Please try again.";
+                err.style.display = "block";
+                btn.disabled = false;
+                btn.innerText = "Launch Demo →";
+            }
+        }
+    </script>
+</body>
+</html>
