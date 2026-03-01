@@ -6,8 +6,8 @@ namespace PatriotMechanical.API.Application.Services
 {
     public static class DemoSeeder
     {
-        public static readonly Guid DemoCompanyId = Guid.Parse("demo0000-0000-0000-0000-000000000001");
-        public static readonly Guid DemoUserId = Guid.Parse("demo0000-0000-0000-0000-000000000002");
+        public static readonly Guid DemoCompanyId = Guid.Parse("de000000-0000-0000-0000-000000000001");
+        public static readonly Guid DemoUserId = Guid.Parse("de000000-0000-0000-0000-000000000002");
         public const string DemoEmail = "demo@patriotmechanical.app";
 
         private static readonly Random Rng = new Random(42);
