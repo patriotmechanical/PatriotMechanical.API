@@ -26,7 +26,7 @@ builder.Services.AddCors(options =>
         });
 });
 
-// JWT Auth (replaces cookie auth)
+// JWT Auth
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -59,110 +59,48 @@ builder.Services.AddHostedService<ServiceTitanBackgroundService>();
 
 var app = builder.Build();
 
-// Fix database state on startup
+// ─── Run startup migrations ────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    
     try
     {
-        // Do the ENTIRE migration manually via raw SQL so we control the order.
-        // This handles the case where the EF migration keeps failing due to existing users.
-        
-        // Create CompanySettings table if it doesn't exist
-        db.Database.ExecuteSqlRaw(@"
-            CREATE TABLE IF NOT EXISTS ""CompanySettings"" (
-                ""Id"" uuid NOT NULL,
-                ""CompanyName"" text NOT NULL,
-                ""ServiceTitanTenantId"" text,
-                ""ServiceTitanClientId"" text,
-                ""ServiceTitanClientSecret"" text,
-                ""ServiceTitanAppKey"" text,
-                ""AutoSyncEnabled"" boolean NOT NULL DEFAULT true,
-                ""SyncIntervalMinutes"" integer NOT NULL DEFAULT 60,
-                ""LastSyncAt"" timestamp with time zone,
-                ""LastSyncStatus"" text,
-                ""CreditCardFeePercent"" numeric NOT NULL DEFAULT 2.5,
-                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT NOW(),
-                ""UpdatedAt"" timestamp with time zone NOT NULL DEFAULT NOW(),
-                CONSTRAINT ""PK_CompanySettings"" PRIMARY KEY (""Id"")
+        await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS ""BoardColumns"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""Name"" text NOT NULL,
+                ""SortOrder"" integer NOT NULL DEFAULT 0,
+                ""Color"" text NOT NULL DEFAULT '#334155',
+                ""IsDefault"" boolean NOT NULL DEFAULT false,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
-        ");
 
-        // Add columns to Users if they don't exist
-        db.Database.ExecuteSqlRaw(@"
-            DO $$ BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Users' AND column_name='CompanySettingsId') THEN
-                    ALTER TABLE ""Users"" ADD ""CompanySettingsId"" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Users' AND column_name='FullName') THEN
-                    ALTER TABLE ""Users"" ADD ""FullName"" text NOT NULL DEFAULT '';
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='Users' AND column_name='LastLoginAt') THEN
-                    ALTER TABLE ""Users"" ADD ""LastLoginAt"" timestamp with time zone;
-                END IF;
-            END $$;
-        ");
-
-        // Seed CompanySettings if empty
-        db.Database.ExecuteSqlRaw(@"
-            INSERT INTO ""CompanySettings"" 
-            (""Id"", ""CompanyName"", ""ServiceTitanTenantId"", ""ServiceTitanClientId"", 
-             ""ServiceTitanClientSecret"", ""ServiceTitanAppKey"", ""AutoSyncEnabled"", 
-             ""SyncIntervalMinutes"", ""CreditCardFeePercent"", ""CreatedAt"", ""UpdatedAt"")
-            SELECT '11111111-1111-1111-1111-111111111111', 'Patriot Mechanical', '4146821403', 
-             'cid.li8qk0ipffsz3386crc674xzz',
-             'cs3.95u51txzvi0jdmb956jgicf63fcmi9tc2g958ucmj0zgfpq9rf',
-             'ak1.9agbq4a1t6198nhsaveokkn28',
-             true, 60, 2.5, NOW(), NOW()
-            WHERE NOT EXISTS (SELECT 1 FROM ""CompanySettings"");
-        ");
-
-        // Link orphaned users BEFORE adding FK
-        db.Database.ExecuteSqlRaw(@"
-            UPDATE ""Users"" SET ""CompanySettingsId"" = '11111111-1111-1111-1111-111111111111' 
-            WHERE ""CompanySettingsId"" = '00000000-0000-0000-0000-000000000000';
-        ");
-
-        // Add FK and index if missing
-        db.Database.ExecuteSqlRaw(@"
-            DO $$ BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_Users_CompanySettings_CompanySettingsId') THEN
-                    ALTER TABLE ""Users"" ADD CONSTRAINT ""FK_Users_CompanySettings_CompanySettingsId"" 
-                    FOREIGN KEY (""CompanySettingsId"") REFERENCES ""CompanySettings"" (""Id"") ON DELETE CASCADE;
-                END IF;
-            END $$;
-        ");
-
-        db.Database.ExecuteSqlRaw(@"
-            CREATE INDEX IF NOT EXISTS ""IX_Users_CompanySettingsId"" ON ""Users"" (""CompanySettingsId"");
-        ");
-
-        // Fix Equipment FK if needed
-        db.Database.ExecuteSqlRaw(@"
-            DO $$ BEGIN
-                IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'FK_Equipment_WorkOrders_WorkOrderId' AND constraint_type = 'FOREIGN KEY') THEN
-                    ALTER TABLE ""Equipment"" ADD CONSTRAINT ""FK_Equipment_WorkOrders_WorkOrderId"" 
-                    FOREIGN KEY (""WorkOrderId"") REFERENCES ""WorkOrders"" (""Id"");
-                END IF;
-            END $$;
-        ");
-
-        // Mark migration as applied
-        db.Database.ExecuteSqlRaw(@"
-            INSERT INTO ""__EFMigrationsHistory"" (""MigrationId"", ""ProductVersion"")
-            SELECT '20260301024809_AddCompanySettingsAndUserUpgrade', '10.0.0'
-            WHERE NOT EXISTS (
-                SELECT 1 FROM ""__EFMigrationsHistory"" 
-                WHERE ""MigrationId"" = '20260301024809_AddCompanySettingsAndUserUpgrade'
+            CREATE TABLE IF NOT EXISTS ""BoardCards"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""BoardColumnId"" uuid NOT NULL REFERENCES ""BoardColumns""(""Id"") ON DELETE CASCADE,
+                ""WorkOrderId"" uuid NULL REFERENCES ""WorkOrders""(""Id"") ON DELETE SET NULL,
+                ""JobNumber"" text NOT NULL,
+                ""CustomerName"" text,
+                ""SortOrder"" integer NOT NULL DEFAULT 0,
+                ""AddedAt"" timestamp with time zone NOT NULL DEFAULT now()
             );
-        ");
 
-        Console.WriteLine("Database migration complete.");
+            CREATE TABLE IF NOT EXISTS ""BoardCardNotes"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""BoardCardId"" uuid NOT NULL REFERENCES ""BoardCards""(""Id"") ON DELETE CASCADE,
+                ""Text"" text NOT NULL,
+                ""Author"" text,
+                ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+            );
+
+            CREATE INDEX IF NOT EXISTS ""IX_BoardCards_BoardColumnId"" ON ""BoardCards""(""BoardColumnId"");
+            CREATE INDEX IF NOT EXISTS ""IX_BoardCardNotes_BoardCardId"" ON ""BoardCardNotes""(""BoardCardId"");
+        ");
+        Console.WriteLine("[Startup] Board tables ready.");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Startup DB error: {ex.Message}");
+        Console.WriteLine($"[Startup] Migration warning: {ex.Message}");
     }
 }
 

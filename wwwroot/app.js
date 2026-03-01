@@ -189,11 +189,12 @@ function enterApp() {
 // ═══════════════════════════════════════════════════════════════
 
 function showView(viewId, clickedLink) {
-    const views = ["dashboardPage", "customersView", "subsView", "equipmentView", "pmView", "apView", "pricingView", "adminView"];
+    const views = ["dashboardPage", "boardView", "customersView", "subsView", "equipmentView", "pmView", "apView", "pricingView", "adminView"];
     views.forEach(v => { const el = document.getElementById(v); if (el) el.style.display = "none"; });
     document.getElementById(viewId).style.display = "block";
     if (clickedLink) { document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active")); clickedLink.classList.add("active"); }
     if (viewId === "dashboardPage") loadDashboard();
+    if (viewId === "boardView") loadBoard();
     if (viewId === "customersView") loadCustomers();
     if (viewId === "subsView") loadSubcontractors();
     if (viewId === "equipmentView") loadEquipment();
@@ -417,6 +418,202 @@ async function openCustomerProfile(id) {
 }
 
 function closeModal() { document.getElementById("customerModal").classList.add("hidden"); }
+
+// ═══════════════════════════════════════════════════════════════
+// WORK ORDER BOARD (KANBAN)
+// ═══════════════════════════════════════════════════════════════
+
+let boardData = [];
+let currentCardId = null;
+let draggedCardId = null;
+
+async function loadBoard() {
+    const res = await api("/board");
+    if (!res || !res.ok) return;
+    boardData = await res.json();
+    renderBoard();
+    populateColumnSelect();
+}
+
+function renderBoard() {
+    const board = document.getElementById("kanbanBoard");
+    board.innerHTML = "";
+
+    boardData.forEach(col => {
+        const colEl = document.createElement("div");
+        colEl.className = "kanban-column";
+        colEl.innerHTML = `
+            <div class="kanban-col-header" style="--col-color:${col.color}; border-bottom-color:${col.color};">
+                <span class="kanban-col-title">${col.name}</span>
+                <span class="kanban-col-count">${col.cards.length}</span>
+            </div>
+            <div class="kanban-col-body" data-column-id="${col.id}"></div>
+        `;
+
+        const body = colEl.querySelector(".kanban-col-body");
+
+        // Drag & drop events on column
+        body.addEventListener("dragover", e => { e.preventDefault(); body.classList.add("drag-over"); });
+        body.addEventListener("dragleave", () => body.classList.remove("drag-over"));
+        body.addEventListener("drop", e => { e.preventDefault(); body.classList.remove("drag-over"); dropCard(col.id, body); });
+
+        // Render cards
+        col.cards.forEach(card => {
+            const cardEl = document.createElement("div");
+            cardEl.className = "kanban-card";
+            cardEl.draggable = true;
+            cardEl.dataset.cardId = card.id;
+
+            const noteCount = card.notes ? card.notes.length : 0;
+            const added = new Date(card.addedAt).toLocaleDateString();
+
+            cardEl.innerHTML = `
+                <div class="card-job">#${card.jobNumber}</div>
+                <div class="card-customer">${card.customerName || "Unknown"}</div>
+                <div class="card-date">Added ${added}</div>
+                ${noteCount > 0 ? `<span class="card-note-indicator">📝 ${noteCount}</span>` : ""}
+            `;
+
+            // Drag events on card
+            cardEl.addEventListener("dragstart", e => {
+                draggedCardId = card.id;
+                cardEl.classList.add("dragging");
+                e.dataTransfer.effectAllowed = "move";
+            });
+            cardEl.addEventListener("dragend", () => { cardEl.classList.remove("dragging"); });
+
+            // Click to open detail
+            cardEl.addEventListener("click", () => openCardModal(card, col));
+
+            body.appendChild(cardEl);
+        });
+
+        board.appendChild(colEl);
+    });
+}
+
+function populateColumnSelect() {
+    const select = document.getElementById("boardColumnSelect");
+    select.innerHTML = "";
+    boardData.forEach(col => {
+        select.innerHTML += `<option value="${col.id}">${col.name}</option>`;
+    });
+}
+
+async function dropCard(columnId, bodyEl) {
+    if (!draggedCardId) return;
+    const cards = bodyEl.querySelectorAll(".kanban-card");
+    const sortOrder = cards.length;
+
+    const res = await api(`/board/cards/${draggedCardId}/move`, {
+        method: "PUT",
+        body: JSON.stringify({ columnId, sortOrder })
+    });
+
+    if (res && res.ok) {
+        draggedCardId = null;
+        await loadBoard();
+    }
+}
+
+function showAddCardForm() { document.getElementById("addCardForm").classList.remove("hidden"); document.getElementById("boardJobNumber").focus(); }
+function hideAddCardForm() { document.getElementById("addCardForm").classList.add("hidden"); }
+function showAddColumnForm() { document.getElementById("addColumnForm").classList.remove("hidden"); document.getElementById("boardNewColName").focus(); }
+function hideAddColumnForm() { document.getElementById("addColumnForm").classList.add("hidden"); }
+
+async function addBoardCard() {
+    const jobNumber = document.getElementById("boardJobNumber").value.trim();
+    const columnId = document.getElementById("boardColumnSelect").value;
+    const note = document.getElementById("boardInitialNote").value.trim();
+
+    if (!jobNumber) { toast("Enter a job number.", "error"); return; }
+
+    const res = await api("/board/cards", {
+        method: "POST",
+        body: JSON.stringify({ jobNumber, columnId, note: note || null })
+    });
+
+    if (!res) return;
+    const data = await res.json();
+    if (!res.ok) { toast(data.message || "Failed to add.", "error"); return; }
+
+    document.getElementById("boardJobNumber").value = "";
+    document.getElementById("boardInitialNote").value = "";
+    hideAddCardForm();
+    await loadBoard();
+    toast(`Job #${jobNumber} added to board.`, "success");
+}
+
+async function addBoardColumn() {
+    const name = document.getElementById("boardNewColName").value.trim();
+    const color = document.getElementById("boardNewColColor").value;
+
+    if (!name) { toast("Enter a column name.", "error"); return; }
+
+    const res = await api("/board/columns", {
+        method: "POST",
+        body: JSON.stringify({ name, color })
+    });
+
+    if (res && res.ok) {
+        document.getElementById("boardNewColName").value = "";
+        hideAddColumnForm();
+        await loadBoard();
+        toast(`Column "${name}" added.`, "success");
+    } else { toast("Failed to add column.", "error"); }
+}
+
+async function openCardModal(card, col) {
+    currentCardId = card.id;
+    document.getElementById("cardModalTitle").innerText = `Job #${card.jobNumber}`;
+    document.getElementById("cardModalCustomer").innerText = card.customerName || "Unknown";
+    document.getElementById("cardModalAdded").innerText = new Date(card.addedAt).toLocaleString();
+    document.getElementById("cardModalColumn").innerText = col.name;
+    document.getElementById("cardNoteInput").value = "";
+
+    // Render notes
+    const notesList = document.getElementById("cardNotesList");
+    if (card.notes && card.notes.length > 0) {
+        notesList.innerHTML = card.notes.map(n => `
+            <div class="note-item">
+                <div>${n.text}</div>
+                <div class="note-meta">${n.author || "System"} — ${new Date(n.createdAt).toLocaleString()}</div>
+            </div>
+        `).join("");
+    } else {
+        notesList.innerHTML = '<div class="muted" style="padding:8px 0;">No notes yet</div>';
+    }
+
+    document.getElementById("cardModal").classList.remove("hidden");
+}
+
+function closeCardModal() { document.getElementById("cardModal").classList.add("hidden"); currentCardId = null; }
+
+async function addCardNote() {
+    const text = document.getElementById("cardNoteInput").value.trim();
+    if (!text || !currentCardId) return;
+
+    const res = await api(`/board/cards/${currentCardId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ text })
+    });
+
+    if (res && res.ok) {
+        document.getElementById("cardNoteInput").value = "";
+        await loadBoard();
+        // Re-open modal with updated data
+        const card = boardData.flatMap(c => c.cards).find(c => c.id === currentCardId);
+        const col = boardData.find(c => c.cards.some(cd => cd.id === currentCardId));
+        if (card && col) openCardModal(card, col);
+        toast("Note added.", "success");
+    }
+}
+
+async function removeBoardCard() {
+    if (!currentCardId || !confirm("Remove this work order from the board?")) return;
+    const res = await api(`/board/cards/${currentCardId}`, { method: "DELETE" });
+    if (res && res.ok) { closeCardModal(); await loadBoard(); toast("Removed from board.", "success"); }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // SUBCONTRACTORS

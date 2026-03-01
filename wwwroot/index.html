@@ -58,6 +58,7 @@
                 <div class="sidebar-brand"><div class="brand-icon">P</div><span id="sidebarCompanyName">Patriot</span></div>
                 <nav class="sidebar-nav">
                     <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)"><span class="nav-icon">◉</span> Dashboard</a>
+                    <a href="#" class="nav-link" onclick="showView('boardView', this)"><span class="nav-icon">▦</span> WO Board</a>
                     <a href="#" class="nav-link" onclick="showView('customersView', this)"><span class="nav-icon">◎</span> Customers</a>
                     <a href="#" class="nav-link" onclick="showView('subsView', this)"><span class="nav-icon">◆</span> Subcontractors</a>
                     <a href="#" class="nav-link" onclick="showView('equipmentView', this)"><span class="nav-icon">▣</span> Equipment</a>
@@ -107,6 +108,45 @@
 
                 <!-- ═══ CUSTOMERS ═══ -->
                 <div id="customersView" style="display:none;">
+
+                <!-- ═══ WO BOARD ═══ -->
+                <div id="boardView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Work Order Board</h1>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-secondary" onclick="showAddCardForm()">+ Add Work Order</button>
+                            <button class="btn-secondary" onclick="showAddColumnForm()">+ Add Column</button>
+                        </div>
+                    </div>
+
+                    <!-- Add Card Form (hidden by default) -->
+                    <div id="addCardForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
+                        <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:15px; font-weight:600;">Add Work Order to Board</h3>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="min-width:140px; margin-bottom:0;"><label>Job Number</label><input type="text" id="boardJobNumber" placeholder="e.g. 12345" /></div>
+                            <div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Column</label><select id="boardColumnSelect"></select></div>
+                            <div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Note (optional)</label><input type="text" id="boardInitialNote" placeholder="Waiting on compressor from supplier..." /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="addBoardCard()">Add</button>
+                            <button class="btn-secondary" style="height:40px;" onclick="hideAddCardForm()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Add Column Form (hidden by default) -->
+                    <div id="addColumnForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
+                        <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:15px; font-weight:600;">Add New Column</h3>
+                        <div style="display:flex; gap:10px; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Column Name</label><input type="text" id="boardNewColName" placeholder="e.g. Warranty Claim" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Color</label><input type="color" id="boardNewColColor" value="#334155" style="width:100%; height:38px; padding:2px; background:#0f172a; border:1px solid #334155; border-radius:8px;" /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="addBoardColumn()">Add Column</button>
+                            <button class="btn-secondary" style="height:40px;" onclick="hideAddColumnForm()">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Kanban Board -->
+                    <div id="kanbanBoard" class="kanban-board"></div>
+                </div>
+
+                <!-- ═══ CUSTOMERS (continued) ═══ -->
                     <div class="page-header"><h1>Customers</h1></div>
                     <div class="tabs"><button class="tab active" onclick="setCustomerTab('all')">All</button><button class="tab" onclick="setCustomerTab('balance')">With Balance</button><button class="tab" onclick="setCustomerTab('overdue')">Overdue</button></div>
                     <table class="data-table" id="custTable"><thead><tr><th>Customer</th><th>Total</th><th>Current</th><th>31-60</th><th>61-90</th><th>90+</th></tr></thead><tbody id="custBody"></tbody></table>
@@ -247,6 +287,34 @@
                     </div></div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- CARD DETAIL MODAL -->
+    <div class="modal hidden" id="cardModal">
+        <div class="modal-content" style="width:550px;">
+            <div class="modal-header">
+                <h2 id="cardModalTitle">Job #</h2>
+                <button class="modal-close" onclick="closeCardModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:16px;">
+                    <span class="muted">Customer:</span> <span id="cardModalCustomer" class="bold"></span>
+                    <br/><span class="muted">Added:</span> <span id="cardModalAdded"></span>
+                    <br/><span class="muted">Column:</span> <span id="cardModalColumn"></span>
+                </div>
+                <div class="profile-section">
+                    <h3>Notes</h3>
+                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                        <input type="text" id="cardNoteInput" placeholder="Add a note..." style="flex:1; padding:8px 12px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px;" onkeydown="if(event.key==='Enter') addCardNote()" />
+                        <button class="btn-primary" style="padding:8px 16px; font-size:13px;" onclick="addCardNote()">Add</button>
+                    </div>
+                    <div id="cardNotesList"></div>
+                </div>
+                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #334155;">
+                    <button class="btn-table btn-danger-text" onclick="removeBoardCard()">Remove from Board</button>
+                </div>
             </div>
         </div>
     </div>

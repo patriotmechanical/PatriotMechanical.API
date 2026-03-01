@@ -30,6 +30,11 @@ namespace PatriotMechanical.API.Infrastructure.Data
         public DbSet<SubcontractorEntry> SubcontractorEntries { get; set; }
         public DbSet<Equipment> Equipment { get; set; }
 
+        // Work Order Board
+        public DbSet<BoardColumn> BoardColumns { get; set; }
+        public DbSet<BoardCard> BoardCards { get; set; }
+        public DbSet<BoardCardNote> BoardCardNotes { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()
@@ -40,6 +45,24 @@ namespace PatriotMechanical.API.Infrastructure.Data
                 .HasOne(u => u.Company)
                 .WithMany()
                 .HasForeignKey(u => u.CompanySettingsId);
+
+            modelBuilder.Entity<BoardCard>()
+                .HasOne(c => c.Column)
+                .WithMany(col => col.Cards)
+                .HasForeignKey(c => c.BoardColumnId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BoardCard>()
+                .HasOne(c => c.WorkOrder)
+                .WithMany()
+                .HasForeignKey(c => c.WorkOrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<BoardCardNote>()
+                .HasOne(n => n.Card)
+                .WithMany(c => c.Notes)
+                .HasForeignKey(n => n.BoardCardId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             base.OnModelCreating(modelBuilder);
         }
