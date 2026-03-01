@@ -14,20 +14,27 @@ namespace PatriotMechanical.API.Application.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // Wait 30 seconds before first sync to let the app fully start
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+
             while (!stoppingToken.IsCancellationRequested)
             {
-                using (var scope = _services.CreateScope())
+                try
                 {
-                    var engine = scope.ServiceProvider
-                        .GetRequiredService<ServiceTitanSyncEngine>();
+                    using (var scope = _services.CreateScope())
+                    {
+                        var engine = scope.ServiceProvider
+                            .GetRequiredService<ServiceTitanSyncEngine>();
 
-                    // Incremental mode (one page per run)
-                    await engine.SyncCustomersAsync(fullSync: false);
-                    await engine.SyncJobsAsync(fullSync: false);
-                    // await _syncEngine.SyncInvoicesAsync();
+                        await engine.SyncCustomersAsync(fullSync: false);
+                        await engine.SyncJobsAsync(fullSync: false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[BackgroundSync] Error: {ex.Message}");
                 }
 
-                // Wait 15 minutes
                 await Task.Delay(TimeSpan.FromMinutes(15), stoppingToken);
             }
         }
