@@ -106,9 +106,6 @@
                     </div>
                 </div>
 
-                <!-- ═══ CUSTOMERS ═══ -->
-                <div id="customersView" style="display:none;">
-
                 <!-- ═══ WO BOARD ═══ -->
                 <div id="boardView" style="display:none;">
                     <div class="page-header">
@@ -118,8 +115,6 @@
                             <button class="btn-secondary" onclick="showAddColumnForm()">+ Add Column</button>
                         </div>
                     </div>
-
-                    <!-- Add Card Form (hidden by default) -->
                     <div id="addCardForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
                         <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:15px; font-weight:600;">Add Work Order to Board</h3>
                         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
@@ -130,8 +125,6 @@
                             <button class="btn-secondary" style="height:40px;" onclick="hideAddCardForm()">Cancel</button>
                         </div>
                     </div>
-
-                    <!-- Add Column Form (hidden by default) -->
                     <div id="addColumnForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
                         <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:15px; font-weight:600;">Add New Column</h3>
                         <div style="display:flex; gap:10px; align-items:flex-end;">
@@ -141,12 +134,11 @@
                             <button class="btn-secondary" style="height:40px;" onclick="hideAddColumnForm()">Cancel</button>
                         </div>
                     </div>
-
-                    <!-- Kanban Board -->
                     <div id="kanbanBoard" class="kanban-board"></div>
                 </div>
 
-                <!-- ═══ CUSTOMERS (continued) ═══ -->
+                <!-- ═══ CUSTOMERS ═══ -->
+                <div id="customersView" style="display:none;">
                     <div class="page-header"><h1>Customers</h1></div>
                     <div class="tabs"><button class="tab active" onclick="setCustomerTab('all')">All</button><button class="tab" onclick="setCustomerTab('balance')">With Balance</button><button class="tab" onclick="setCustomerTab('overdue')">Overdue</button></div>
                     <table class="data-table" id="custTable"><thead><tr><th>Customer</th><th>Total</th><th>Current</th><th>31-60</th><th>61-90</th><th>90+</th></tr></thead><tbody id="custBody"></tbody></table>
