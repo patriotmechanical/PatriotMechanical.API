@@ -219,30 +219,86 @@
                 <!-- ═══ PRICING CALCULATOR ═══ -->
                 <div id="pricingView" style="display:none;">
                     <div class="page-header"><h1>Pricing Calculator</h1></div>
-                    <div class="card" style="background:#1e293b; max-width:500px;">
-                        <h3 style="margin-bottom:16px; color:#e2e8f0; font-size:16px; font-weight:600;">Calculate Sell Price</h3>
-                        <p style="font-size:13px; color:#64748b; margin-bottom:16px;">Enter part cost to calculate the sell price with markup and credit card fee.</p>
-                        <div style="display:flex; gap:10px; align-items:flex-end;">
-                            <div class="form-group" style="flex:1; margin-bottom:0;">
-                                <label>Part Cost ($)</label>
-                                <input type="number" id="pricingCost" step="0.01" placeholder="0.00" onkeydown="if(event.key==='Enter') calculatePrice()" />
+                    <p style="font-size:14px; color:#94a3b8; margin-bottom:20px;">Enter your cost to see auto-tiered and custom pricing side by side.</p>
+
+                    <!-- Cost Input Bar -->
+                    <div class="card" style="background:#1e293b; margin-bottom:20px;">
+                        <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+                            <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;">
+                                <label>Item Cost ($)</label>
+                                <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calculateAllPricing()" />
                             </div>
-                            <button class="btn-primary" style="height:40px;" onclick="calculatePrice()">Calculate</button>
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:#94a3b8; user-select:none;">
+                                <input type="checkbox" id="ccToggle" checked onchange="calculateAllPricing()" style="width:18px; height:18px; accent-color:var(--accent);" />
+                                Include 2.5% CC Surcharge
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Two Panels -->
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+                        <!-- Auto-Tiered Panel -->
+                        <div class="card" style="background:#1e293b;">
+                            <h3 style="color:#e2e8f0; font-size:16px; font-weight:700; margin-bottom:2px;">Auto-Tiered Markup</h3>
+                            <p style="font-size:12px; color:#64748b; margin-bottom:16px;">Based on your standard markup tiers</p>
+                            <div id="autoTieredResult">
+                                <div class="pricing-row"><span>Cost</span><span id="atCost">—</span></div>
+                                <div class="pricing-row"><span>Multiplier</span><span id="atMultiplier">—</span></div>
+                                <div class="pricing-row"><span>Markup %</span><span id="atMarkupPct">—</span></div>
+                                <div class="pricing-row"><span>Base Price</span><span id="atBase">—</span></div>
+                                <div class="pricing-row"><span>CC Surcharge (2.5%)</span><span id="atCC">—</span></div>
+                                <div class="pricing-row highlight"><span>Sell Price</span><span id="atSell">—</span></div>
+                                <div class="pricing-row"><span>Gross Profit</span><span id="atProfit" style="color:#4ade80;">—</span></div>
+                                <div class="pricing-row"><span>Margin</span><span id="atMargin" style="color:#4ade80;">—</span></div>
+                            </div>
+                            <div style="margin-top:20px;">
+                                <p style="font-size:12px; color:#64748b; margin-bottom:8px; font-weight:600;">Markup Tiers Reference</p>
+                                <table style="width:100%; font-size:12px; color:#94a3b8;">
+                                    <tr style="color:#64748b;"><td style="padding:4px 0;"><strong>Cost Range</strong></td><td><strong>Multiplier</strong></td><td><strong>Markup %</strong></td></tr>
+                                    <tr><td style="padding:3px 0;">Under $5</td><td>8x</td><td>700%</td></tr>
+                                    <tr><td style="padding:3px 0;">$5 &ndash; $10</td><td>6x</td><td>500%</td></tr>
+                                    <tr><td style="padding:3px 0;">$10 &ndash; $50</td><td>4x</td><td>300%</td></tr>
+                                    <tr><td style="padding:3px 0;">$50 &ndash; $100</td><td>2.5x</td><td>150%</td></tr>
+                                    <tr><td style="padding:3px 0;">Over $100</td><td>1.75x</td><td>75%</td></tr>
+                                </table>
+                            </div>
                         </div>
 
-                        <div id="pricingResult" class="hidden" style="margin-top:20px; padding-top:16px; border-top:1px solid #334155;">
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                                <div class="profile-card"><h3>Markup</h3><div id="pricingMultiplier" class="big-number" style="font-size:22px;"></div></div>
-                                <div class="profile-card"><h3>Base Price</h3><div id="pricingBase" class="big-number" style="font-size:22px;"></div></div>
-                                <div class="profile-card"><h3>Final Price (w/ CC fee)</h3><div id="pricingFinal" class="big-number" style="font-size:22px; color:#4ade80;"></div></div>
-                                <div class="profile-card"><h3>Profit</h3><div id="pricingProfit" class="big-number" style="font-size:22px; color:#4ade80;"></div></div>
+                        <!-- Custom Markup Panel -->
+                        <div class="card" style="background:#1e293b;">
+                            <h3 style="color:#e2e8f0; font-size:16px; font-weight:700; margin-bottom:2px;">Custom Markup</h3>
+                            <p style="font-size:12px; color:#64748b; margin-bottom:16px;">Enter a percentage or multiplier</p>
+                            <div style="display:flex; gap:10px; align-items:flex-end; margin-bottom:12px;">
+                                <div class="form-group" style="flex:1; margin-bottom:0;">
+                                    <label>Markup %</label>
+                                    <input type="number" id="customMarkupPct" step="1" placeholder="150" oninput="customFromPct()" />
+                                </div>
+                                <span style="color:#64748b; padding-bottom:10px;">or</span>
+                                <div class="form-group" style="flex:1; margin-bottom:0;">
+                                    <label>Multiplier</label>
+                                    <input type="number" id="customMultiplier" step="0.01" placeholder="2.50" oninput="customFromMult()" />
+                                </div>
                             </div>
-                            <div class="profile-card" style="margin-top:12px; text-align:center;"><h3>Margin</h3><div id="pricingMargin" class="big-number" style="font-size:28px; color:#4ade80;"></div></div>
-
-                            <div style="margin-top:16px; font-size:12px; color:#64748b;">
-                                <p style="margin-bottom:6px;"><strong style="color:#94a3b8;">Markup tiers:</strong></p>
-                                <p>Under $5 → 8x &nbsp;|&nbsp; $5–$10 → 6x &nbsp;|&nbsp; $10–$50 → 4x &nbsp;|&nbsp; $50–$100 → 2.5x &nbsp;|&nbsp; $100+ → 1.75x</p>
-                                <p style="margin-top:4px;">+ 2.5% credit card processing fee</p>
+                            <div style="margin-bottom:16px;">
+                                <p style="font-size:12px; color:#64748b; margin-bottom:6px;">Quick Presets</p>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                    <button class="preset-btn" onclick="setCustomPreset(1.75, 75)">1.75x / 75%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(2, 100)">2x / 100%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(2.5, 150)">2.5x / 150%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(3, 200)">3x / 200%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(4, 300)">4x / 300%</button>
+                                </div>
+                            </div>
+                            <div id="customResult">
+                                <div class="pricing-row"><span>Cost</span><span id="cmCost">—</span></div>
+                                <div class="pricing-row"><span>Multiplier</span><span id="cmMultiplier">—</span></div>
+                                <div class="pricing-row"><span>Markup %</span><span id="cmMarkupPct">—</span></div>
+                                <div class="pricing-row"><span>Base Price</span><span id="cmBase">—</span></div>
+                                <div class="pricing-row"><span>CC Surcharge (2.5%)</span><span id="cmCC">—</span></div>
+                                <div class="pricing-row highlight"><span>Sell Price</span><span id="cmSell">—</span></div>
+                                <div class="pricing-row"><span>Gross Profit</span><span id="cmProfit" style="color:#4ade80;">—</span></div>
+                                <div class="pricing-row"><span>Margin</span><span id="cmMargin" style="color:#4ade80;">—</span></div>
                             </div>
                         </div>
                     </div>

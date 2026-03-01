@@ -1026,20 +1026,79 @@ ${companyName}`
 // PRICING CALCULATOR
 // ═══════════════════════════════════════════════════════════════
 
-async function calculatePrice() {
+function getTier(cost) {
+    if (cost < 5)   return { mult: 8,    pct: 700 };
+    if (cost < 10)  return { mult: 6,    pct: 500 };
+    if (cost < 50)  return { mult: 4,    pct: 300 };
+    if (cost < 100) return { mult: 2.5,  pct: 150 };
+    return              { mult: 1.75, pct: 75  };
+}
+
+function calcPanel(prefix, cost, multiplier, markupPct) {
+    const includeCC = document.getElementById("ccToggle").checked;
+    const base = cost * multiplier;
+    const cc = includeCC ? base * 0.025 : 0;
+    const sell = base + cc;
+    const profit = sell - cost;
+    const margin = sell > 0 ? ((profit / sell) * 100) : 0;
+
+    document.getElementById(prefix + "Cost").innerText = "$" + cost.toFixed(2);
+    document.getElementById(prefix + "Multiplier").innerText = multiplier.toFixed(2) + "x";
+    document.getElementById(prefix + "MarkupPct").innerText = markupPct.toFixed(1) + "%";
+    document.getElementById(prefix + "Base").innerText = "$" + base.toFixed(2);
+    document.getElementById(prefix + "CC").innerText = "$" + cc.toFixed(2);
+    document.getElementById(prefix + "Sell").innerText = "$" + sell.toFixed(2);
+    document.getElementById(prefix + "Profit").innerText = "$" + profit.toFixed(2);
+    document.getElementById(prefix + "Margin").innerText = margin.toFixed(1) + "%";
+}
+
+function calculateAllPricing() {
     const cost = parseFloat(document.getElementById("pricingCost").value);
-    if (isNaN(cost) || cost <= 0) { toast("Enter a valid cost.", "error"); return; }
+    if (isNaN(cost) || cost <= 0) return;
 
-    const res = await api(`/pricing/calculate?cost=${cost}`);
-    if (!res || !res.ok) { toast("Pricing calculation failed.", "error"); return; }
-    const data = await res.json();
+    // Auto-tiered
+    const tier = getTier(cost);
+    calcPanel("at", cost, tier.mult, tier.pct);
 
-    document.getElementById("pricingResult").classList.remove("hidden");
-    document.getElementById("pricingMultiplier").innerText = data.multiplier + "x";
-    document.getElementById("pricingBase").innerText = "$" + Number(data.basePrice).toFixed(2);
-    document.getElementById("pricingFinal").innerText = "$" + Number(data.finalPrice).toFixed(2);
-    document.getElementById("pricingProfit").innerText = "$" + (Number(data.finalPrice) - Number(data.cost)).toFixed(2);
-    document.getElementById("pricingMargin").innerText = ((1 - Number(data.cost) / Number(data.finalPrice)) * 100).toFixed(1) + "%";
+    // Custom (if values set)
+    const multInput = parseFloat(document.getElementById("customMultiplier").value);
+    const pctInput = parseFloat(document.getElementById("customMarkupPct").value);
+    if (!isNaN(multInput) && multInput > 0) {
+        calcPanel("cm", cost, multInput, (multInput - 1) * 100);
+    } else if (!isNaN(pctInput) && pctInput > 0) {
+        const mult = 1 + pctInput / 100;
+        calcPanel("cm", cost, mult, pctInput);
+    }
+}
+
+function customFromPct() {
+    const pct = parseFloat(document.getElementById("customMarkupPct").value);
+    if (!isNaN(pct) && pct > 0) {
+        document.getElementById("customMultiplier").value = (1 + pct / 100).toFixed(4);
+    }
+    clearPresetActive();
+    calculateAllPricing();
+}
+
+function customFromMult() {
+    const mult = parseFloat(document.getElementById("customMultiplier").value);
+    if (!isNaN(mult) && mult > 0) {
+        document.getElementById("customMarkupPct").value = ((mult - 1) * 100).toFixed(0);
+    }
+    clearPresetActive();
+    calculateAllPricing();
+}
+
+function setCustomPreset(mult, pct) {
+    document.getElementById("customMultiplier").value = mult.toFixed(4);
+    document.getElementById("customMarkupPct").value = pct;
+    document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+    event.target.classList.add("active");
+    calculateAllPricing();
+}
+
+function clearPresetActive() {
+    document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
 }
 
 // ═══════════════════════════════════════════════════════════════

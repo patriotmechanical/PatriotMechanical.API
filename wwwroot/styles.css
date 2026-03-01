@@ -582,6 +582,54 @@ table:not(.data-table) td {
 /* ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════ */
+/* PRICING CALCULATOR                                              */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.pricing-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #0f172a;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    font-size: 14px;
+    color: #cbd5e1;
+}
+
+.pricing-row.highlight {
+    background: var(--accent, #2563eb);
+    color: white;
+    font-weight: 700;
+}
+
+.pricing-row span:last-child {
+    font-weight: 600;
+}
+
+.preset-btn {
+    background: #334155;
+    border: 1px solid #475569;
+    color: #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.preset-btn:hover {
+    background: #475569;
+    color: white;
+}
+
+.preset-btn.active {
+    background: var(--accent, #2563eb);
+    border-color: var(--accent, #2563eb);
+    color: white;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
 /* KANBAN BOARD                                                    */
 /* ═══════════════════════════════════════════════════════════════ */
 
