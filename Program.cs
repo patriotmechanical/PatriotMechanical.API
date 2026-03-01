@@ -136,6 +136,8 @@ using (var scope = app.Services.CreateScope())
 
             CREATE INDEX IF NOT EXISTS ""IX_WarrantyClaimNotes_WarrantyClaimId"" ON ""WarrantyClaimNotes""(""WarrantyClaimId"");
 
+            ALTER TABLE ""WarrantyClaims"" ADD COLUMN IF NOT EXISTS ""IsDemo"" boolean NOT NULL DEFAULT false;
+
             CREATE TABLE IF NOT EXISTS ""TodoItems"" (
                 ""Id"" uuid NOT NULL PRIMARY KEY,
                 ""Title"" text NOT NULL,
