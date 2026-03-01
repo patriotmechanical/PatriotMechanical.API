@@ -1,0 +1,22 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.log
+
+# Secrets — never commit these
+appsettings.Development.json
+appsettings.Production.json
+
+# Keep the blank template
+!appsettings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rider / VS Code
+.idea/
+.vscode/

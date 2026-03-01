@@ -1,0 +1,6 @@
+@PatriotMechanical.API_HostAddress = http://localhost:5168
+
+GET {{PatriotMechanical.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
