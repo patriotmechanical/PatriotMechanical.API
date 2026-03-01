@@ -12,51 +12,51 @@ namespace PatriotMechanical.API.Application.Services
 
         public static async Task ResetDemoDataAsync(AppDbContext db)
         {
-            // Delete all demo data (cascade handles most)
-            var demoCompany = await db.CompanySettings.FindAsync(DemoCompanyId);
-
-            // Clear board data for demo
-            var demoBoardCols = await db.BoardColumns
-                .Where(c => true) // we'll scope later with multi-tenant; for now clear demo-seeded ones
-                .ToListAsync();
-
-            // Clear everything linked to demo customers
-            var demoCustomerIds = await db.Customers
-                .Where(c => c.Name.StartsWith("[DEMO]"))
-                .Select(c => c.Id)
-                .ToListAsync();
-
-            if (demoCustomerIds.Any())
-            {
-                // Remove work orders, invoices, equipment, contacts, locations for demo customers
-                var woIds = await db.WorkOrders.Where(w => demoCustomerIds.Contains(w.CustomerId)).Select(w => w.Id).ToListAsync();
-                db.BoardCardNotes.RemoveRange(db.BoardCardNotes.Where(n => db.BoardCards.Where(c => woIds.Contains(c.WorkOrderId ?? Guid.Empty)).Select(c => c.Id).Contains(n.BoardCardId)));
-                db.BoardCards.RemoveRange(db.BoardCards.Where(c => woIds.Contains(c.WorkOrderId ?? Guid.Empty)));
-                db.WorkOrderMaterials.RemoveRange(db.WorkOrderMaterials.Where(m => woIds.Contains(m.WorkOrderId)));
-                db.WorkOrderLabors.RemoveRange(db.WorkOrderLabors.Where(l => woIds.Contains(l.WorkOrderId)));
-                db.SubcontractorEntries.RemoveRange(db.SubcontractorEntries.Where(e => woIds.Contains(e.WorkOrderId)));
-                db.WorkOrders.RemoveRange(db.WorkOrders.Where(w => demoCustomerIds.Contains(w.CustomerId)));
-                db.Invoices.RemoveRange(db.Invoices.Where(i => demoCustomerIds.Contains(i.CustomerId)));
-                db.Equipment.RemoveRange(db.Equipment.Where(e => demoCustomerIds.Contains(e.CustomerId)));
-                db.LocationContacts.RemoveRange(db.LocationContacts.Where(lc => db.CustomerLocations.Where(l => demoCustomerIds.Contains(l.CustomerId)).Select(l => l.Id).Contains(lc.LocationId)));
-                db.CustomerLocations.RemoveRange(db.CustomerLocations.Where(l => demoCustomerIds.Contains(l.CustomerId)));
-                db.CustomerContacts.RemoveRange(db.CustomerContacts.Where(c => demoCustomerIds.Contains(c.CustomerId)));
-                db.Customers.RemoveRange(db.Customers.Where(c => demoCustomerIds.Contains(c.Id)));
-            }
-
-            // Remove demo vendors/bills
-            var demoVendorIds = await db.Vendors.Where(v => v.Name.StartsWith("[DEMO]")).Select(v => v.Id).ToListAsync();
-            db.ApBills.RemoveRange(db.ApBills.Where(b => demoVendorIds.Contains(b.VendorId)));
-            db.Vendors.RemoveRange(db.Vendors.Where(v => demoVendorIds.Contains(v.Id)));
-
-            // Remove demo subs
-            var demoSubIds = await db.Subcontractors.Where(s => s.Name.StartsWith("[DEMO]")).Select(s => s.Id).ToListAsync();
-            db.SubcontractorEntries.RemoveRange(db.SubcontractorEntries.Where(e => demoSubIds.Contains(e.SubcontractorId)));
-            db.Subcontractors.RemoveRange(db.Subcontractors.Where(s => demoSubIds.Contains(s.Id)));
-
-            await db.SaveChangesAsync();
+            // Clean up all demo data using raw SQL (much simpler than LINQ for cascading deletes)
+            await db.Database.ExecuteSqlRawAsync(@"
+                DELETE FROM ""BoardCardNotes"" WHERE ""BoardCardId"" IN (
+                    SELECT bc.""Id"" FROM ""BoardCards"" bc
+                    JOIN ""WorkOrders"" wo ON bc.""WorkOrderId"" = wo.""Id""
+                    JOIN ""Customers"" c ON wo.""CustomerId"" = c.""Id""
+                    WHERE c.""Name"" LIKE '[DEMO]%'
+                );
+                DELETE FROM ""BoardCards"" WHERE ""WorkOrderId"" IN (
+                    SELECT wo.""Id"" FROM ""WorkOrders"" wo
+                    JOIN ""Customers"" c ON wo.""CustomerId"" = c.""Id""
+                    WHERE c.""Name"" LIKE '[DEMO]%'
+                );
+                DELETE FROM ""SubcontractorEntries"" WHERE ""WorkOrderId"" IN (
+                    SELECT wo.""Id"" FROM ""WorkOrders"" wo
+                    JOIN ""Customers"" c ON wo.""CustomerId"" = c.""Id""
+                    WHERE c.""Name"" LIKE '[DEMO]%'
+                );
+                DELETE FROM ""WorkOrderMaterials"" WHERE ""WorkOrderId"" IN (
+                    SELECT wo.""Id"" FROM ""WorkOrders"" wo
+                    JOIN ""Customers"" c ON wo.""CustomerId"" = c.""Id""
+                    WHERE c.""Name"" LIKE '[DEMO]%'
+                );
+                DELETE FROM ""WorkOrderLabors"" WHERE ""WorkOrderId"" IN (
+                    SELECT wo.""Id"" FROM ""WorkOrders"" wo
+                    JOIN ""Customers"" c ON wo.""CustomerId"" = c.""Id""
+                    WHERE c.""Name"" LIKE '[DEMO]%'
+                );
+                DELETE FROM ""Invoices"" WHERE ""CustomerId"" IN (SELECT ""Id"" FROM ""Customers"" WHERE ""Name"" LIKE '[DEMO]%');
+                DELETE FROM ""WorkOrders"" WHERE ""CustomerId"" IN (SELECT ""Id"" FROM ""Customers"" WHERE ""Name"" LIKE '[DEMO]%');
+                DELETE FROM ""Equipment"" WHERE ""CustomerId"" IN (SELECT ""Id"" FROM ""Customers"" WHERE ""Name"" LIKE '[DEMO]%');
+                DELETE FROM ""LocationContacts"" WHERE ""LocationId"" IN (
+                    SELECT ""Id"" FROM ""CustomerLocations"" WHERE ""CustomerId"" IN (SELECT ""Id"" FROM ""Customers"" WHERE ""Name"" LIKE '[DEMO]%')
+                );
+                DELETE FROM ""CustomerLocations"" WHERE ""CustomerId"" IN (SELECT ""Id"" FROM ""Customers"" WHERE ""Name"" LIKE '[DEMO]%');
+                DELETE FROM ""CustomerContacts"" WHERE ""CustomerId"" IN (SELECT ""Id"" FROM ""Customers"" WHERE ""Name"" LIKE '[DEMO]%');
+                DELETE FROM ""Customers"" WHERE ""Name"" LIKE '[DEMO]%';
+                DELETE FROM ""ApBills"" WHERE ""VendorId"" IN (SELECT ""Id"" FROM ""Vendors"" WHERE ""Name"" LIKE '[DEMO]%');
+                DELETE FROM ""Vendors"" WHERE ""Name"" LIKE '[DEMO]%';
+                DELETE FROM ""SubcontractorEntries"" WHERE ""SubcontractorId"" IN (SELECT ""Id"" FROM ""Subcontractors"" WHERE ""Name"" LIKE '[DEMO]%');
+                DELETE FROM ""Subcontractors"" WHERE ""Name"" LIKE '[DEMO]%';
+            ");
 
             // Ensure demo company exists
+            var demoCompany = await db.CompanySettings.FindAsync(DemoCompanyId);
             if (demoCompany == null)
             {
                 demoCompany = new CompanySettings
