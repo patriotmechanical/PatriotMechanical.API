@@ -234,9 +234,9 @@ async function loadDashboard() {
     apTable.innerHTML = "";
     data.ap.forEach(v => {
         const due = v.nextDue ? new Date(v.nextDue).toLocaleDateString() : "-";
-        apTable.innerHTML += `<tr><td class="bold">${v.name}</td><td class="text-right">$${Number(v.totalOwed).toLocaleString()}</td><td>${due}</td></tr>`;
+        apTable.innerHTML += `<tr><td class="bold">${v.name}</td><td class="text-right">$${Number(v.totalOwed).toLocaleString()}</td><td class="text-right">$${Number(v.totalInvoiceAmount || 0).toLocaleString()}</td><td>${due}</td></tr>`;
     });
-    if (data.ap.length === 0) apTable.innerHTML = '<tr class="empty-row"><td colspan="3">No outstanding payables</td></tr>';
+    if (data.ap.length === 0) apTable.innerHTML = '<tr class="empty-row"><td colspan="4">No outstanding payables</td></tr>';
     makeSortable("dashApTable");
 
     // Open Work Orders
@@ -693,6 +693,64 @@ async function calculatePrice() {
     document.getElementById("pricingProfit").innerText = "$" + (Number(data.finalPrice) - Number(data.cost)).toFixed(2);
     document.getElementById("pricingMargin").innerText = ((1 - Number(data.cost) / Number(data.finalPrice)) * 100).toFixed(1) + "%";
 }
+
+// ═══════════════════════════════════════════════════════════════
+// THEME PICKER
+// ═══════════════════════════════════════════════════════════════
+
+const themes = {
+    red:    { primary: "#dc2626", hover: "#b91c1c", light: "#fca5a5" },
+    blue:   { primary: "#2563eb", hover: "#1d4ed8", light: "#93c5fd" },
+    green:  { primary: "#16a34a", hover: "#15803d", light: "#86efac" },
+    purple: { primary: "#9333ea", hover: "#7e22ce", light: "#c4b5fd" },
+    orange: { primary: "#ea580c", hover: "#c2410c", light: "#fdba74" },
+    teal:   { primary: "#0d9488", hover: "#0f766e", light: "#5eead4" },
+    pink:   { primary: "#db2777", hover: "#be185d", light: "#f9a8d4" },
+    amber:  { primary: "#d97706", hover: "#b45309", light: "#fcd34d" }
+};
+
+function applyTheme(name) {
+    const t = themes[name];
+    if (!t) return;
+    document.documentElement.style.setProperty("--accent", t.primary);
+    document.documentElement.style.setProperty("--accent-hover", t.hover);
+    document.documentElement.style.setProperty("--accent-light", t.light);
+    localStorage.setItem("theme", name);
+
+    // Update swatch active states
+    document.querySelectorAll(".theme-swatch").forEach(s => {
+        s.classList.toggle("active", s.dataset.theme === name);
+    });
+}
+
+// Init theme on load
+document.addEventListener("DOMContentLoaded", () => {
+    const saved = localStorage.getItem("theme") || "red";
+    applyTheme(saved);
+
+    // Bind swatch clicks
+    document.getElementById("themePicker")?.addEventListener("click", e => {
+        const swatch = e.target.closest(".theme-swatch");
+        if (swatch) applyTheme(swatch.dataset.theme);
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MOBILE SIDEBAR
+// ═══════════════════════════════════════════════════════════════
+
+function toggleSidebar() {
+    document.querySelector(".sidebar")?.classList.toggle("open");
+    document.querySelector(".sidebar-overlay")?.classList.toggle("open");
+}
+
+// Close sidebar when a nav link is clicked on mobile
+document.addEventListener("click", e => {
+    if (e.target.closest(".nav-link") && window.innerWidth <= 768) {
+        document.querySelector(".sidebar")?.classList.remove("open");
+        document.querySelector(".sidebar-overlay")?.classList.remove("open");
+    }
+});
 
 // ═══════════════════════════════════════════════════════════════
 // UTILITIES

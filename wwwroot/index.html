@@ -52,6 +52,8 @@
     <!-- MAIN APP -->
     <div id="mainApp" class="hidden">
         <div class="layout">
+            <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+            <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
             <div class="sidebar">
                 <div class="sidebar-brand"><div class="brand-icon">P</div><span id="sidebarCompanyName">Patriot</span></div>
                 <nav class="sidebar-nav">
@@ -82,7 +84,7 @@
                             <table class="data-table" id="dashArTable"><thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead><tbody id="arTableBody"></tbody></table>
                         </div>
                         <div class="panel"><h2>Accounts Payable</h2>
-                            <table class="data-table" id="dashApTable"><thead><tr><th>Vendor</th><th>Total Owed</th><th>Next Due</th></tr></thead><tbody id="apTableBody2"></tbody></table>
+                            <table class="data-table" id="dashApTable"><thead><tr><th>Vendor</th><th>Owed Now</th><th>Total Invoiced</th><th>Next Due</th></tr></thead><tbody id="apTableBody2"></tbody></table>
                         </div>
                     </div>
                     <div class="panel" style="margin-top:20px;"><h2>Open Work Orders</h2>
@@ -204,6 +206,25 @@
                 <!-- ═══ SETTINGS ═══ -->
                 <div id="adminView" style="display:none;">
                     <div class="page-header"><h1>Settings</h1></div>
+
+                    <!-- Theme -->
+                    <div class="settings-section">
+                        <h2>Theme</h2>
+                        <div class="settings-card">
+                            <p style="font-size:13px; color:#94a3b8; margin-bottom:14px;">Choose your accent color</p>
+                            <div class="theme-picker" id="themePicker">
+                                <button class="theme-swatch" data-theme="red" style="background:#dc2626;" title="Red"></button>
+                                <button class="theme-swatch" data-theme="blue" style="background:#2563eb;" title="Blue"></button>
+                                <button class="theme-swatch" data-theme="green" style="background:#16a34a;" title="Green"></button>
+                                <button class="theme-swatch" data-theme="purple" style="background:#9333ea;" title="Purple"></button>
+                                <button class="theme-swatch" data-theme="orange" style="background:#ea580c;" title="Orange"></button>
+                                <button class="theme-swatch" data-theme="teal" style="background:#0d9488;" title="Teal"></button>
+                                <button class="theme-swatch" data-theme="pink" style="background:#db2777;" title="Pink"></button>
+                                <button class="theme-swatch" data-theme="amber" style="background:#d97706;" title="Amber"></button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="settings-section"><h2>Company Information</h2><div class="settings-card"><div class="form-group"><label>Company Name</label><input type="text" id="adminCompanyName" /></div><div class="form-group"><label>Credit Card Fee %</label><input type="number" id="adminCcFee" step="0.1" /></div><button class="btn-primary" onclick="saveCompanySettings()">Save Changes</button></div></div>
                     <div class="settings-section"><h2>ServiceTitan Connection</h2><div class="settings-card"><div id="stConnectionStatus" class="connection-badge">Checking...</div><div class="form-group"><label>Tenant ID</label><input type="text" id="adminStTenantId" /></div><div class="form-group"><label>Client ID</label><input type="text" id="adminStClientId" placeholder="Enter new value to update" /></div><div class="form-group"><label>Client Secret</label><input type="password" id="adminStClientSecret" placeholder="Enter new value to update" /></div><div class="form-group"><label>Application Key</label><input type="text" id="adminStAppKey" placeholder="Enter new value to update" /></div><div style="display:flex; gap:10px;"><button class="btn-primary" onclick="saveServiceTitanSettings()">Save Credentials</button><button class="btn-secondary" onclick="testServiceTitanConnection()">Test Connection</button></div><div id="stTestResult" class="hidden" style="margin-top:15px;"></div></div></div>
                     <div class="settings-section"><h2>Sync Settings</h2><div class="settings-card"><div class="form-group"><label><input type="checkbox" id="adminAutoSync" /> Enable automatic syncing</label></div><div class="form-group"><label>Sync Interval (minutes)</label><input type="number" id="adminSyncInterval" min="15" max="1440" /></div><div id="lastSyncInfo" class="sync-info"></div><button class="btn-primary" onclick="saveSyncSettings()">Save Sync Settings</button></div></div>
