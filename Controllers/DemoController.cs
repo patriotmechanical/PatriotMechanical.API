@@ -26,40 +26,47 @@ namespace PatriotMechanical.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> DemoLogin()
         {
-            // Ensure demo data exists
-            var demoUser = await _context.Users
-                .Include(u => u.Company)
-                .FirstOrDefaultAsync(u => u.Id == DemoSeeder.DemoUserId);
-
-            if (demoUser == null)
+            try
             {
-                // Seed demo data
-                await DemoSeeder.ResetDemoDataAsync(_context);
-                demoUser = await _context.Users
+                // Ensure demo data exists
+                var demoUser = await _context.Users
                     .Include(u => u.Company)
                     .FirstOrDefaultAsync(u => u.Id == DemoSeeder.DemoUserId);
-            }
 
-            if (demoUser == null)
-                return StatusCode(500, new { message = "Failed to create demo account." });
-
-            demoUser.LastLoginAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
-            var token = GenerateJwt(demoUser);
-
-            return Ok(new
-            {
-                token,
-                user = new { demoUser.Id, demoUser.Email, demoUser.FullName },
-                company = new
+                if (demoUser == null)
                 {
-                    demoUser.Company.Id,
-                    demoUser.Company.CompanyName,
-                    demoUser.Company.IsServiceTitanConfigured
-                },
-                isDemo = true
-            });
+                    // Seed demo data
+                    await DemoSeeder.ResetDemoDataAsync(_context);
+                    demoUser = await _context.Users
+                        .Include(u => u.Company)
+                        .FirstOrDefaultAsync(u => u.Id == DemoSeeder.DemoUserId);
+                }
+
+                if (demoUser == null)
+                    return StatusCode(500, new { message = "Failed to create demo account." });
+
+                demoUser.LastLoginAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                var token = GenerateJwt(demoUser);
+
+                return Ok(new
+                {
+                    token,
+                    user = new { demoUser.Id, demoUser.Email, demoUser.FullName },
+                    company = new
+                    {
+                        demoUser.Company.Id,
+                        demoUser.Company.CompanyName,
+                        demoUser.Company.IsServiceTitanConfigured
+                    },
+                    isDemo = true
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message, inner = ex.InnerException?.Message, stack = ex.StackTrace?.Substring(0, Math.Min(500, ex.StackTrace?.Length ?? 0)) });
+            }
         }
 
         private string GenerateJwt(PatriotMechanical.API.Domain.Entities.User user)
