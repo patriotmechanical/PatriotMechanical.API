@@ -213,8 +213,8 @@ async function loadDashboard() {
 
     document.getElementById("totalAR").innerText = "$" + Number(data.totalAR || 0).toLocaleString();
 
-    // Total AP = sum of all total invoice amounts, not just amount due now
-    const totalApInvoices = data.ap.reduce((sum, v) => sum + Number(v.totalInvoiceAmount || 0), 0);
+    // Total AP = sum of all total invoice amounts (fall back to totalOwed if totalInvoiceAmount not set)
+    const totalApInvoices = data.ap.reduce((sum, v) => sum + Number(v.totalInvoiceAmount || v.totalOwed || 0), 0);
     document.getElementById("totalAP").innerText = "$" + totalApInvoices.toLocaleString();
 
     const net = Number(data.totalAR || 0) - totalApInvoices;
@@ -234,7 +234,14 @@ async function loadDashboard() {
     apTable.innerHTML = "";
     data.ap.forEach(v => {
         const due = v.nextDue ? new Date(v.nextDue).toLocaleDateString() : "-";
-        apTable.innerHTML += `<tr><td class="bold">${v.name}</td><td class="text-right">$${Number(v.totalOwed).toLocaleString()}</td><td class="text-right">$${Number(v.totalInvoiceAmount || 0).toLocaleString()}</td><td>${due}</td></tr>`;
+        const owedNow = Number(v.totalOwed || 0);
+        const totalInv = Number(v.totalInvoiceAmount || v.totalOwed || 0);
+        apTable.innerHTML += `<tr>
+            <td class="bold">${v.name}</td>
+            <td class="text-right">$${owedNow.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td class="text-right">$${totalInv.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td>${due}</td>
+        </tr>`;
     });
     if (data.ap.length === 0) apTable.innerHTML = '<tr class="empty-row"><td colspan="4">No outstanding payables</td></tr>';
     makeSortable("dashApTable");
