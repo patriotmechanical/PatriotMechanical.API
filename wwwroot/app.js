@@ -319,11 +319,35 @@ async function openCustomerProfile(id) {
     // Work order count
     document.getElementById("profileWoCount").innerText = c.workOrders ? c.workOrders.length : "0";
 
-    // Last PM
+    // Last PM + reminder
+    const pmSection = document.getElementById("profilePmSection");
     if (c.lastPm) {
-        document.getElementById("profileLastPm").innerText = new Date(c.lastPm.completedAt).toLocaleDateString();
+        const pmDate = new Date(c.lastPm.completedAt);
+        const daysSince = Math.floor((Date.now() - pmDate.getTime()) / (1000 * 60 * 60 * 24));
+        document.getElementById("profileLastPm").innerText = pmDate.toLocaleDateString() + ` (${daysSince} days ago)`;
+
+        if (daysSince > 180) {
+            pmSection.innerHTML = `
+                <div style="background:#7f1d1d22; border:1px solid #7f1d1d; border-radius:8px; padding:14px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <span style="color:#fca5a5; font-weight:600;">⚠ PM Overdue</span>
+                        <span class="muted" style="margin-left:8px;">Last PM was ${daysSince} days ago</span>
+                    </div>
+                    <button class="btn-primary" style="font-size:13px; padding:8px 16px;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${daysSince})">📧 Send PM Reminder</button>
+                </div>`;
+        } else {
+            pmSection.innerHTML = '';
+        }
     } else {
-        document.getElementById("profileLastPm").innerText = "None";
+        document.getElementById("profileLastPm").innerText = "None on record";
+        pmSection.innerHTML = `
+            <div style="background:#7f1d1d22; border:1px solid #7f1d1d; border-radius:8px; padding:14px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <span style="color:#fca5a5; font-weight:600;">⚠ No PM on file</span>
+                    <span class="muted" style="margin-left:8px;">This customer has never had a PM synced</span>
+                </div>
+                <button class="btn-primary" style="font-size:13px; padding:8px 16px;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', 0)">📧 Send PM Reminder</button>
+            </div>`;
     }
 
     // Contacts
@@ -614,7 +638,14 @@ async function markPaid(id) { const res = await api(`/ap/pay/${id}`, { method: "
 
 async function hardRefresh() {
     const btn = document.getElementById("hardRefreshBtn"); btn.disabled = true; btn.innerText = "Syncing...";
-    try { await api("/servicetitan/sync/customers", { method: "POST" }); await api("/servicetitan/sync/jobs", { method: "POST" }); await api("/servicetitan/sync/invoices", { method: "POST" }); await loadDashboard(); toast("Data synced successfully.", "success"); }
+    try {
+        await api("/servicetitan/sync/customers", { method: "POST" });
+        await api("/servicetitan/sync/jobs", { method: "POST" });
+        await api("/servicetitan/sync/invoices", { method: "POST" });
+        await api("/crm/sync", { method: "POST" });
+        await loadDashboard();
+        toast("Data synced successfully.", "success");
+    }
     catch (err) { console.error(err); toast("Sync failed.", "error"); }
     btn.disabled = false; btn.innerText = "↻ Sync Data";
 }
@@ -680,6 +711,69 @@ async function toggleUserActive(id) { const res = await api(`/admin/users/${id}/
 async function promptResetPassword(id, email) { const newPw = prompt(`New password for ${email}:`); if (!newPw) return; if (newPw.length < 8) { toast("Min 8 characters.", "error"); return; } const res = await api(`/admin/users/${id}/reset-password`, { method: "PUT", body: JSON.stringify({ newPassword: newPw }) }); if (!res) return; const data = await res.json(); if (!res.ok) { toast(data.message || "Failed.", "error"); return; } toast(`Password reset for ${email}.`, "success"); }
 
 async function deleteUser(id, email) { if (!confirm(`Delete user ${email}?`)) return; const res = await api(`/admin/users/${id}`, { method: "DELETE" }); if (!res) return; const data = await res.json(); if (!res.ok) { toast(data.message || "Failed.", "error"); return; } await loadUsers(); toast("User deleted.", "success"); }
+
+// ═══════════════════════════════════════════════════════════════
+// PM REMINDER
+// ═══════════════════════════════════════════════════════════════
+
+async function sendPmReminder(customerId, customerName, daysSince) {
+    // Fetch customer contacts to find an email
+    const res = await api(`/customers/${customerId}`);
+    if (!res || !res.ok) { toast("Couldn't load customer info.", "error"); return; }
+    const cust = await res.json();
+
+    const emailContact = (cust.contacts || []).find(c => c.type && c.type.toLowerCase().includes("email"));
+    const phoneContact = (cust.contacts || []).find(c => c.type && (c.type.toLowerCase().includes("phone") || c.type.toLowerCase().includes("mobile")));
+
+    const companyName = document.getElementById("sidebarCompanyName").innerText || "Patriot Mechanical";
+    const daysText = daysSince > 0 ? `${daysSince} days` : "a while";
+
+    const subject = encodeURIComponent(`Preventive Maintenance Reminder - ${companyName}`);
+    const body = encodeURIComponent(
+`Hi ${customerName},
+
+This is a friendly reminder from ${companyName} that it has been ${daysText} since your last preventive maintenance service.
+
+Regular maintenance helps prevent costly breakdowns, extends equipment life, and keeps your system running efficiently.
+
+We'd love to get you scheduled. Please reply to this email or give us a call to book your next PM visit.
+
+Thank you,
+${companyName}`
+    );
+
+    // Build options
+    let options = [];
+    if (emailContact) {
+        options.push(`<a href="mailto:${emailContact.value}?subject=${subject}&body=${body}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px;">📧 Email ${emailContact.value}</a>`);
+    }
+    if (phoneContact) {
+        const smsBody = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. It's been ${daysText} since your last preventive maintenance. We'd love to get you scheduled — give us a call or reply here!`);
+        options.push(`<a href="sms:${phoneContact.value}?body=${smsBody}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px; background:#16a34a;">💬 Text ${phoneContact.value}</a>`);
+    }
+
+    if (options.length === 0) {
+        // No contact info — show the email text to copy
+        const plainBody = decodeURIComponent(body);
+        navigator.clipboard.writeText(plainBody).then(() => {
+            toast("No email/phone on file. Reminder text copied to clipboard!", "success");
+        }).catch(() => {
+            toast("No contact info found for this customer.", "error");
+        });
+        return;
+    }
+
+    // Show a quick modal with send options
+    const pmSection = document.getElementById("profilePmSection");
+    pmSection.innerHTML = `
+        <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:16px; margin-top:10px;">
+            <p style="margin-bottom:12px; color:#e2e8f0; font-weight:600;">Send PM Reminder to ${customerName}</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                ${options.join("")}
+            </div>
+            <p style="margin-top:10px; font-size:12px; color:#64748b;">Click to open your email client or messaging app with a pre-written message.</p>
+        </div>`;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // PRICING CALCULATOR

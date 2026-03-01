@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PatriotMechanical.API.Infrastructure.Data;
@@ -8,171 +9,72 @@ namespace PatriotMechanical.API.Application.Services
     public class ServiceTitanService
     {
         private readonly HttpClient _httpClient;
-        private readonly AppDbContext _context;
-        private readonly IConfiguration _config;
+        private readonly IServiceProvider _serviceProvider;
+        private string? _cachedToken;
+        private DateTime _tokenExpiry = DateTime.MinValue;
 
-        private string? _accessToken;
-        private DateTime _tokenExpiry;
-
-        // Cached credentials so we don't hit DB on every call
-        private string? _cachedClientId;
-        private string? _cachedClientSecret;
-        private string? _cachedTenantId;
-        private string? _cachedAppKey;
-        private DateTime _credsCachedAt;
-
-        public ServiceTitanService(AppDbContext context, IConfiguration config)
+        public ServiceTitanService(HttpClient httpClient, IServiceProvider serviceProvider)
         {
-            _httpClient = new HttpClient();
-            _context = context;
-            _config = config;
+            _httpClient = httpClient;
+            _serviceProvider = serviceProvider;
         }
 
-        // ─── LOAD CREDS FROM DB (falls back to appsettings.json for migration) ───
-        private async Task LoadCredentialsAsync()
+        private AppDbContext GetDbContext()
         {
-            if (_cachedClientId != null && DateTime.UtcNow - _credsCachedAt < TimeSpan.FromMinutes(5))
-                return;
+            var scope = _serviceProvider.CreateScope();
+            return scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        }
 
-            var company = await _context.CompanySettings.FirstOrDefaultAsync();
+        private async Task<(string TenantId, string ClientId, string ClientSecret, string AppKey)> GetCredentialsAsync()
+        {
+            using var db = GetDbContext();
+            var settings = await db.CompanySettings.FirstOrDefaultAsync();
+            if (settings == null)
+                throw new InvalidOperationException("No company settings configured.");
 
-            if (company != null && company.IsServiceTitanConfigured)
-            {
-                _cachedClientId = company.ServiceTitanClientId;
-                _cachedClientSecret = company.ServiceTitanClientSecret;
-                _cachedTenantId = company.ServiceTitanTenantId;
-                _cachedAppKey = company.ServiceTitanAppKey;
-            }
-            else
-            {
-                _cachedClientId = _config["ServiceTitan:ClientId"];
-                _cachedClientSecret = _config["ServiceTitan:ClientSecret"];
-                _cachedTenantId = _config["ServiceTitan:TenantId"];
-                _cachedAppKey = _config["ServiceTitan:ApplicationKey"];
-            }
-
-            _credsCachedAt = DateTime.UtcNow;
+            return (
+                settings.ServiceTitanTenantId ?? "",
+                settings.ServiceTitanClientId ?? "",
+                settings.ServiceTitanClientSecret ?? "",
+                settings.ServiceTitanAppKey ?? ""
+            );
         }
 
         private async Task<string> GetAccessTokenAsync()
         {
-            if (_accessToken != null && DateTime.UtcNow < _tokenExpiry)
-                return _accessToken;
+            if (_cachedToken != null && DateTime.UtcNow < _tokenExpiry)
+                return _cachedToken;
 
-            await LoadCredentialsAsync();
+            var creds = await GetCredentialsAsync();
+            var body = new { grant_type = "client_credentials", client_id = creds.ClientId, client_secret = creds.ClientSecret };
+            var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://auth.servicetitan.io/connect/token");
-
-            request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                { "grant_type", "client_credentials" },
-                { "client_id", _cachedClientId! },
-                { "client_secret", _cachedClientSecret! }
-            });
-
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.PostAsync("https://auth.servicetitan.io/connect/token", content);
             response.EnsureSuccessStatusCode();
 
-            var content = await response.Content.ReadAsStringAsync();
-            var tokenResponse = JsonSerializer.Deserialize<JsonElement>(content);
+            var json = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync());
+            _cachedToken = json.GetProperty("access_token").GetString()!;
+            _tokenExpiry = DateTime.UtcNow.AddSeconds(json.GetProperty("expires_in").GetInt32() - 60);
 
-            _accessToken = tokenResponse.GetProperty("access_token").GetString();
-            var expiresIn = tokenResponse.GetProperty("expires_in").GetInt32();
-
-            _tokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn - 60);
-
-            return _accessToken!;
+            return _cachedToken;
         }
 
         private async Task<string> GetBaseUrl()
         {
-            await LoadCredentialsAsync();
             return "https://api.servicetitan.io";
         }
 
         private async Task<string> GetTenantId()
         {
-            await LoadCredentialsAsync();
-            return _cachedTenantId!;
+            var creds = await GetCredentialsAsync();
+            return creds.TenantId;
         }
 
         private async Task<string> GetAppKey()
         {
-            await LoadCredentialsAsync();
-            return _cachedAppKey!;
+            var creds = await GetCredentialsAsync();
+            return creds.AppKey;
         }
-
-        // ═══════════════════════════════════════════════════════════════
-        // JOBS
-        // ═══════════════════════════════════════════════════════════════
-
-        public async Task<string> GetJobsRawAsync(DateTime lastSyncUtc)
-        {
-            var token = await GetAccessTokenAsync();
-            var baseUrl = await GetBaseUrl();
-            var tenantId = await GetTenantId();
-            var appKey = await GetAppKey();
-
-            var request = new HttpRequestMessage(
-                HttpMethod.Get,
-                $"{baseUrl}/jpm/v2/tenant/{tenantId}/jobs?page=1&pageSize=50&includeTotal=true&modifiedOnOrAfter={lastSyncUtc:O}"
-            );
-
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("ST-App-Key", appKey);
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsStringAsync();
-        }
-
-        public async Task<string> GetRawJobByIdAsync(long jobId)
-        {
-            var token = await GetAccessTokenAsync();
-            var baseUrl = await GetBaseUrl();
-            var tenantId = await GetTenantId();
-            var appKey = await GetAppKey();
-
-            var request = new HttpRequestMessage(
-                HttpMethod.Get,
-                $"{baseUrl}/jpm/v2/tenant/{tenantId}/jobs/{jobId}"
-            );
-
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("ST-App-Key", appKey);
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsStringAsync();
-        }
-
-        public async Task<string> ExportJobsAsync(string? continuationToken = null)
-        {
-            var token = await GetAccessTokenAsync();
-            var baseUrl = await GetBaseUrl();
-            var tenantId = await GetTenantId();
-            var appKey = await GetAppKey();
-
-            var url = $"{baseUrl}/jpm/v2/tenant/{tenantId}/export/jobs";
-
-            if (!string.IsNullOrWhiteSpace(continuationToken))
-                url += $"?from={continuationToken}";
-
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("ST-App-Key", appKey);
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsStringAsync();
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // JOB TYPES
-        // ═══════════════════════════════════════════════════════════════
 
         public async Task<Dictionary<long, string>> GetJobTypeMapAsync()
         {
@@ -181,54 +83,57 @@ namespace PatriotMechanical.API.Application.Services
             var tenantId = await GetTenantId();
             var appKey = await GetAppKey();
 
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{baseUrl}/jpm/v2/tenant/{tenantId}/job-types?pageSize=250");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var json = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync());
             var map = new Dictionary<long, string>();
-            int page = 1;
-            bool hasMore;
 
-            do
+            foreach (var item in json.GetProperty("data").EnumerateArray())
             {
-                var request = new HttpRequestMessage(
-                    HttpMethod.Get,
-                    $"{baseUrl}/jpm/v2/tenant/{tenantId}/job-types?page={page}&pageSize=100"
-                );
-
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                request.Headers.Add("ST-App-Key", appKey);
-
-                var response = await _httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-
-                var content = await response.Content.ReadAsStringAsync();
-                var parsed = JsonSerializer.Deserialize<JsonElement>(content);
-
-                hasMore = parsed.GetProperty("hasMore").GetBoolean();
-
-                foreach (var jt in parsed.GetProperty("data").EnumerateArray())
-                {
-                    var id = jt.GetProperty("id").GetInt64();
-                    var name = jt.GetProperty("name").GetString() ?? "Unknown";
-                    map[id] = name;
-                }
-
-                page++;
-
-            } while (hasMore);
+                var id = item.GetProperty("id").GetInt64();
+                var name = item.GetProperty("name").GetString() ?? "Unknown";
+                map[id] = name;
+            }
 
             return map;
         }
 
-        // ═══════════════════════════════════════════════════════════════
-        // CUSTOMERS
-        // ═══════════════════════════════════════════════════════════════
-
-        public async Task<string> ExportCustomersAsync(string? continuationToken = null)
+        public async Task<string> GetJobsRawAsync(DateTime lastSyncUtc)
         {
             var token = await GetAccessTokenAsync();
             var baseUrl = await GetBaseUrl();
             var tenantId = await GetTenantId();
             var appKey = await GetAppKey();
 
-            var url = $"{baseUrl}/crm/v2/tenant/{tenantId}/export/customers";
+            var since = lastSyncUtc.ToString("o");
+            var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{baseUrl}/jpm/v2/tenant/{tenantId}/jobs?modifiedOnOrAfter={since}&pageSize=50");
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
+
+        // ─── Generic export helper ────────────────────────────────────
+
+        private async Task<string> ExportGenericAsync(string path, string? continuationToken)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var url = $"{baseUrl}/{path.Replace("{tenantId}", tenantId)}";
 
             if (!string.IsNullOrWhiteSpace(continuationToken))
                 url += $"?from={continuationToken}";
@@ -243,101 +148,25 @@ namespace PatriotMechanical.API.Application.Services
             return await response.Content.ReadAsStringAsync();
         }
 
-        public async Task<string> ExportCustomerContactsAsync(string? continuationToken = null)
-        {
-            var token = await GetAccessTokenAsync();
-            var baseUrl = await GetBaseUrl();
-            var tenantId = await GetTenantId();
-            var appKey = await GetAppKey();
+        public Task<string> ExportCustomersAsync(string? continuationToken = null)
+            => ExportGenericAsync("crm/v2/tenant/{tenantId}/export/customers", continuationToken);
 
-            var url = $"{baseUrl}/crm/v2/tenant/{tenantId}/export/customers/contacts";
+        public Task<string> ExportJobsAsync(string? continuationToken = null)
+            => ExportGenericAsync("jpm/v2/tenant/{tenantId}/export/jobs", continuationToken);
 
-            if (!string.IsNullOrWhiteSpace(continuationToken))
-                url += $"?from={continuationToken}";
+        public Task<string> ExportInvoicesAsync(string? continuationToken = null)
+            => ExportGenericAsync("accounting/v2/tenant/{tenantId}/export/invoices", continuationToken);
 
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("ST-App-Key", appKey);
+        public Task<string> ExportCustomerContactsAsync(string? continuationToken = null)
+            => ExportGenericAsync("crm/v2/tenant/{tenantId}/export/customers/contacts", continuationToken);
 
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
+        public Task<string> ExportLocationsAsync(string? continuationToken = null)
+            => ExportGenericAsync("crm/v2/tenant/{tenantId}/export/locations", continuationToken);
 
-            return await response.Content.ReadAsStringAsync();
-        }
+        public Task<string> ExportLocationContactsAsync(string? continuationToken = null)
+            => ExportGenericAsync("crm/v2/tenant/{tenantId}/export/locations/contacts", continuationToken);
 
-        // ═══════════════════════════════════════════════════════════════
-        // LOCATIONS
-        // ═══════════════════════════════════════════════════════════════
-
-        public async Task<string> ExportLocationsAsync(string? continuationToken = null)
-        {
-            var token = await GetAccessTokenAsync();
-            var baseUrl = await GetBaseUrl();
-            var tenantId = await GetTenantId();
-            var appKey = await GetAppKey();
-
-            var url = $"{baseUrl}/crm/v2/tenant/{tenantId}/export/locations";
-
-            if (!string.IsNullOrWhiteSpace(continuationToken))
-                url += $"?from={continuationToken}";
-
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("ST-App-Key", appKey);
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsStringAsync();
-        }
-
-        public async Task<string> ExportLocationContactsAsync(string? continuationToken = null)
-        {
-            var token = await GetAccessTokenAsync();
-            var baseUrl = await GetBaseUrl();
-            var tenantId = await GetTenantId();
-            var appKey = await GetAppKey();
-
-            var url = $"{baseUrl}/crm/v2/tenant/{tenantId}/export/locations/contacts";
-
-            if (!string.IsNullOrWhiteSpace(continuationToken))
-                url += $"?from={continuationToken}";
-
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("ST-App-Key", appKey);
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsStringAsync();
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // INVOICES
-        // ═══════════════════════════════════════════════════════════════
-
-        public async Task<string> ExportInvoicesAsync(string? continuationToken = null)
-        {
-            var token = await GetAccessTokenAsync();
-            var baseUrl = await GetBaseUrl();
-            var tenantId = await GetTenantId();
-            var appKey = await GetAppKey();
-
-            var url = $"{baseUrl}/accounting/v2/tenant/{tenantId}/export/invoices";
-
-            if (!string.IsNullOrWhiteSpace(continuationToken))
-                url += $"?from={continuationToken}";
-
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Headers.Add("ST-App-Key", appKey);
-
-            var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-
-            return await response.Content.ReadAsStringAsync();
-        }
+        // ─── Paged invoices ───────────────────────────────────────────
 
         public async Task<string> GetInvoicesPageAsync(int page = 1)
         {
