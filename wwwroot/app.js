@@ -550,10 +550,27 @@ async function loadPmTracker() {
     tbody.innerHTML = "";
     data.forEach(pm => {
         const lastDate = pm.lastPmDate ? new Date(pm.lastPmDate).toLocaleDateString() : "-";
+        const days = pm.daysSinceLastPm;
+        let statusClass, statusText, daysClass;
+
+        if (days >= 180) {
+            statusClass = "status-badge overdue";
+            statusText = "OVERDUE";
+            daysClass = "danger";
+        } else if (days >= 120) {
+            statusClass = "status-badge due-soon";
+            statusText = "DUE SOON";
+            daysClass = "warning-text";
+        } else {
+            statusClass = "status-active";
+            statusText = "OK";
+            daysClass = "";
+        }
+
         tbody.innerHTML += `<tr class="clickable-row" onclick="openCustomerProfile('${pm.customerId}')">
             <td class="bold">${pm.customerName}</td><td>${lastDate}</td><td>${pm.lastJobNumber}</td><td>${pm.lastJobType || "-"}</td><td class="text-center">${pm.totalPms}</td>
-            <td class="text-right ${pm.isOverdue ? 'danger' : ''}">${pm.daysSinceLastPm} days</td>
-            <td><span class="${pm.isOverdue ? 'status-badge overdue' : 'status-active'}">${pm.isOverdue ? 'OVERDUE' : 'OK'}</span></td>
+            <td class="text-right ${daysClass}">${days} days</td>
+            <td><span class="${statusClass}">${statusText}</span></td>
         </tr>`;
     });
     if (data.length === 0) tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No PM data available</td></tr>';
@@ -639,10 +656,24 @@ async function markPaid(id) { const res = await api(`/ap/pay/${id}`, { method: "
 async function hardRefresh() {
     const btn = document.getElementById("hardRefreshBtn"); btn.disabled = true; btn.innerText = "Syncing...";
     try {
+        btn.innerText = "Syncing customers...";
         await api("/servicetitan/sync/customers", { method: "POST" });
+        btn.innerText = "Syncing jobs...";
         await api("/servicetitan/sync/jobs", { method: "POST" });
+        btn.innerText = "Syncing invoices...";
         await api("/servicetitan/sync/invoices", { method: "POST" });
-        await api("/crm/sync", { method: "POST" });
+        btn.innerText = "Syncing contacts...";
+        try {
+            const crmRes = await api("/crm/sync", { method: "POST" });
+            if (crmRes && crmRes.ok) {
+                const crmData = await crmRes.json();
+                console.log("CRM sync result:", crmData);
+            } else {
+                console.warn("CRM sync returned non-OK:", crmRes?.status);
+            }
+        } catch (crmErr) {
+            console.warn("CRM sync failed (non-fatal):", crmErr);
+        }
         await loadDashboard();
         toast("Data synced successfully.", "success");
     }
