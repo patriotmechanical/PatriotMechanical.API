@@ -55,7 +55,9 @@ public class DashboardController : ControllerBase
 
         var openWorkOrders = await _context.WorkOrders
             .Where(w => w.Status != null
-                && w.Status.ToLower().Contains("inprogress"))
+                && (w.Status.ToLower().Contains("inprogress")
+                    || w.Status.ToLower().Contains("scheduled")
+                    || w.Status.ToLower().Contains("hold")))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
