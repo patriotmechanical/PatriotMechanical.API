@@ -332,7 +332,7 @@ namespace PatriotMechanical.API.Application.Services
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // APPOINTMENTS (export endpoint - for auto-board feature)
+        // APPOINTMENTS
         // ═══════════════════════════════════════════════════════════════
 
         public async Task<string> ExportAppointmentsAsync(string? continuationToken = null)

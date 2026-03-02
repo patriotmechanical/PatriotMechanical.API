@@ -8,79 +8,138 @@
 </head>
 <body>
 
-    <!-- LOGIN -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- LOGIN SCREEN                                               -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
     <div id="loginScreen" class="auth-screen">
         <div class="auth-card">
             <div class="auth-logo">P</div>
             <h1>Patriot Mechanical</h1>
             <p class="auth-subtitle">Sign in to your account</p>
+
             <div id="loginError" class="auth-error hidden"></div>
-            <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="you@company.com" /></div>
-            <div class="form-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter') doLogin()" /></div>
+
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="you@company.com" />
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" 
+                       onkeydown="if(event.key==='Enter') doLogin()" />
+            </div>
+
             <button class="btn-primary btn-full" onclick="doLogin()">Sign In</button>
         </div>
     </div>
 
-    <!-- SETUP -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- SETUP WIZARD (first-time only)                             -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
     <div id="setupScreen" class="auth-screen hidden">
         <div class="auth-card setup-card">
             <div class="auth-logo">P</div>
             <h1>Welcome to Patriot Mechanical</h1>
             <p class="auth-subtitle">Let's get your account set up</p>
+
             <div id="setupError" class="auth-error hidden"></div>
+
+            <!-- Step 1: Company + Account -->
             <div id="setupStep1">
                 <h3 class="step-title">Step 1: Your Company & Account</h3>
-                <div class="form-group"><label>Company Name</label><input type="text" id="setupCompanyName" placeholder="Your Company Name" /></div>
-                <div class="form-group"><label>Your Name</label><input type="text" id="setupFullName" placeholder="John Smith" /></div>
-                <div class="form-group"><label>Email</label><input type="email" id="setupEmail" placeholder="you@company.com" /></div>
-                <div class="form-group"><label>Password</label><input type="password" id="setupPassword" placeholder="At least 8 characters" /></div>
-                <button class="btn-primary btn-full" onclick="goToSetupStep2()">Next: ServiceTitan Setup →</button>
+
+                <div class="form-group">
+                    <label>Company Name</label>
+                    <input type="text" id="setupCompanyName" placeholder="Your Company Name" />
+                </div>
+
+                <div class="form-group">
+                    <label>Your Name</label>
+                    <input type="text" id="setupFullName" placeholder="John Smith" />
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="setupEmail" placeholder="you@company.com" />
+                </div>
+
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="setupPassword" placeholder="At least 8 characters" />
+                </div>
+
+                <button class="btn-primary btn-full" onclick="goToSetupStep2()">
+                    Next: ServiceTitan Setup →
+                </button>
             </div>
+
+            <!-- Step 2: ServiceTitan Credentials -->
             <div id="setupStep2" class="hidden">
                 <h3 class="step-title">Step 2: Connect ServiceTitan</h3>
-                <p class="step-desc">Enter your ServiceTitan API credentials.</p>
-                <div class="form-group"><label>Tenant ID</label><input type="text" id="setupTenantId" placeholder="e.g. 4146821403" /></div>
-                <div class="form-group"><label>Client ID</label><input type="text" id="setupClientId" placeholder="e.g. cid.xxxx" /></div>
-                <div class="form-group"><label>Client Secret</label><input type="password" id="setupClientSecret" placeholder="e.g. cs3.xxxx" /></div>
-                <div class="form-group"><label>Application Key</label><input type="text" id="setupAppKey" placeholder="e.g. ak1.xxxx" /></div>
-                <div class="setup-buttons"><button class="btn-secondary" onclick="goToSetupStep1()">← Back</button><button class="btn-primary" onclick="completeSetup()">Complete Setup</button></div>
+                <p class="step-desc">Enter your ServiceTitan API credentials. You can find these in your ServiceTitan Developer Portal.</p>
+
+                <div class="form-group">
+                    <label>Tenant ID</label>
+                    <input type="text" id="setupTenantId" placeholder="e.g. 4146821403" />
+                </div>
+
+                <div class="form-group">
+                    <label>Client ID</label>
+                    <input type="text" id="setupClientId" placeholder="e.g. cid.xxxx" />
+                </div>
+
+                <div class="form-group">
+                    <label>Client Secret</label>
+                    <input type="password" id="setupClientSecret" placeholder="e.g. cs3.xxxx" />
+                </div>
+
+                <div class="form-group">
+                    <label>Application Key</label>
+                    <input type="text" id="setupAppKey" placeholder="e.g. ak1.xxxx" />
+                </div>
+
+                <div class="setup-buttons">
+                    <button class="btn-secondary" onclick="goToSetupStep1()">← Back</button>
+                    <button class="btn-primary" onclick="completeSetup()">Complete Setup</button>
+                </div>
+
                 <p class="skip-link" onclick="skipServiceTitan()">Skip for now — I'll add this later</p>
             </div>
         </div>
     </div>
 
-    <!-- MAIN APP -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- MAIN APP (after login)                                     -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
     <div id="mainApp" class="hidden">
         <div class="layout">
-            <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
-            <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
             <div class="sidebar">
-                <div class="sidebar-brand"><div class="brand-icon">P</div><span id="sidebarCompanyName">Patriot</span></div>
+                <div class="sidebar-brand">
+                    <div class="brand-icon">P</div>
+                    <span id="sidebarCompanyName">Patriot</span>
+                </div>
+
                 <nav class="sidebar-nav">
-                    <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)"><span class="nav-icon">◉</span> Dashboard</a>
-                    <a href="#" class="nav-link" onclick="showView('boardView', this)"><span class="nav-icon">▦</span> WO Board</a>
-                    <a href="#" class="nav-link" onclick="showView('todoView', this)"><span class="nav-icon">☑</span> To-Do</a>
-                    <a href="#" class="nav-link" onclick="showView('customersView', this)"><span class="nav-icon">◎</span> Customers</a>
-                    <a href="#" class="nav-link" onclick="showView('subsView', this)"><span class="nav-icon">◆</span> Subcontractors</a>
-                    <a href="#" class="nav-link" onclick="showView('equipmentView', this)"><span class="nav-icon">▣</span> Equipment</a>
-                    <a href="#" class="nav-link" onclick="showView('warrantyView', this)"><span class="nav-icon">🛡</span> Warranty</a>
-                    <a href="#" class="nav-link" onclick="showView('pmView', this)"><span class="nav-icon">⏱</span> PM Tracker</a>
-                    <a href="#" class="nav-link" onclick="showView('apView', this)"><span class="nav-icon">◈</span> AP</a>
-                    <a href="#" class="nav-link" onclick="showView('pricingView', this)"><span class="nav-icon">$</span> Pricing</a>
-                    <a href="#" class="nav-link" onclick="showView('adminView', this)"><span class="nav-icon">⚙</span> Settings</a>
+                    <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)">
+                        <span class="nav-icon">◉</span> Dashboard
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('customersView', this)">
+                        <span class="nav-icon">◎</span> Customers
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('apView', this)">
+                        <span class="nav-icon">◈</span> AP
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('adminView', this)">
+                        <span class="nav-icon">⚙</span> Settings
+                    </a>
                 </nav>
+
                 <div class="sidebar-footer">
-                    <div class="sidebar-theme">
-                        <button class="theme-dot" data-theme="red" style="background:#dc2626;" title="Red"></button>
-                        <button class="theme-dot" data-theme="blue" style="background:#2563eb;" title="Blue"></button>
-                        <button class="theme-dot" data-theme="green" style="background:#16a34a;" title="Green"></button>
-                        <button class="theme-dot" data-theme="purple" style="background:#9333ea;" title="Purple"></button>
-                        <button class="theme-dot" data-theme="orange" style="background:#ea580c;" title="Orange"></button>
-                        <button class="theme-dot" data-theme="teal" style="background:#0d9488;" title="Teal"></button>
-                        <button class="theme-dot" data-theme="pink" style="background:#db2777;" title="Pink"></button>
-                        <button class="theme-dot" data-theme="amber" style="background:#d97706;" title="Amber"></button>
+                    <div class="user-info">
+                        <span id="sidebarUserName">User</span>
                     </div>
-                    <div class="user-info"><span id="sidebarUserName">User</span></div>
                     <button class="btn-logout" onclick="doLogout()">Sign Out</button>
                 </div>
             </div>
@@ -97,378 +156,284 @@
                     <div id="searchResults" class="search-results hidden"></div>
                 </div>
 
-                <!-- ═══ DASHBOARD ═══ -->
+                <!-- DASHBOARD -->
                 <div id="dashboardPage">
-                    <div class="page-header"><h1>Dashboard</h1><button id="hardRefreshBtn" class="btn-refresh" onclick="hardRefresh()">↻ Sync Data</button></div>
-                    <div class="overview-cards">
-                        <div class="card"><h3>Total AR</h3><p id="totalAR">$0</p></div>
-                        <div class="card"><h3>Total AP</h3><p id="totalAP">$0</p></div>
-                        <div class="card"><h3>Net Position</h3><p id="netPosition">$0</p></div>
-                    </div>
-                    <div class="ops-stats" id="opsStatsRow"></div>
-                    <div class="grid">
-                        <div class="panel"><h2>Accounts Receivable</h2>
-                            <table class="data-table" id="dashArTable"><thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead><tbody id="arTableBody"></tbody></table>
-                        </div>
-                        <div class="panel"><h2>Accounts Payable</h2>
-                            <table class="data-table" id="dashApTable"><thead><tr><th>Vendor</th><th>Owed Now</th><th>Total Invoiced</th><th>Next Due</th></tr></thead><tbody id="apTableBody2"></tbody></table>
-                        </div>
-                    </div>
-                    <div class="panel" style="margin-top:20px;"><h2>Open Work Orders</h2>
-                        <table class="data-table" id="dashWoTable"><thead><tr><th>Job #</th><th>Customer</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="openWoBody"></tbody></table>
-                    </div>
-                </div>
-
-                <!-- ═══ WO BOARD ═══ -->
-                <div id="boardView" style="display:none;">
                     <div class="page-header">
-                        <h1>Work Order Board</h1>
-                        <div style="display:flex; gap:8px;">
-                            <button class="btn-secondary" onclick="showAddCardForm()">+ Add Work Order</button>
-                            <button class="btn-secondary" onclick="showAddColumnForm()">+ Add Column</button>
-                        </div>
+                        <h1>Dashboard</h1>
+                        <button id="hardRefreshBtn" class="btn-refresh" onclick="hardRefresh()">
+                            ↻ Sync Data
+                        </button>
                     </div>
-                    <div id="addCardForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
-                        <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:15px; font-weight:600;">Add Work Order to Board</h3>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                            <div class="form-group" style="min-width:140px; margin-bottom:0;"><label>Job Number</label><input type="text" id="boardJobNumber" placeholder="e.g. 12345" /></div>
-                            <div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Column</label><select id="boardColumnSelect"></select></div>
-                            <div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Note (optional)</label><input type="text" id="boardInitialNote" placeholder="Waiting on compressor from supplier..." /></div>
-                            <button class="btn-primary" style="height:40px;" onclick="addBoardCard()">Add</button>
-                            <button class="btn-secondary" style="height:40px;" onclick="hideAddCardForm()">Cancel</button>
-                        </div>
-                    </div>
-                    <div id="addColumnForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
-                        <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:15px; font-weight:600;">Add New Column</h3>
-                        <div style="display:flex; gap:10px; align-items:flex-end;">
-                            <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Column Name</label><input type="text" id="boardNewColName" placeholder="e.g. Warranty Claim" /></div>
-                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Color</label><input type="color" id="boardNewColColor" value="#334155" style="width:100%; height:38px; padding:2px; background:#0f172a; border:1px solid #334155; border-radius:8px;" /></div>
-                            <button class="btn-primary" style="height:40px;" onclick="addBoardColumn()">Add Column</button>
-                            <button class="btn-secondary" style="height:40px;" onclick="hideAddColumnForm()">Cancel</button>
-                        </div>
-                    </div>
-                    <div id="kanbanBoard" class="kanban-board"></div>
-                </div>
 
-                <!-- ═══ TO-DO ═══ -->
-                <div id="todoView" style="display:none;">
-                    <div class="page-header"><h1>To-Do List</h1></div>
-                    <div class="card" style="background:#1e293b; margin-bottom:16px;">
-                        <div style="display:flex; gap:10px; align-items:flex-end;">
-                            <div class="form-group" style="flex:1; margin-bottom:0;">
-                                <label>Task</label>
-                                <input type="text" id="todoTitle" placeholder="What needs to be done?" onkeydown="if(event.key==='Enter') addTodo()" />
-                            </div>
-                            <div class="form-group" style="flex:1; margin-bottom:0;">
-                                <label>Description (optional)</label>
-                                <input type="text" id="todoDesc" placeholder="Additional details..." onkeydown="if(event.key==='Enter') addTodo()" />
-                            </div>
-                            <button class="btn-primary" style="height:40px;" onclick="addTodo()">Add</button>
+                    <div class="overview-cards">
+                        <div class="card">
+                            <h3>Total AR</h3>
+                            <p id="totalAR">$0</p>
+                        </div>
+                        <div class="card">
+                            <h3>Total AP</h3>
+                            <p id="totalAP">$0</p>
+                        </div>
+                        <div class="card">
+                            <h3>Net Position</h3>
+                            <p id="netPosition">$0</p>
                         </div>
                     </div>
-                    <div id="todoList"></div>
-                </div>
 
-                <!-- ═══ CUSTOMERS ═══ -->
-                <div id="customersView" style="display:none;">
-                    <div class="page-header"><h1>Customers</h1></div>
-                    <div class="tabs"><button class="tab active" onclick="setCustomerTab('all')">All</button><button class="tab" onclick="setCustomerTab('balance')">With Balance</button><button class="tab" onclick="setCustomerTab('overdue')">Overdue</button></div>
-                    <table class="data-table" id="custTable"><thead><tr><th>Customer</th><th>Total</th><th>Current</th><th>31-60</th><th>61-90</th><th>90+</th></tr></thead><tbody id="custBody"></tbody></table>
-                </div>
+                    <div class="ops-stats" id="opsStatsRow"></div>
 
-                <!-- ═══ SUBCONTRACTORS ═══ -->
-                <div id="subsView" style="display:none;">
-                    <div class="page-header"><h1>Subcontractors</h1></div>
-                    <div class="card" style="background:#1e293b; margin-bottom:20px;">
-                        <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:16px; font-weight:600;">Add Subcontractor</h3>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                            <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;"><label>Name</label><input type="text" id="subName" placeholder="John Doe" /></div>
-                            <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;"><label>Company</label><input type="text" id="subCompany" placeholder="ABC Plumbing" /></div>
-                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Trade</label><input type="text" id="subTrade" placeholder="Plumbing" /></div>
-                            <button class="btn-primary" style="height:40px;" onclick="addSubcontractor()">Add</button>
+                    <div class="grid">
+                        <div class="panel">
+                            <h2>Accounts Receivable</h2>
+                            <table>
+                                <thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead>
+                                <tbody id="arTable"></tbody>
+                            </table>
                         </div>
-                    </div>
-                    <table class="data-table" id="subsTable"><thead><tr><th>Name</th><th>Company</th><th>Trade</th><th>Total Hours</th><th>Total Cost</th><th class="no-sort">Actions</th></tr></thead><tbody id="subsBody"></tbody></table>
-                    <div id="subDetail" class="panel" style="display:none; margin-top:20px;">
-                        <h2 id="subDetailTitle"></h2>
-                        <h3 style="margin-top:15px; margin-bottom:10px; font-size:14px; color:#94a3b8;">Log Hours</h3>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Work Order</label><select id="subEntryWorkOrder"></select></div>
-                            <div class="form-group" style="min-width:80px; margin-bottom:0;"><label>Hours</label><input type="number" id="subEntryHours" step="0.5" placeholder="8" /></div>
-                            <div class="form-group" style="min-width:80px; margin-bottom:0;"><label>Rate ($/hr)</label><input type="number" id="subEntryRate" step="0.01" placeholder="45" /></div>
-                            <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>Date</label><input type="date" id="subEntryDate" /></div>
-                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Notes</label><input type="text" id="subEntryNotes" placeholder="Optional" /></div>
-                            <button class="btn-primary" style="height:40px;" onclick="logSubHours()">Log</button>
+                        <div class="panel">
+                            <h2>Accounts Payable</h2>
+                            <table>
+                                <thead><tr><th>Vendor</th><th>Total Owed</th><th>Next Due</th></tr></thead>
+                                <tbody id="apTable"></tbody>
+                            </table>
                         </div>
-                        <table class="data-table" id="subEntriesTable" style="margin-top:15px;"><thead><tr><th>Date</th><th>Job</th><th>Customer</th><th>Hours</th><th>Rate</th><th>Cost</th><th>Notes</th><th class="no-sort"></th></tr></thead><tbody id="subEntriesBody"></tbody></table>
-                    </div>
-                </div>
-
-                <!-- ═══ EQUIPMENT ═══ -->
-                <div id="equipmentView" style="display:none;">
-                    <div class="page-header"><h1>Equipment</h1></div>
-                    <div class="card" style="background:#1e293b; margin-bottom:20px;">
-                        <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:16px; font-weight:600;">Add Equipment</h3>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Customer</label><select id="equipCustomerSelect"></select></div>
-                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Type</label><input type="text" id="equipType" placeholder="AC Unit" /></div>
-                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Brand</label><input type="text" id="equipBrand" placeholder="Carrier" /></div>
-                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Model #</label><input type="text" id="equipModel" /></div>
-                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Serial #</label><input type="text" id="equipSerial" /></div>
-                            <div class="form-group" style="min-width:110px; margin-bottom:0;"><label>Install Date</label><input type="date" id="equipInstallDate" /></div>
-                            <div class="form-group" style="min-width:110px; margin-bottom:0;"><label>Warranty Exp</label><input type="date" id="equipWarrantyExp" /></div>
-                            <button class="btn-primary" style="height:40px;" onclick="addEquipment()">Add</button>
-                        </div>
-                    </div>
-                    <table class="data-table" id="equipTable"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Customer</th><th>Installed</th><th>Warranty</th><th>Registered</th><th class="no-sort">Actions</th></tr></thead><tbody id="equipBody"></tbody></table>
-                </div>
-
-                <!-- ═══ PM TRACKER ═══ -->
-                <div id="pmView" style="display:none;">
-                    <div class="page-header"><h1>PM Tracker</h1></div>
-                    <table class="data-table" id="pmTable"><thead><tr><th>Customer</th><th>Last PM Date</th><th>Last Job #</th><th>Job Type</th><th>Total PMs</th><th>Days Since</th><th>Status</th></tr></thead><tbody id="pmBody"></tbody></table>
-                </div>
-
-                <!-- ═══ AP ═══ -->
-                <div id="apView" style="display:none;">
-                    <div class="page-header"><h1>Accounts Payable</h1></div>
-                    <div class="card" style="background:#1e293b;">
-                        <h3>Add Bill</h3>
-                        <div style="display:flex; gap:10px; align-items:center;"><select id="vendorSelect"></select><button class="btn-secondary" onclick="toggleNewVendor()">+ New Vendor</button></div>
-                        <div id="newVendorSection" style="display:none; margin-top:10px;"><input type="text" id="newVendorName" placeholder="Vendor Name" /><button class="btn-secondary" onclick="addVendor()">Save Vendor</button></div>
-                        <div style="display:flex; gap:10px; margin-top:15px; align-items:center;"><input type="number" id="billAmount" placeholder="Amount" /><input type="number" id="billTotalAmount" placeholder="Total Invoice Amount" /><input type="date" id="billDueDate" /><button class="btn-primary" onclick="addBill()">Add Bill</button></div>
                     </div>
                     <div class="panel" style="margin-top:20px;">
-                        <h3 style="margin-bottom:12px;">Vendors Owed</h3>
-                        <table class="data-table" id="apMainTable"><thead><tr><th>Vendor</th><th>Total Invoices</th><th>Amount Due Now</th><th>Next Due</th></tr></thead><tbody id="apBody"></tbody></table>
-                        <div id="vendorDetail" style="display:none; margin-top:20px; padding-top:16px; border-top:1px solid #334155;">
-                            <h3 id="vendorDetailTitle" style="margin-bottom:10px;"></h3>
-                            <table class="data-table" id="vendorBillsTable"><thead><tr><th>Owed Now</th><th>Total Invoice</th><th>Due Date</th><th class="no-sort">Actions</th></tr></thead><tbody id="vendorBillsBody"></tbody></table>
-                        </div>
+                        <h2>Open Work Orders</h2>
+                        <table class="data-table">
+                            <thead><tr><th>Job #</th><th>Customer</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead>
+                            <tbody id="openWoBody"></tbody>
+                        </table>
                     </div>
                 </div>
 
-                <!-- ═══ PRICING CALCULATOR ═══ -->
-                <!-- ═══ WARRANTY CLAIMS ═══ -->
-                <div id="warrantyView" style="display:none;">
+                <!-- CUSTOMERS -->
+                <div id="customersView" style="display:none;">
                     <div class="page-header">
-                        <h1>Warranty Claims</h1>
-                        <div style="display:flex; gap:8px; align-items:center;">
-                            <label style="font-size:12px; color:#64748b; display:flex; align-items:center; gap:4px;">
-                                <input type="checkbox" id="warrantyShowClosed" onchange="loadWarrantyClaims()" /> Show closed
-                            </label>
-                            <button class="btn-secondary" onclick="showNewClaimForm()">+ New Claim</button>
-                        </div>
+                        <h1>Customers</h1>
                     </div>
 
-                    <!-- New Claim Form -->
-                    <div id="newClaimForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
-                        <h3 style="margin-bottom:12px; color:#e2e8f0; font-size:15px; font-weight:600;">New Warranty Claim</h3>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                            <div class="form-group" style="margin-bottom:0;"><label>Part Name *</label><input type="text" id="wcPartName" placeholder="Compressor, TXV, etc." /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Part Model #</label><input type="text" id="wcPartModel" /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Unit Model #</label><input type="text" id="wcUnitModel" /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Unit Serial #</label><input type="text" id="wcUnitSerial" /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Original Job #</label><input type="text" id="wcJobNumber" /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Customer Name</label><input type="text" id="wcCustomer" placeholder="Auto-fills from job #" /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Supplier</label><input type="text" id="wcSupplier" placeholder="Johnstone, United, etc." /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Manufacturer</label><input type="text" id="wcManufacturer" placeholder="Carrier, Trane, etc." /></div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Claim Type</label>
-                                <select id="wcClaimType"><option value="Replacement">Replacement</option><option value="Credit">Credit</option></select>
-                            </div>
-                            <div class="form-group" style="margin-bottom:0;"><label>Initial Note</label><input type="text" id="wcNote" placeholder="Details..." /></div>
-                        </div>
-                        <div style="margin-top:12px; display:flex; gap:8px;">
-                            <button class="btn-primary" onclick="createWarrantyClaim()">Create Claim</button>
-                            <button class="btn-secondary" onclick="hideNewClaimForm()">Cancel</button>
-                        </div>
+                    <div class="tabs">
+                        <button class="tab active" onclick="setCustomerTab('all')">All</button>
+                        <button class="tab" onclick="setCustomerTab('balance')">With Balance</button>
+                        <button class="tab" onclick="setCustomerTab('overdue')">Overdue</button>
                     </div>
 
-                    <!-- Claims Table -->
-                    <div id="warrantyTableWrap"></div>
+                    <table id="customerTable">
+                        <thead>
+                            <tr>
+                                <th>Customer</th><th>Total</th>
+                                <th>0-30</th><th>31-60</th><th>61-90</th><th>90+</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customerTableBody"></tbody>
+                    </table>
                 </div>
 
-                <!-- Warranty Detail Modal -->
-                <div class="modal hidden" id="warrantyModal">
-                    <div class="modal-content" style="width:650px; max-height:90vh; overflow-y:auto;">
-                        <div class="modal-header">
-                            <h2 id="wmTitle">Warranty Claim</h2>
-                            <button class="modal-close" onclick="closeWarrantyModal()">✕</button>
+                <!-- AP VIEW -->
+                <div id="apView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Accounts Payable</h1>
+                    </div>
+
+                    <div class="card" style="background: white; color: #111;">
+                        <h3>Add Bill</h3>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <select id="vendorSelect"></select>
+                            <button class="btn-secondary" onclick="toggleNewVendor()">+ New Vendor</button>
                         </div>
-                        <div class="modal-body">
-                            <!-- Status Pipeline -->
-                            <div id="wmPipeline" style="margin-bottom:16px;"></div>
 
-                            <!-- Details Grid -->
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; font-size:13px;">
-                                <div><span class="muted">Part:</span> <span id="wmPart" class="bold"></span></div>
-                                <div><span class="muted">Part Model:</span> <span id="wmPartModel"></span></div>
-                                <div><span class="muted">Unit Model:</span> <span id="wmUnitModel"></span></div>
-                                <div><span class="muted">Unit Serial:</span> <span id="wmUnitSerial"></span></div>
-                                <div><span class="muted">Customer:</span> <span id="wmCustomer"></span></div>
-                                <div><span class="muted">Original Job:</span> <span id="wmJob"></span></div>
-                                <div><span class="muted">Supplier:</span> <span id="wmSupplier"></span></div>
-                                <div><span class="muted">Manufacturer:</span> <span id="wmManufacturer"></span></div>
-                                <div><span class="muted">RMA #:</span> <span id="wmRma"></span></div>
-                                <div><span class="muted">Type:</span> <span id="wmType"></span></div>
-                                <div><span class="muted">ETA:</span> <span id="wmEta"></span></div>
-                                <div><span class="muted">Return Job:</span> <span id="wmReturnJob"></span></div>
-                            </div>
+                        <div id="newVendorSection" style="display:none; margin-top:10px;">
+                            <input type="text" id="newVendorName" placeholder="Vendor Name" />
+                            <button class="btn-secondary" onclick="addVendor()">Save Vendor</button>
+                        </div>
 
-                            <!-- Quick Update Fields -->
-                            <div class="profile-section">
-                                <h3>Update Details</h3>
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                                    <div class="form-group" style="margin-bottom:0;"><label>RMA Number</label><input type="text" id="wmEditRma" /></div>
-                                    <div class="form-group" style="margin-bottom:0;"><label>Expected Ship Date</label><input type="date" id="wmEditEta" /></div>
-                                    <div class="form-group" style="margin-bottom:0;"><label>Return Job #</label><input type="text" id="wmEditReturnJob" /></div>
-                                    <div class="form-group" style="margin-bottom:0;"><label>Credit Amount</label><input type="number" id="wmEditCredit" step="0.01" /></div>
-                                </div>
-                                <button class="btn-primary" style="margin-top:8px; font-size:13px; padding:6px 16px;" onclick="updateWarrantyDetails()">Save Changes</button>
-                            </div>
+                        <div style="display:flex; gap:10px; margin-top:15px; align-items:center;">
+                            <input type="number" id="billAmount" placeholder="Amount" />
+                            <input type="number" id="billTotalAmount" placeholder="Total Invoice Amount" />
+                            <input type="date" id="billDueDate" />
+                            <button class="btn-primary" onclick="addBill()">Add Bill</button>
+                        </div>
+                    </div>
 
-                            <!-- Advance Status -->
-                            <div class="profile-section">
-                                <h3>Change Status</h3>
-                                <div style="display:flex; gap:6px; flex-wrap:wrap;" id="wmStatusButtons"></div>
-                            </div>
+                    <div class="card" style="background: white; color: #111; margin-top: 20px;">
+                        <h3>Vendors Owed</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Vendor</th><th>Total Invoices</th>
+                                    <th>Amount Due Now</th><th>Next Due</th>
+                                </tr>
+                            </thead>
+                            <tbody id="apTableBody"></tbody>
+                        </table>
 
-                            <!-- Notes -->
-                            <div class="profile-section">
-                                <h3>Notes</h3>
-                                <div style="display:flex; gap:8px; margin-bottom:12px;">
-                                    <input type="text" id="wmNoteInput" placeholder="Add a note..." style="flex:1; padding:8px 12px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px;" onkeydown="if(event.key==='Enter') addWarrantyNote()" />
-                                    <button class="btn-primary" style="padding:8px 16px; font-size:13px;" onclick="addWarrantyNote()">Add</button>
-                                </div>
-                                <div id="wmNotesList"></div>
-                            </div>
-
-                            <div style="margin-top:16px; padding-top:16px; border-top:1px solid #334155;">
-                                <button class="btn-table btn-danger-text" onclick="deleteWarrantyClaim()">Delete Claim</button>
-                            </div>
+                        <div id="vendorDetail" style="display:none; margin-top:20px;">
+                            <h3 id="vendorDetailTitle"></h3>
+                            <table>
+                                <thead>
+                                    <tr><th>Owed Now</th><th>Total Invoice</th><th>Due Date</th><th>Actions</th></tr>
+                                </thead>
+                                <tbody id="vendorBillsTable"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <div id="pricingView" style="display:none;">
-                    <div class="page-header"><h1>Pricing Calculator</h1></div>
-                    <p style="font-size:14px; color:#94a3b8; margin-bottom:20px;">Enter your cost to see auto-tiered and custom pricing side by side.</p>
-
-                    <!-- Cost Input Bar -->
-                    <div class="card" style="background:#1e293b; margin-bottom:20px;">
-                        <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
-                            <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;">
-                                <label>Item Cost ($)</label>
-                                <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calculateAllPricing()" />
-                            </div>
-                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:#94a3b8; user-select:none;">
-                                <input type="checkbox" id="ccToggle" checked onchange="calculateAllPricing()" style="width:18px; height:18px; accent-color:var(--accent);" />
-                                Include 2.5% CC Surcharge
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Two Panels -->
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-
-                        <!-- Auto-Tiered Panel -->
-                        <div class="card" style="background:#1e293b;">
-                            <h3 style="color:#e2e8f0; font-size:16px; font-weight:700; margin-bottom:2px;">Auto-Tiered Markup</h3>
-                            <p style="font-size:12px; color:#64748b; margin-bottom:16px;">Based on your standard markup tiers</p>
-                            <div id="autoTieredResult">
-                                <div class="pricing-row"><span>Cost</span><span id="atCost">—</span></div>
-                                <div class="pricing-row"><span>Multiplier</span><span id="atMultiplier">—</span></div>
-                                <div class="pricing-row"><span>Markup %</span><span id="atMarkupPct">—</span></div>
-                                <div class="pricing-row"><span>Base Price</span><span id="atBase">—</span></div>
-                                <div class="pricing-row"><span>CC Surcharge (2.5%)</span><span id="atCC">—</span></div>
-                                <div class="pricing-row highlight"><span>Sell Price</span><span id="atSell">—</span></div>
-                                <div class="pricing-row"><span>Gross Profit</span><span id="atProfit" style="color:#4ade80;">—</span></div>
-                                <div class="pricing-row"><span>Margin</span><span id="atMargin" style="color:#4ade80;">—</span></div>
-                            </div>
-                            <div style="margin-top:20px;">
-                                <p style="font-size:12px; color:#64748b; margin-bottom:8px; font-weight:600;">Markup Tiers Reference</p>
-                                <table style="width:100%; font-size:12px; color:#94a3b8;">
-                                    <tr style="color:#64748b;"><td style="padding:4px 0;"><strong>Cost Range</strong></td><td><strong>Multiplier</strong></td><td><strong>Markup %</strong></td></tr>
-                                    <tr><td style="padding:3px 0;">Under $5</td><td>8x</td><td>700%</td></tr>
-                                    <tr><td style="padding:3px 0;">$5 &ndash; $10</td><td>6x</td><td>500%</td></tr>
-                                    <tr><td style="padding:3px 0;">$10 &ndash; $50</td><td>4x</td><td>300%</td></tr>
-                                    <tr><td style="padding:3px 0;">$50 &ndash; $100</td><td>2.5x</td><td>150%</td></tr>
-                                    <tr><td style="padding:3px 0;">Over $100</td><td>1.75x</td><td>75%</td></tr>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Custom Markup Panel -->
-                        <div class="card" style="background:#1e293b;">
-                            <h3 style="color:#e2e8f0; font-size:16px; font-weight:700; margin-bottom:2px;">Custom Markup</h3>
-                            <p style="font-size:12px; color:#64748b; margin-bottom:16px;">Enter a percentage or multiplier</p>
-                            <div style="display:flex; gap:10px; align-items:flex-end; margin-bottom:12px;">
-                                <div class="form-group" style="flex:1; margin-bottom:0;">
-                                    <label>Markup %</label>
-                                    <input type="number" id="customMarkupPct" step="1" placeholder="150" oninput="customFromPct()" />
-                                </div>
-                                <span style="color:#64748b; padding-bottom:10px;">or</span>
-                                <div class="form-group" style="flex:1; margin-bottom:0;">
-                                    <label>Multiplier</label>
-                                    <input type="number" id="customMultiplier" step="0.01" placeholder="2.50" oninput="customFromMult()" />
-                                </div>
-                            </div>
-                            <div style="margin-bottom:16px;">
-                                <p style="font-size:12px; color:#64748b; margin-bottom:6px;">Quick Presets</p>
-                                <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                                    <button class="preset-btn" onclick="setCustomPreset(1.75, 75)">1.75x / 75%</button>
-                                    <button class="preset-btn" onclick="setCustomPreset(2, 100)">2x / 100%</button>
-                                    <button class="preset-btn" onclick="setCustomPreset(2.5, 150)">2.5x / 150%</button>
-                                    <button class="preset-btn" onclick="setCustomPreset(3, 200)">3x / 200%</button>
-                                    <button class="preset-btn" onclick="setCustomPreset(4, 300)">4x / 300%</button>
-                                </div>
-                            </div>
-                            <div id="customResult">
-                                <div class="pricing-row"><span>Cost</span><span id="cmCost">—</span></div>
-                                <div class="pricing-row"><span>Multiplier</span><span id="cmMultiplier">—</span></div>
-                                <div class="pricing-row"><span>Markup %</span><span id="cmMarkupPct">—</span></div>
-                                <div class="pricing-row"><span>Base Price</span><span id="cmBase">—</span></div>
-                                <div class="pricing-row"><span>CC Surcharge (2.5%)</span><span id="cmCC">—</span></div>
-                                <div class="pricing-row highlight"><span>Sell Price</span><span id="cmSell">—</span></div>
-                                <div class="pricing-row"><span>Gross Profit</span><span id="cmProfit" style="color:#4ade80;">—</span></div>
-                                <div class="pricing-row"><span>Margin</span><span id="cmMargin" style="color:#4ade80;">—</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ═══ SETTINGS ═══ -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- ADMIN CENTER / SETTINGS                        -->
+                <!-- ═══════════════════════════════════════════════ -->
                 <div id="adminView" style="display:none;">
-                    <div class="page-header"><h1>Settings</h1></div>
+                    <div class="page-header">
+                        <h1>Settings</h1>
+                    </div>
 
-                    <!-- Theme -->
+                    <!-- Company Info -->
                     <div class="settings-section">
-                        <h2>Theme</h2>
+                        <h2>Company Information</h2>
                         <div class="settings-card">
-                            <p style="font-size:13px; color:#94a3b8; margin-bottom:14px;">Choose your accent color</p>
-                            <div class="theme-picker" id="themePicker">
-                                <button class="theme-swatch" data-theme="red" style="background:#dc2626;" title="Red"></button>
-                                <button class="theme-swatch" data-theme="blue" style="background:#2563eb;" title="Blue"></button>
-                                <button class="theme-swatch" data-theme="green" style="background:#16a34a;" title="Green"></button>
-                                <button class="theme-swatch" data-theme="purple" style="background:#9333ea;" title="Purple"></button>
-                                <button class="theme-swatch" data-theme="orange" style="background:#ea580c;" title="Orange"></button>
-                                <button class="theme-swatch" data-theme="teal" style="background:#0d9488;" title="Teal"></button>
-                                <button class="theme-swatch" data-theme="pink" style="background:#db2777;" title="Pink"></button>
-                                <button class="theme-swatch" data-theme="amber" style="background:#d97706;" title="Amber"></button>
+                            <div class="form-group">
+                                <label>Company Name</label>
+                                <input type="text" id="adminCompanyName" />
                             </div>
+                            <div class="form-group">
+                                <label>Credit Card Fee %</label>
+                                <input type="number" id="adminCcFee" step="0.1" />
+                            </div>
+                            <button class="btn-primary" onclick="saveCompanySettings()">Save Changes</button>
                         </div>
                     </div>
 
-                    <div class="settings-section"><h2>Company Information</h2><div class="settings-card"><div class="form-group"><label>Company Name</label><input type="text" id="adminCompanyName" /></div><div class="form-group"><label>Credit Card Fee %</label><input type="number" id="adminCcFee" step="0.1" /></div><button class="btn-primary" onclick="saveCompanySettings()">Save Changes</button></div></div>
-                    <div class="settings-section"><h2>ServiceTitan Connection</h2><div class="settings-card"><div id="stConnectionStatus" class="connection-badge">Checking...</div><div class="form-group"><label>Tenant ID</label><input type="text" id="adminStTenantId" /></div><div class="form-group"><label>Client ID</label><input type="text" id="adminStClientId" placeholder="Enter new value to update" /></div><div class="form-group"><label>Client Secret</label><input type="password" id="adminStClientSecret" placeholder="Enter new value to update" /></div><div class="form-group"><label>Application Key</label><input type="text" id="adminStAppKey" placeholder="Enter new value to update" /></div><div style="display:flex; gap:10px;"><button class="btn-primary" onclick="saveServiceTitanSettings()">Save Credentials</button><button class="btn-secondary" onclick="testServiceTitanConnection()">Test Connection</button></div><div id="stTestResult" class="hidden" style="margin-top:15px;"></div></div></div>
-                    <div class="settings-section"><h2>Sync Settings</h2><div class="settings-card"><div class="form-group"><label><input type="checkbox" id="adminAutoSync" /> Enable automatic syncing</label></div><div class="form-group"><label>Sync Interval (minutes)</label><input type="number" id="adminSyncInterval" min="15" max="1440" /></div><div id="lastSyncInfo" class="sync-info"></div><button class="btn-primary" onclick="saveSyncSettings()">Save Sync Settings</button></div></div>
-                    <div class="settings-section"><h2>Your Account</h2><div class="settings-card"><div class="form-group"><label>Current Password</label><input type="password" id="adminCurrentPw" /></div><div class="form-group"><label>New Password</label><input type="password" id="adminNewPw" placeholder="At least 8 characters" /></div><button class="btn-primary" onclick="changePassword()">Update Password</button></div></div>
-                    <div class="settings-section"><h2>Users</h2><div class="settings-card"><div class="add-user-form"><h3 style="margin-bottom:12px; font-size:15px; color:#e2e8f0;">Add New User</h3><div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;"><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Full Name</label><input type="text" id="newUserName" placeholder="Jane Smith" /></div><div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Email</label><input type="email" id="newUserEmail" placeholder="jane@company.com" /></div><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Password</label><input type="password" id="newUserPassword" placeholder="Min 8 characters" /></div><button class="btn-primary" style="height:40px;" onclick="createUser()">Add User</button></div></div><hr style="border:none; border-top:1px solid #334155; margin:20px 0;" />
-                        <table class="data-table" id="usersTable"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th class="no-sort">Actions</th></tr></thead><tbody id="usersBody"></tbody></table>
-                    </div></div>
+                    <!-- ServiceTitan -->
+                    <div class="settings-section">
+                        <h2>ServiceTitan Connection</h2>
+                        <div class="settings-card">
+                            <div id="stConnectionStatus" class="connection-badge">
+                                Checking...
+                            </div>
+
+                            <div class="form-group">
+                                <label>Tenant ID</label>
+                                <input type="text" id="adminStTenantId" />
+                            </div>
+                            <div class="form-group">
+                                <label>Client ID</label>
+                                <input type="text" id="adminStClientId" placeholder="Enter new value to update" />
+                            </div>
+                            <div class="form-group">
+                                <label>Client Secret</label>
+                                <input type="password" id="adminStClientSecret" placeholder="Enter new value to update" />
+                            </div>
+                            <div class="form-group">
+                                <label>Application Key</label>
+                                <input type="text" id="adminStAppKey" placeholder="Enter new value to update" />
+                            </div>
+
+                            <div style="display:flex; gap:10px;">
+                                <button class="btn-primary" onclick="saveServiceTitanSettings()">Save Credentials</button>
+                                <button class="btn-secondary" onclick="testServiceTitanConnection()">Test Connection</button>
+                            </div>
+
+                            <div id="stTestResult" class="hidden" style="margin-top:15px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Sync Settings -->
+                    <div class="settings-section">
+                        <h2>Sync Settings</h2>
+                        <div class="settings-card">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="adminAutoSync" />
+                                    Enable automatic syncing
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>Sync Interval (minutes)</label>
+                                <input type="number" id="adminSyncInterval" min="15" max="1440" />
+                            </div>
+                            <div id="lastSyncInfo" class="sync-info"></div>
+                            <button class="btn-primary" onclick="saveSyncSettings()">Save Sync Settings</button>
+                        </div>
+                    </div>
+
+                    <!-- Account -->
+                    <div class="settings-section">
+                        <h2>Your Account</h2>
+                        <div class="settings-card">
+                            <div class="form-group">
+                                <label>Current Password</label>
+                                <input type="password" id="adminCurrentPw" />
+                            </div>
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <input type="password" id="adminNewPw" placeholder="At least 8 characters" />
+                            </div>
+                            <button class="btn-primary" onclick="changePassword()">Update Password</button>
+                        </div>
+                    </div>
+
+                    <!-- User Management -->
+                    <div class="settings-section">
+                        <h2>Users</h2>
+                        <div class="settings-card">
+
+                            <!-- Add User Form -->
+                            <div class="add-user-form">
+                                <h3 style="margin-bottom:12px; font-size:15px; color:#e2e8f0;">Add New User</h3>
+                                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                                    <div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;">
+                                        <label>Full Name</label>
+                                        <input type="text" id="newUserName" placeholder="Jane Smith" />
+                                    </div>
+                                    <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;">
+                                        <label>Email</label>
+                                        <input type="email" id="newUserEmail" placeholder="jane@company.com" />
+                                    </div>
+                                    <div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;">
+                                        <label>Password</label>
+                                        <input type="password" id="newUserPassword" placeholder="Min 8 characters" />
+                                    </div>
+                                    <button class="btn-primary" style="height:40px;" onclick="createUser()">Add User</button>
+                                </div>
+                            </div>
+
+                            <hr style="border:none; border-top:1px solid #334155; margin:20px 0;" />
+
+                            <!-- User List -->
+                            <table id="usersTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Status</th>
+                                        <th>Last Login</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
             </div>
+        </div>
+    </div>
+
+    <!-- CUSTOMER MODAL (shared) -->
+    <div class="modal hidden" id="customerModal">
+        <div class="modal-content">
+            <h2 id="modalTitle"></h2>
+            <div class="invoice-scroll">
+                <table>
+                    <thead>
+                        <tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr>
+                    </thead>
+                    <tbody id="invoiceBody"></tbody>
+                </table>
+            </div>
+            <button class="btn-secondary" onclick="closeModal()" style="margin-top:15px;">Close</button>
         </div>
     </div>
 
@@ -480,83 +445,6 @@
                 <button class="modal-close" onclick="document.getElementById('opsModal').classList.add('hidden')">✕</button>
             </div>
             <div class="modal-body" id="opsModalBody"></div>
-        </div>
-    </div>
-
-    <!-- CARD DETAIL MODAL -->
-    <div class="modal hidden" id="cardModal">
-        <div class="modal-content" style="width:550px;">
-            <div class="modal-header">
-                <h2 id="cardModalTitle">Job #</h2>
-                <button class="modal-close" onclick="closeCardModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div style="margin-bottom:16px;">
-                    <span class="muted">Customer:</span> <span id="cardModalCustomer" class="bold"></span>
-                    <br/><span class="muted">Added:</span> <span id="cardModalAdded"></span>
-                    <br/><span class="muted">Column:</span> <span id="cardModalColumn"></span>
-                </div>
-                <div class="profile-section">
-                    <h3>Notes</h3>
-                    <div style="display:flex; gap:8px; margin-bottom:12px;">
-                        <input type="text" id="cardNoteInput" placeholder="Add a note..." style="flex:1; padding:8px 12px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:13px;" onkeydown="if(event.key==='Enter') addCardNote()" />
-                        <button class="btn-primary" style="padding:8px 16px; font-size:13px;" onclick="addCardNote()">Add</button>
-                    </div>
-                    <div id="cardNotesList"></div>
-                </div>
-                <div style="margin-top:16px; padding-top:16px; border-top:1px solid #334155;">
-                    <button class="btn-table btn-danger-text" onclick="removeBoardCard()">Remove from Board</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- CUSTOMER PROFILE MODAL -->
-    <div class="modal hidden" id="customerModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="profileName">Customer</h2>
-                <button class="modal-close" onclick="closeModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <!-- Summary Cards -->
-                <div class="profile-grid">
-                    <div class="profile-card"><h3>Balance Owed</h3><div id="profileBalance" class="big-number">$0</div></div>
-                    <div class="profile-card"><h3>Work Orders</h3><div id="profileWoCount" class="big-number">0</div></div>
-                    <div class="profile-card"><h3>Last PM</h3><div id="profileLastPm" class="big-number" style="font-size:18px;">None</div></div>
-                </div>
-                <div id="profilePmSection"></div>
-
-                <!-- Contacts -->
-                <div class="profile-section">
-                    <h3>Contacts</h3>
-                    <div id="profileContacts"></div>
-                </div>
-
-                <!-- Locations -->
-                <div class="profile-section">
-                    <h3>Service Locations</h3>
-                    <div id="profileLocations"></div>
-                </div>
-
-                <!-- Work Orders -->
-                <div class="profile-section">
-                    <h3>Work Orders</h3>
-                    <table class="data-table" id="profileWoTable"><thead><tr><th>Job #</th><th>Type</th><th>Status</th><th>Created</th><th>Completed</th><th>Amount</th></tr></thead><tbody id="profileWoBody"></tbody></table>
-                </div>
-
-                <!-- Invoices -->
-                <div class="profile-section">
-                    <h3>Invoices</h3>
-                    <table class="data-table" id="profileInvTable"><thead><tr><th>Invoice #</th><th>Due</th><th>Total</th><th>Balance</th><th>Status</th></tr></thead><tbody id="profileInvBody"></tbody></table>
-                </div>
-
-                <!-- Equipment -->
-                <div class="profile-section">
-                    <h3>Equipment</h3>
-                    <div id="profileEquipment"></div>
-                </div>
-            </div>
         </div>
     </div>
 

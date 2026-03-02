@@ -437,9 +437,8 @@ namespace PatriotMechanical.API.Application.Services
 
         // ═══════════════════════════════════════════════════════════════
         // APPOINTMENTS + AUTO-BOARD
-        // Pulls appointments from ServiceTitan. Jobs with appointments
-        // on Hold or with multiple active appointments (tech requested
-        // return) auto-add to the "Need to Return" board column.
+        // Jobs with appointments on Hold or multiple active appointments
+        // auto-add to "Need to Return" board column.
         // ═══════════════════════════════════════════════════════════════
 
         public async Task SyncAppointmentsAndAutoBoardAsync()

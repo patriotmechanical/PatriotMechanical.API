@@ -17,6 +17,7 @@ namespace PatriotMechanical.API.Controllers
             _context = context;
         }
 
+        // GET /customers — list all with AR aging buckets
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -64,6 +65,7 @@ namespace PatriotMechanical.API.Controllers
             return Ok(result);
         }
 
+        // GET /customers/{id} — full customer profile
         [HttpGet("{id}")]
         public async Task<IActionResult> GetProfile(Guid id)
         {
@@ -73,59 +75,108 @@ namespace PatriotMechanical.API.Controllers
 
             if (customer == null) return NotFound();
 
+            // Contacts (phone/email)
             var contacts = await _context.CustomerContacts
                 .Where(c => c.CustomerId == id && c.Active)
                 .Select(c => new { c.Type, c.Value, c.Memo })
                 .ToListAsync();
 
+            // Service locations with their contacts
             var locations = await _context.CustomerLocations
                 .Where(l => l.CustomerId == id && l.Active)
                 .Include(l => l.Contacts)
                 .Select(l => new
                 {
-                    l.Name, l.Street, l.Unit, l.City, l.State, l.Zip,
-                    Contacts = l.Contacts.Where(c => c.Active).Select(c => new { c.Type, c.Value, c.Memo }).ToList()
+                    l.Name,
+                    l.Street,
+                    l.Unit,
+                    l.City,
+                    l.State,
+                    l.Zip,
+                    Contacts = l.Contacts
+                        .Where(c => c.Active)
+                        .Select(c => new { c.Type, c.Value, c.Memo })
+                        .ToList()
                 })
                 .ToListAsync();
 
+            // Invoices
             var invoices = await _context.Invoices
                 .Where(i => i.CustomerId == id)
                 .OrderByDescending(i => i.InvoiceDate)
-                .Select(i => new { i.InvoiceNumber, i.InvoiceDate, i.DueDate, i.TotalAmount, i.BalanceRemaining, i.Status })
+                .Select(i => new
+                {
+                    i.InvoiceNumber,
+                    i.InvoiceDate,
+                    i.DueDate,
+                    i.TotalAmount,
+                    i.BalanceRemaining,
+                    i.Status
+                })
                 .ToListAsync();
 
+            // Last 10 work orders
             var workOrders = await _context.WorkOrders
                 .Where(w => w.CustomerId == id)
                 .OrderByDescending(w => w.CreatedAt)
                 .Take(10)
-                .Select(w => new { w.JobNumber, w.Status, w.JobTypeName, w.CreatedAt, w.CompletedAt, w.TotalAmount })
+                .Select(w => new
+                {
+                    w.JobNumber,
+                    w.Status,
+                    w.JobTypeName,
+                    w.CreatedAt,
+                    w.CompletedAt,
+                    w.TotalAmount
+                })
                 .ToListAsync();
 
+            // Equipment on site
             var equipment = await _context.Equipment
                 .Where(e => e.CustomerId == id)
                 .OrderByDescending(e => e.InstallDate)
-                .Select(e => new { e.Type, e.Brand, e.ModelNumber, e.SerialNumber, e.InstallDate, e.WarrantyExpiration, e.WarrantyRegistered, e.Notes })
+                .Select(e => new
+                {
+                    e.Type,
+                    e.Brand,
+                    e.ModelNumber,
+                    e.SerialNumber,
+                    e.InstallDate,
+                    e.WarrantyExpiration,
+                    e.WarrantyRegistered,
+                    e.Notes
+                })
                 .ToListAsync();
 
+            // Last PM
             var pmKeywords = new[] { "maintenance", "tune up", "tune-up", "pm" };
             var lastPm = await _context.WorkOrders
-                .Where(w => w.CustomerId == id && w.JobTypeName != null &&
-                    pmKeywords.Any(k => w.JobTypeName.ToLower().Contains(k)) && w.CompletedAt != null)
+                .Where(w => w.CustomerId == id &&
+                    w.JobTypeName != null &&
+                    pmKeywords.Any(k => w.JobTypeName.ToLower().Contains(k)) &&
+                    w.CompletedAt != null)
                 .OrderByDescending(w => w.CompletedAt)
                 .Select(w => new { w.JobNumber, w.JobTypeName, w.CompletedAt })
                 .FirstOrDefaultAsync();
 
+            // Balance owed
             var balanceOwed = await _context.Invoices
                 .Where(i => i.CustomerId == id && i.BalanceRemaining > 0)
                 .SumAsync(i => i.BalanceRemaining);
 
             return Ok(new
             {
-                customer.Id, customer.Name, customer.ServiceTitanCustomerId,
-                BillingStreet = (string?)null,
-                Contacts = contacts, Locations = locations, Invoices = invoices,
-                WorkOrders = workOrders, Equipment = equipment,
-                LastPm = lastPm, BalanceOwed = balanceOwed
+                customer.Id,
+                customer.Name,
+                customer.ServiceTitanCustomerId,
+                BillingStreet = (string?)null,  // ST export doesn't sync billing addr separately yet
+                Contacts = contacts,
+                Locations = locations,
+                Invoices = invoices,
+                WorkOrders = workOrders,
+                Equipment = equipment,
+                LastPm = lastPm,
+                BalanceOwed = balanceOwed
             });
         }
     }

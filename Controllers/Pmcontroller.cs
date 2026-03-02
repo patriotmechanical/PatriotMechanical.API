@@ -11,7 +11,10 @@ namespace PatriotMechanical.API.Controllers
     public class PmController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private static readonly string[] PmKeywords = { "maintenance", "tune up", "tune-up", "pm" };
+
+        // Job type names that count as a PM
+        private static readonly string[] PmKeywords = 
+            { "maintenance", "tune up", "tune-up", "pm" };
 
         public PmController(AppDbContext context)
         {
@@ -38,6 +41,7 @@ namespace PatriotMechanical.API.Controllers
                     var lastJob = g.OrderByDescending(w => w.CompletedAt ?? w.CreatedAt).First();
                     var lastDate = lastJob.CompletedAt ?? lastJob.CreatedAt;
                     var daysSince = (DateTime.UtcNow - lastDate).Days;
+
                     return new
                     {
                         CustomerId = g.Key.CustomerId,

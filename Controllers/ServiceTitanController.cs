@@ -23,13 +23,6 @@ namespace PatriotMechanical.API.Controllers
             return Ok(new { message = "Full customer sync complete" });
         }
 
-        [HttpPost("sync/jobs")]
-        public async Task<IActionResult> SyncJobs()
-        {
-            await _syncEngine.SyncJobsAsync(fullSync: true);
-            return Ok(new { message = "Full job sync complete" });
-        }
-
         [HttpPost("sync/invoices")]
         public async Task<IActionResult> SyncInvoices()
         {
@@ -37,15 +30,18 @@ namespace PatriotMechanical.API.Controllers
             return Ok(new { message = "Invoice sync complete" });
         }
 
-        // Quick refresh - pulls recently modified jobs via list API
-        // This catches status changes (cancelled, completed, etc.) that
-        // the export continuation token may have already passed.
+        [HttpPost("sync/jobs")]
+        public async Task<IActionResult> SyncJobs()
+        {
+            await _syncEngine.SyncJobsAsync(fullSync: true);
+            return Ok(new { message = "Full job sync complete" });
+        }
+
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshRecent()
         {
             var updated = await _syncEngine.RefreshRecentJobsAsync(lookbackHours: 72);
 
-            // Appointment sync for auto-board (non-fatal if it fails)
             string apptMessage = "";
             try
             {
