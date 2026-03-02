@@ -125,11 +125,32 @@
                     <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)">
                         <span class="nav-icon">◉</span> Dashboard
                     </a>
+                    <a href="#" class="nav-link" onclick="showView('boardView', this)">
+                        <span class="nav-icon">▦</span> WO Board
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('todoView', this)">
+                        <span class="nav-icon">☑</span> To-Do
+                    </a>
                     <a href="#" class="nav-link" onclick="showView('customersView', this)">
                         <span class="nav-icon">◎</span> Customers
                     </a>
+                    <a href="#" class="nav-link" onclick="showView('subsView', this)">
+                        <span class="nav-icon">◆</span> Subcontractors
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('equipmentView', this)">
+                        <span class="nav-icon">▣</span> Equipment
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('warrantyView', this)">
+                        <span class="nav-icon">◇</span> Warranty
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('pmView', this)">
+                        <span class="nav-icon">⏱</span> PM Tracker
+                    </a>
                     <a href="#" class="nav-link" onclick="showView('apView', this)">
                         <span class="nav-icon">◈</span> AP
+                    </a>
+                    <a href="#" class="nav-link" onclick="showView('pricingView', this)">
+                        <span class="nav-icon">$</span> Pricing
                     </a>
                     <a href="#" class="nav-link" onclick="showView('adminView', this)">
                         <span class="nav-icon">⚙</span> Settings
@@ -277,6 +298,331 @@
                                 <tbody id="vendorBillsTable"></tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- WO BOARD                                        -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div id="boardView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Work Order Board</h1>
+                        <div>
+                            <button class="btn-primary" onclick="openAddCardModal()">+ Add Work Order</button>
+                            <button class="btn-secondary" onclick="openAddColumnModal()">+ Add Column</button>
+                        </div>
+                    </div>
+                    <div id="boardContainer" class="board-container"></div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- TO-DO LIST                                      -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div id="todoView" style="display:none;">
+                    <div class="page-header">
+                        <h1>To-Do List</h1>
+                    </div>
+                    <div class="card" style="margin-bottom:20px;">
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <div style="flex:2;">
+                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600;">Task</label>
+                                <input type="text" id="todoTitle" placeholder="What needs to be done?" />
+                            </div>
+                            <div style="flex:2;">
+                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600;">Description (optional)</label>
+                                <input type="text" id="todoDesc" placeholder="Additional details..." />
+                            </div>
+                            <button class="btn-primary" onclick="addTodo()" style="align-self:flex-end; height:40px;">Add</button>
+                        </div>
+                    </div>
+                    <div id="todoList"></div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- SUBCONTRACTORS                                  -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div id="subsView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Subcontractors</h1>
+                    </div>
+                    <div class="card" style="margin-bottom:20px;">
+                        <h3 style="text-align:center; margin-bottom:12px;">Add Subcontractor</h3>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <div style="flex:1;">
+                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Name</label>
+                                <input type="text" id="subName" placeholder="John Doe" />
+                            </div>
+                            <div style="flex:1;">
+                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Company</label>
+                                <input type="text" id="subCompany" placeholder="ABC Plumbing" />
+                            </div>
+                            <div style="flex:1;">
+                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Trade</label>
+                                <input type="text" id="subTrade" placeholder="Plumbing" />
+                            </div>
+                            <button class="btn-primary" onclick="addSubcontractor()" style="align-self:flex-end; height:40px;">Add</button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Name</th><th>Company</th><th>Trade</th><th>Total Hours</th><th>Total Cost</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="subsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- EQUIPMENT                                       -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div id="equipmentView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Equipment</h1>
+                    </div>
+                    <div class="card" style="margin-bottom:20px;">
+                        <h3 style="text-align:center; margin-bottom:12px;">Add Equipment</h3>
+                        <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Customer</label>
+                                <select id="equipCustomerSelect"></select>
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Type</label>
+                                <input type="text" id="equipType" placeholder="AC Unit" style="width:100px;" />
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Brand</label>
+                                <input type="text" id="equipBrand" placeholder="Carrier" style="width:100px;" />
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Model #</label>
+                                <input type="text" id="equipModel" placeholder="" style="width:80px;" />
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Serial #</label>
+                                <input type="text" id="equipSerial" placeholder="" style="width:100px;" />
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Install Date</label>
+                                <input type="date" id="equipInstall" />
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Warranty Exp</label>
+                                <input type="date" id="equipWarranty" />
+                            </div>
+                            <button class="btn-primary" onclick="addEquipment()" style="height:40px;">Add</button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Customer</th><th>Installed</th><th>Warranty</th><th>Registered</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody id="equipTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- WARRANTY CLAIMS                                 -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div id="warrantyView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Warranty Claims</h1>
+                        <div>
+                            <label style="font-size:12px; color:#94a3b8; margin-right:8px;">
+                                <input type="checkbox" id="showClosedWarranty" onchange="loadWarranty()" /> Show closed
+                            </label>
+                            <button class="btn-primary" onclick="openNewWarrantyForm()">+ New Claim</button>
+                        </div>
+                    </div>
+                    <div id="newWarrantyForm" class="card hidden" style="margin-bottom:20px;">
+                        <h3>New Warranty Claim</h3>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <input type="text" id="wPartName" placeholder="Part Name *" style="flex:1; min-width:150px;" />
+                            <input type="text" id="wCustomerName" placeholder="Customer" style="flex:1; min-width:150px;" />
+                            <input type="text" id="wJobNumber" placeholder="Job #" style="flex:1; min-width:100px;" />
+                            <input type="text" id="wSupplier" placeholder="Supplier" style="flex:1; min-width:120px;" />
+                            <input type="text" id="wRma" placeholder="RMA #" style="flex:1; min-width:100px;" />
+                            <select id="wType" style="flex:1; min-width:120px;">
+                                <option value="Replacement">Replacement</option>
+                                <option value="Repair">Repair</option>
+                                <option value="Credit">Credit</option>
+                            </select>
+                            <button class="btn-primary" onclick="createWarranty()">Create</button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Part</th><th>Customer</th><th>Job #</th><th>Supplier</th><th>RMA</th><th>Type</th><th>Status</th><th>ETA</th><th>Age</th></tr>
+                        </thead>
+                        <tbody id="warrantyTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- PM TRACKER                                      -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div id="pmView" style="display:none;">
+                    <div class="page-header">
+                        <h1>PM Tracker</h1>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>Customer</th><th>Last PM Date</th><th>Last Job #</th><th>Job Type</th><th>Total PMs</th><th>Days Since</th><th>Status</th></tr>
+                        </thead>
+                        <tbody id="pmTableBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- PRICING CALCULATOR                              -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div id="pricingView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Pricing Calculator</h1>
+                    </div>
+                    <p style="color:#94a3b8; margin-bottom:20px;">Enter your cost to see auto-tiered and custom pricing side by side.</p>
+
+                    <div class="card" style="margin-bottom:20px;">
+                        <div style="display:flex; align-items:center; gap:20px;">
+                            <div style="flex:1;">
+                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Item Cost ($)</label>
+                                <input type="number" id="pricingCost" placeholder="0.00" step="0.01" oninput="calculatePricing()" style="font-size:18px; text-align:center;" />
+                            </div>
+                            <label style="color:#94a3b8; font-size:13px; white-space:nowrap;">
+                                <input type="checkbox" id="pricingCcToggle" checked onchange="calculatePricing()" />
+                                Include 2.5% CC Surcharge
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                        <div class="card">
+                            <h3 style="text-align:center;">Auto-Tiered Markup</h3>
+                            <p style="text-align:center; font-size:12px; color:#64748b;">Based on your standard markup tiers</p>
+                            <div id="autoTierResults"></div>
+                            <div id="tierReference" style="margin-top:20px;"></div>
+                        </div>
+                        <div class="card">
+                            <h3 style="text-align:center;">Custom Markup</h3>
+                            <p style="text-align:center; font-size:12px; color:#64748b;">Enter a percentage or multiplier</p>
+                            <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                                <div style="flex:1;">
+                                    <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Markup %</label>
+                                    <input type="number" id="customMarkupPct" value="75" oninput="syncFromPct()" />
+                                </div>
+                                <span style="color:#64748b;">or</span>
+                                <div style="flex:1;">
+                                    <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Multiplier</label>
+                                    <input type="number" id="customMultiplier" value="1.75" step="0.01" oninput="syncFromMult()" />
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
+                                <span style="font-size:11px; color:#64748b;">Quick Presets</span>
+                                <button class="btn-sm" onclick="setCustomPreset(1.75, 75)">1.75x / 75%</button>
+                                <button class="btn-sm" onclick="setCustomPreset(2, 100)">2x / 100%</button>
+                                <button class="btn-sm" onclick="setCustomPreset(2.5, 150)">2.5x / 150%</button>
+                                <button class="btn-sm" onclick="setCustomPreset(3, 200)">3x / 200%</button>
+                                <button class="btn-sm" onclick="setCustomPreset(4, 300)">4x / 300%</button>
+                            </div>
+                            <div id="customResults"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- WARRANTY DETAIL MODAL                           -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="modal hidden" id="warrantyModal">
+                    <div class="modal-content" style="width:700px; max-height:85vh; overflow-y:auto;">
+                        <div class="modal-header">
+                            <h2 id="warrantyModalTitle">Warranty Claim</h2>
+                            <button class="modal-close" onclick="document.getElementById('warrantyModal').classList.add('hidden')">✕</button>
+                        </div>
+                        <div id="warrantyModalBody"></div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- BOARD CARD DETAIL MODAL                         -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="modal hidden" id="cardDetailModal">
+                    <div class="modal-content" style="width:500px;">
+                        <div class="modal-header">
+                            <h2 id="cardDetailTitle">Card Details</h2>
+                            <button class="modal-close" onclick="document.getElementById('cardDetailModal').classList.add('hidden')">✕</button>
+                        </div>
+                        <div id="cardDetailBody"></div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- ADD CARD MODAL                                  -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="modal hidden" id="addCardModal">
+                    <div class="modal-content" style="width:400px;">
+                        <div class="modal-header">
+                            <h2>Add Work Order to Board</h2>
+                            <button class="modal-close" onclick="document.getElementById('addCardModal').classList.add('hidden')">✕</button>
+                        </div>
+                        <div class="form-group">
+                            <label>Column</label>
+                            <select id="addCardColumn"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Job Number</label>
+                            <input type="text" id="addCardJob" placeholder="e.g. 80041" />
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="addCardCustomer" placeholder="e.g. HCA Houston" />
+                        </div>
+                        <button class="btn-primary btn-full" onclick="submitAddCard()">Add to Board</button>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- ADD COLUMN MODAL                                -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="modal hidden" id="addColumnModal">
+                    <div class="modal-content" style="width:350px;">
+                        <div class="modal-header">
+                            <h2>Add Column</h2>
+                            <button class="modal-close" onclick="document.getElementById('addColumnModal').classList.add('hidden')">✕</button>
+                        </div>
+                        <div class="form-group">
+                            <label>Column Name</label>
+                            <input type="text" id="addColumnName" placeholder="e.g. Waiting Inspection" />
+                        </div>
+                        <div class="form-group">
+                            <label>Color</label>
+                            <input type="color" id="addColumnColor" value="#2563eb" />
+                        </div>
+                        <button class="btn-primary btn-full" onclick="submitAddColumn()">Create Column</button>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- SUB DETAIL MODAL                                -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="modal hidden" id="subDetailModal">
+                    <div class="modal-content" style="width:600px; max-height:80vh; overflow-y:auto;">
+                        <div class="modal-header">
+                            <h2 id="subDetailTitle">Subcontractor</h2>
+                            <button class="modal-close" onclick="document.getElementById('subDetailModal').classList.add('hidden')">✕</button>
+                        </div>
+                        <div id="subDetailBody"></div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════ -->
+                <!-- CUSTOMER PROFILE MODAL                          -->
+                <!-- ═══════════════════════════════════════════════ -->
+                <div class="modal hidden" id="customerProfileModal">
+                    <div class="modal-content" style="width:800px; max-height:90vh; overflow-y:auto;">
+                        <div class="modal-header">
+                            <h2 id="customerProfileTitle">Customer</h2>
+                            <button class="modal-close" onclick="document.getElementById('customerProfileModal').classList.add('hidden')">✕</button>
+                        </div>
+                        <div id="customerProfileBody"></div>
                     </div>
                 </div>
 

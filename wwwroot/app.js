@@ -225,7 +225,7 @@ function enterApp() {
 // ═══════════════════════════════════════════════════════════════
 
 function showView(viewId, clickedLink) {
-    const views = ["dashboardPage", "customersView", "apView", "adminView"];
+    const views = ["dashboardPage", "customersView", "apView", "adminView", "boardView", "todoView", "subsView", "equipmentView", "warrantyView", "pmView", "pricingView"];
 
     views.forEach(v => {
         const el = document.getElementById(v);
@@ -234,7 +234,6 @@ function showView(viewId, clickedLink) {
 
     document.getElementById(viewId).style.display = "block";
 
-    // Update active nav link
     if (clickedLink) {
         document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active"));
         clickedLink.classList.add("active");
@@ -244,6 +243,13 @@ function showView(viewId, clickedLink) {
     if (viewId === "apView") { loadAp(); loadVendors(); }
     if (viewId === "dashboardPage") loadDashboard();
     if (viewId === "adminView") loadAdminSettings();
+    if (viewId === "boardView") loadBoard();
+    if (viewId === "todoView") loadTodos();
+    if (viewId === "subsView") loadSubcontractors();
+    if (viewId === "equipmentView") loadEquipment();
+    if (viewId === "warrantyView") loadWarranty();
+    if (viewId === "pmView") loadPm();
+    if (viewId === "pricingView") initPricing();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -407,7 +413,7 @@ function renderCustomers() {
                 <td>$${Number(c.days60).toLocaleString()}</td>
                 <td class="danger">$${Number(c.days90).toLocaleString()}</td>
             `;
-            row.onclick = () => loadCustomerDetail(c.id, c.name);
+            row.onclick = () => openCustomerProfile(c.id);
             tbody.appendChild(row);
         });
 }
@@ -949,6 +955,510 @@ function showError(elementId, msg) {
 
 function hideError(elementId) {
     document.getElementById(elementId).classList.add("hidden");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WO BOARD
+// ═══════════════════════════════════════════════════════════════
+
+async function loadBoard() {
+    const res = await api("/board");
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    const container = document.getElementById("boardContainer");
+    container.innerHTML = "";
+    data.forEach(col => {
+        const colEl = document.createElement("div");
+        colEl.className = "board-column";
+        colEl.dataset.columnId = col.id;
+        colEl.style.borderTopColor = col.color || "#475569";
+        colEl.innerHTML = `
+            <div class="board-column-header">
+                <span class="board-column-title">${col.name.toUpperCase()}</span>
+                <span class="board-column-count">${col.cards.length}</span>
+            </div>
+            <div class="board-cards" ondragover="event.preventDefault()" ondrop="dropCard(event, '${col.id}')">
+                ${col.cards.map(card => `
+                    <div class="board-card" draggable="true" ondragstart="dragCard(event, '${card.id}')" onclick="openCardDetail('${card.id}')">
+                        <div class="board-card-job">#${card.jobNumber}</div>
+                        <div class="board-card-customer">${card.customerName}</div>
+                        <div class="board-card-date">Added ${new Date(card.addedAt).toLocaleDateString()}</div>
+                        ${card.noteCount > 0 ? `<span class="board-card-notes">📄 ${card.noteCount}</span>` : ''}
+                    </div>
+                `).join("")}
+            </div>
+        `;
+        container.appendChild(colEl);
+    });
+}
+
+let draggedCardId = null;
+function dragCard(e, cardId) { draggedCardId = cardId; }
+async function dropCard(e, columnId) {
+    e.preventDefault();
+    if (!draggedCardId) return;
+    await api(`/board/cards/${draggedCardId}/move`, { method: "PUT", body: JSON.stringify({ columnId, sortOrder: 0 }) });
+    draggedCardId = null;
+    loadBoard();
+}
+
+async function openCardDetail(cardId) {
+    const res = await api(`/board/cards/${cardId}`);
+    if (!res || !res.ok) return;
+    const card = await res.json();
+    document.getElementById("cardDetailTitle").innerText = `#${card.jobNumber} — ${card.customerName}`;
+    let html = `<p style="color:#94a3b8; margin-bottom:15px;">Column: ${card.columnName || "—"}</p>`;
+    html += `<h4 style="margin-bottom:8px;">Notes</h4>`;
+    if (card.notes && card.notes.length > 0) {
+        card.notes.forEach(n => {
+            html += `<div style="background:#0f172a; padding:10px; border-radius:8px; margin-bottom:8px;">
+                <div style="font-size:11px; color:#64748b;">${n.author} — ${new Date(n.createdAt).toLocaleString()}</div>
+                <div style="color:#e2e8f0; margin-top:4px;">${n.text}</div>
+            </div>`;
+        });
+    } else {
+        html += `<p style="color:#475569;">No notes yet.</p>`;
+    }
+    html += `<div style="display:flex; gap:8px; margin-top:15px;">
+        <input type="text" id="cardNoteInput" placeholder="Add a note..." style="flex:1;" />
+        <button class="btn-primary" onclick="addCardNote('${cardId}')">Add</button>
+    </div>`;
+    html += `<button class="btn-secondary" onclick="deleteCard('${cardId}')" style="margin-top:15px; width:100%; color:#f87171;">Remove from Board</button>`;
+    document.getElementById("cardDetailBody").innerHTML = html;
+    document.getElementById("cardDetailModal").classList.remove("hidden");
+}
+
+async function addCardNote(cardId) {
+    const text = document.getElementById("cardNoteInput").value.trim();
+    if (!text) return;
+    await api(`/board/cards/${cardId}/notes`, { method: "POST", body: JSON.stringify({ text }) });
+    openCardDetail(cardId);
+}
+
+async function deleteCard(cardId) {
+    await api(`/board/cards/${cardId}`, { method: "DELETE" });
+    document.getElementById("cardDetailModal").classList.add("hidden");
+    loadBoard();
+}
+
+function openAddCardModal() {
+    loadBoard();
+    api("/board").then(async res => {
+        if (!res || !res.ok) return;
+        const cols = await res.json();
+        const sel = document.getElementById("addCardColumn");
+        sel.innerHTML = cols.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+    });
+    document.getElementById("addCardModal").classList.remove("hidden");
+}
+
+async function submitAddCard() {
+    const columnId = document.getElementById("addCardColumn").value;
+    const jobNumber = document.getElementById("addCardJob").value.trim();
+    const customerName = document.getElementById("addCardCustomer").value.trim();
+    if (!jobNumber || !customerName) { toast("Job # and customer required", "error"); return; }
+    await api("/board/cards", { method: "POST", body: JSON.stringify({ columnId, jobNumber, customerName }) });
+    document.getElementById("addCardModal").classList.add("hidden");
+    loadBoard();
+}
+
+function openAddColumnModal() {
+    document.getElementById("addColumnModal").classList.remove("hidden");
+}
+
+async function submitAddColumn() {
+    const name = document.getElementById("addColumnName").value.trim();
+    const color = document.getElementById("addColumnColor").value;
+    if (!name) { toast("Column name required", "error"); return; }
+    await api("/board/columns", { method: "POST", body: JSON.stringify({ name, color }) });
+    document.getElementById("addColumnModal").classList.add("hidden");
+    loadBoard();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TO-DO LIST
+// ═══════════════════════════════════════════════════════════════
+
+async function loadTodos() {
+    const res = await api("/todos");
+    if (!res || !res.ok) return;
+    const todos = await res.json();
+    const list = document.getElementById("todoList");
+    list.innerHTML = todos.map(t => `
+        <div class="todo-item${t.isComplete ? ' done' : ''}" style="display:flex; align-items:center; gap:12px; padding:12px 16px; background:#1e293b; border:1px solid #334155; border-radius:10px; margin-bottom:8px;">
+            <input type="checkbox" ${t.isComplete ? 'checked' : ''} onchange="toggleTodo('${t.id}')" />
+            <div style="flex:1;">
+                <div style="${t.isComplete ? 'text-decoration:line-through; color:#475569;' : 'color:#e2e8f0;'} font-weight:600;">${t.title}</div>
+                ${t.description ? `<div style="font-size:12px; color:#64748b;">${t.description}</div>` : ''}
+            </div>
+            <button onclick="deleteTodo('${t.id}')" style="background:none; border:none; color:#475569; cursor:pointer; font-size:18px;">✕</button>
+        </div>
+    `).join("");
+}
+
+async function addTodo() {
+    const title = document.getElementById("todoTitle").value.trim();
+    const description = document.getElementById("todoDesc").value.trim();
+    if (!title) return;
+    await api("/todos", { method: "POST", body: JSON.stringify({ title, description: description || null }) });
+    document.getElementById("todoTitle").value = "";
+    document.getElementById("todoDesc").value = "";
+    loadTodos();
+}
+
+async function toggleTodo(id) { await api(`/todos/${id}/toggle`, { method: "PUT" }); loadTodos(); }
+async function deleteTodo(id) { await api(`/todos/${id}`, { method: "DELETE" }); loadTodos(); }
+
+// ═══════════════════════════════════════════════════════════════
+// SUBCONTRACTORS
+// ═══════════════════════════════════════════════════════════════
+
+async function loadSubcontractors() {
+    const res = await api("/subcontractors");
+    if (!res || !res.ok) return;
+    const subs = await res.json();
+    const tbody = document.getElementById("subsTableBody");
+    tbody.innerHTML = subs.map(s => `
+        <tr>
+            <td>${s.name}</td><td>${s.company || "—"}</td><td>${s.trade || "—"}</td>
+            <td>${s.totalHours}</td><td>$${Number(s.totalCost).toLocaleString()}</td>
+            <td><button class="btn-sm" onclick="openSubDetail('${s.id}')">View</button></td>
+        </tr>
+    `).join("");
+}
+
+async function addSubcontractor() {
+    const name = document.getElementById("subName").value.trim();
+    const company = document.getElementById("subCompany").value.trim();
+    const trade = document.getElementById("subTrade").value.trim();
+    if (!name) { toast("Name required", "error"); return; }
+    await api("/subcontractors", { method: "POST", body: JSON.stringify({ name, company, trade }) });
+    document.getElementById("subName").value = "";
+    document.getElementById("subCompany").value = "";
+    document.getElementById("subTrade").value = "";
+    loadSubcontractors();
+}
+
+async function openSubDetail(id) {
+    const res = await api(`/subcontractors/${id}`);
+    if (!res || !res.ok) return;
+    const sub = await res.json();
+    document.getElementById("subDetailTitle").innerText = sub.name;
+    let html = `<p style="color:#94a3b8;">${sub.company || ""} — ${sub.trade || ""}</p>`;
+    html += `<h4 style="margin:15px 0 8px;">Log Hours</h4>`;
+    html += `<div style="display:flex; gap:8px; margin-bottom:15px;">
+        <input type="text" id="subEntryJob" placeholder="Job #" style="flex:1;" />
+        <input type="number" id="subEntryHours" placeholder="Hours" step="0.5" style="width:80px;" />
+        <input type="number" id="subEntryRate" placeholder="Rate/hr" step="1" style="width:80px;" />
+        <button class="btn-primary" onclick="addSubEntry('${id}')">Log</button>
+    </div>`;
+    html += `<table class="data-table"><thead><tr><th>Job #</th><th>Hours</th><th>Rate</th><th>Cost</th><th>Date</th></tr></thead><tbody>`;
+    if (sub.entries) {
+        sub.entries.forEach(e => {
+            html += `<tr><td>${e.jobNumber || "—"}</td><td>${e.hours}</td><td>$${e.rate}</td><td>$${(e.hours * e.rate).toFixed(2)}</td><td>${new Date(e.date).toLocaleDateString()}</td></tr>`;
+        });
+    }
+    html += `</tbody></table>`;
+    document.getElementById("subDetailBody").innerHTML = html;
+    document.getElementById("subDetailModal").classList.remove("hidden");
+}
+
+async function addSubEntry(subId) {
+    const jobNumber = document.getElementById("subEntryJob").value.trim();
+    const hours = parseFloat(document.getElementById("subEntryHours").value);
+    const rate = parseFloat(document.getElementById("subEntryRate").value);
+    if (!hours || !rate) { toast("Hours and rate required", "error"); return; }
+    await api(`/subcontractors/${subId}/entries`, { method: "POST", body: JSON.stringify({ jobNumber, hours, rate }) });
+    openSubDetail(subId);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EQUIPMENT
+// ═══════════════════════════════════════════════════════════════
+
+async function loadEquipment() {
+    const res = await api("/equipment");
+    if (!res || !res.ok) return;
+    const equip = await res.json();
+    const tbody = document.getElementById("equipTableBody");
+    tbody.innerHTML = equip.map(e => {
+        const installed = e.installDate ? new Date(e.installDate).toLocaleDateString() : "—";
+        const warranty = e.warrantyExpiration ? new Date(e.warrantyExpiration).toLocaleDateString() : "—";
+        return `<tr>
+            <td>${e.type || "—"}</td><td>${e.brand || "—"}</td><td>${e.modelNumber || "—"}</td><td>${e.serialNumber || "—"}</td>
+            <td>${e.customerName || "—"}</td><td>${installed}</td><td>${warranty}</td>
+            <td>${e.isRegistered ? '<span style="color:#4ade80;">Yes ✓</span>' : '<span style="color:#f87171;">No</span>'}</td>
+            <td><button class="btn-sm" style="color:#f87171;" onclick="deleteEquipment('${e.id}')">Del</button></td>
+        </tr>`;
+    }).join("");
+
+    // Load customer dropdown for add form
+    const custRes = await api("/customers");
+    if (custRes && custRes.ok) {
+        const customers = await custRes.json();
+        const sel = document.getElementById("equipCustomerSelect");
+        sel.innerHTML = customers.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+    }
+}
+
+async function addEquipment() {
+    const customerId = document.getElementById("equipCustomerSelect").value;
+    const data = {
+        customerId, type: document.getElementById("equipType").value,
+        brand: document.getElementById("equipBrand").value, modelNumber: document.getElementById("equipModel").value,
+        serialNumber: document.getElementById("equipSerial").value,
+        installDate: document.getElementById("equipInstall").value || null,
+        warrantyExpiration: document.getElementById("equipWarranty").value || null
+    };
+    await api("/equipment", { method: "POST", body: JSON.stringify(data) });
+    loadEquipment();
+}
+
+async function deleteEquipment(id) { await api(`/equipment/${id}`, { method: "DELETE" }); loadEquipment(); }
+
+// ═══════════════════════════════════════════════════════════════
+// WARRANTY CLAIMS
+// ═══════════════════════════════════════════════════════════════
+
+async function loadWarranty() {
+    const showClosed = document.getElementById("showClosedWarranty")?.checked;
+    const res = await api("/warranty");
+    if (!res || !res.ok) return;
+    let claims = await res.json();
+    if (!showClosed) claims = claims.filter(c => c.status !== "Closed");
+    const tbody = document.getElementById("warrantyTableBody");
+    tbody.innerHTML = claims.map(c => {
+        const age = Math.floor((Date.now() - new Date(c.createdAt).getTime()) / 86400000);
+        const eta = c.eta ? new Date(c.eta).toLocaleDateString() : "—";
+        const statusColors = { Diagnosis: "#d97706", "Parts Ordered": "#ea580c", "Parts Received": "#2563eb", Scheduled: "#9333ea", Completed: "#16a34a", Closed: "#475569" };
+        const color = statusColors[c.status] || "#475569";
+        return `<tr onclick="openWarrantyModal('${c.id}')" style="cursor:pointer;">
+            <td><b>${c.partName}</b><br/><span style="font-size:11px; color:#64748b;">${c.description || ""}</span></td>
+            <td>${c.customerName || "—"}</td><td>${c.jobNumber || "—"}</td><td>${c.supplier || "—"}</td>
+            <td>${c.rmaNumber || "—"}</td><td>${c.type}</td>
+            <td><span style="background:${color}; color:white; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600;">${c.status}</span></td>
+            <td>${eta}</td><td>${age}d</td>
+        </tr>`;
+    }).join("");
+}
+
+function openNewWarrantyForm() {
+    document.getElementById("newWarrantyForm").classList.toggle("hidden");
+}
+
+async function createWarranty() {
+    const data = {
+        partName: document.getElementById("wPartName").value.trim(),
+        customerName: document.getElementById("wCustomerName").value.trim(),
+        jobNumber: document.getElementById("wJobNumber").value.trim(),
+        supplier: document.getElementById("wSupplier").value.trim(),
+        rmaNumber: document.getElementById("wRma").value.trim(),
+        type: document.getElementById("wType").value
+    };
+    if (!data.partName) { toast("Part name required", "error"); return; }
+    await api("/warranty", { method: "POST", body: JSON.stringify(data) });
+    document.getElementById("newWarrantyForm").classList.add("hidden");
+    loadWarranty();
+}
+
+async function openWarrantyModal(id) {
+    const res = await api(`/warranty/${id}`);
+    if (!res || !res.ok) return;
+    const c = await res.json();
+    document.getElementById("warrantyModalTitle").innerText = c.partName;
+    const statuses = ["Diagnosis", "Parts Ordered", "Parts Received", "Scheduled", "Completed", "Closed"];
+    const currentIdx = statuses.indexOf(c.status);
+    let pipeline = '<div style="display:flex; gap:4px; margin-bottom:20px;">';
+    statuses.forEach((s, i) => {
+        const active = i <= currentIdx;
+        pipeline += `<div style="flex:1; text-align:center; padding:6px 4px; border-radius:6px; font-size:10px; font-weight:600; cursor:pointer; background:${active ? '#2563eb' : '#1e293b'}; color:${active ? 'white' : '#475569'};" onclick="updateWarrantyStatus('${id}', '${s}')">${s}</div>`;
+    });
+    pipeline += '</div>';
+
+    let html = pipeline;
+    html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+        <div><span style="color:#64748b; font-size:11px;">Customer:</span> ${c.customerName || "—"}</div>
+        <div><span style="color:#64748b; font-size:11px;">Job #:</span> ${c.jobNumber || "—"}</div>
+        <div><span style="color:#64748b; font-size:11px;">Supplier:</span> ${c.supplier || "—"}</div>
+        <div><span style="color:#64748b; font-size:11px;">RMA:</span> ${c.rmaNumber || "—"}</div>
+        <div><span style="color:#64748b; font-size:11px;">Type:</span> ${c.type}</div>
+        <div><span style="color:#64748b; font-size:11px;">Created:</span> ${new Date(c.createdAt).toLocaleDateString()}</div>
+    </div>`;
+    html += `<h4 style="margin-bottom:8px;">Notes</h4>`;
+    if (c.notes && c.notes.length > 0) {
+        c.notes.forEach(n => {
+            html += `<div style="background:#0f172a; padding:10px; border-radius:8px; margin-bottom:6px;">
+                <div style="font-size:11px; color:#64748b;">${n.author || "—"} — ${new Date(n.createdAt).toLocaleString()}</div>
+                <div style="color:#e2e8f0; margin-top:4px;">${n.text}</div>
+            </div>`;
+        });
+    }
+    html += `<div style="display:flex; gap:8px; margin-top:12px;">
+        <input type="text" id="warrantyNoteInput" placeholder="Add a note..." style="flex:1;" />
+        <button class="btn-primary" onclick="addWarrantyNote('${id}')">Add</button>
+    </div>`;
+    document.getElementById("warrantyModalBody").innerHTML = html;
+    document.getElementById("warrantyModal").classList.remove("hidden");
+}
+
+async function updateWarrantyStatus(id, status) {
+    await api(`/warranty/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) });
+    openWarrantyModal(id);
+    loadWarranty();
+}
+
+async function addWarrantyNote(id) {
+    const text = document.getElementById("warrantyNoteInput").value.trim();
+    if (!text) return;
+    await api(`/warranty/${id}/notes`, { method: "POST", body: JSON.stringify({ text }) });
+    openWarrantyModal(id);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PM TRACKER
+// ═══════════════════════════════════════════════════════════════
+
+async function loadPm() {
+    const res = await api("/pm");
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    const tbody = document.getElementById("pmTableBody");
+    tbody.innerHTML = data.map(p => {
+        const daysSince = p.daysSinceLastPm;
+        let statusColor = "#4ade80", statusText = "OK";
+        if (daysSince >= 180) { statusColor = "#f87171"; statusText = "OVERDUE"; }
+        else if (daysSince >= 120) { statusColor = "#fb923c"; statusText = "DUE SOON"; }
+        return `<tr>
+            <td>${p.customerName}</td>
+            <td>${p.lastPmDate ? new Date(p.lastPmDate).toLocaleDateString() : "Never"}</td>
+            <td>${p.lastJobNumber || "—"}</td><td>${p.jobTypeName || "—"}</td><td>${p.totalPmJobs}</td>
+            <td>${daysSince} days</td>
+            <td><span style="background:${statusColor}; color:${daysSince >= 120 ? 'white' : '#111'}; padding:3px 12px; border-radius:12px; font-size:11px; font-weight:700;">${statusText}</span></td>
+        </tr>`;
+    }).join("");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PRICING CALCULATOR
+// ═══════════════════════════════════════════════════════════════
+
+const pricingTiers = [
+    { max: 5, mult: 8, pct: 700 }, { max: 10, mult: 6, pct: 500 }, { max: 25, mult: 4, pct: 300 },
+    { max: 50, mult: 3, pct: 200 }, { max: 100, mult: 2.5, pct: 150 }, { max: Infinity, mult: 1.75, pct: 75 }
+];
+
+function initPricing() { calculatePricing(); renderTierRef(); }
+
+function calculatePricing() {
+    const cost = parseFloat(document.getElementById("pricingCost")?.value) || 0;
+    const ccOn = document.getElementById("pricingCcToggle")?.checked;
+    const ccRate = ccOn ? 0.025 : 0;
+
+    // Auto tier
+    let tier = pricingTiers.find(t => cost < t.max) || pricingTiers[pricingTiers.length - 1];
+    const autoBase = cost * tier.mult;
+    const autoCc = autoBase * ccRate;
+    const autoSell = autoBase + autoCc;
+    const autoProfit = autoSell - cost;
+    const autoMargin = autoSell > 0 ? ((autoProfit / autoSell) * 100).toFixed(1) : "0.0";
+
+    const autoEl = document.getElementById("autoTierResults");
+    if (autoEl) autoEl.innerHTML = buildResultTable(cost, tier.mult, tier.pct, autoBase, autoCc, autoSell, autoProfit, autoMargin);
+
+    // Custom
+    const mult = parseFloat(document.getElementById("customMultiplier")?.value) || 1;
+    const pct = ((mult - 1) * 100).toFixed(1);
+    const customBase = cost * mult;
+    const customCc = customBase * ccRate;
+    const customSell = customBase + customCc;
+    const customProfit = customSell - cost;
+    const customMargin = customSell > 0 ? ((customProfit / customSell) * 100).toFixed(1) : "0.0";
+
+    const customEl = document.getElementById("customResults");
+    if (customEl) customEl.innerHTML = buildResultTable(cost, mult, pct, customBase, customCc, customSell, customProfit, customMargin);
+}
+
+function buildResultTable(cost, mult, pct, base, cc, sell, profit, margin) {
+    return `<table style="width:100%;"><tbody>
+        <tr><td style="padding:8px;">Cost</td><td style="text-align:right; padding:8px;">$${cost.toFixed(2)}</td></tr>
+        <tr><td style="padding:8px;">Multiplier</td><td style="text-align:right; padding:8px;">${mult.toFixed(2)}x</td></tr>
+        <tr><td style="padding:8px;">Markup %</td><td style="text-align:right; padding:8px;">${pct}%</td></tr>
+        <tr><td style="padding:8px;">Base Price</td><td style="text-align:right; padding:8px;">$${base.toFixed(2)}</td></tr>
+        ${cc > 0 ? `<tr><td style="padding:8px;">CC Surcharge (2.5%)</td><td style="text-align:right; padding:8px;">$${cc.toFixed(2)}</td></tr>` : ''}
+        <tr style="background:#dc2626;"><td style="padding:8px; font-weight:700;">Sell Price</td><td style="text-align:right; padding:8px; font-weight:700;">$${sell.toFixed(2)}</td></tr>
+        <tr><td style="padding:8px;">Gross Profit</td><td style="text-align:right; padding:8px; color:#4ade80;">$${profit.toFixed(2)}</td></tr>
+        <tr><td style="padding:8px;">Margin</td><td style="text-align:right; padding:8px; color:#4ade80;">${margin}%</td></tr>
+    </tbody></table>`;
+}
+
+function syncFromPct() {
+    const pct = parseFloat(document.getElementById("customMarkupPct").value) || 0;
+    document.getElementById("customMultiplier").value = (1 + pct / 100).toFixed(4);
+    calculatePricing();
+}
+
+function syncFromMult() {
+    const mult = parseFloat(document.getElementById("customMultiplier").value) || 1;
+    document.getElementById("customMarkupPct").value = ((mult - 1) * 100).toFixed(1);
+    calculatePricing();
+}
+
+function setCustomPreset(mult, pct) {
+    document.getElementById("customMultiplier").value = mult;
+    document.getElementById("customMarkupPct").value = pct;
+    calculatePricing();
+}
+
+function renderTierRef() {
+    const el = document.getElementById("tierReference");
+    if (!el) return;
+    const labels = ["Under $5", "$5 – $10", "$10 – $50", "$50 – $100", "Over $100"];
+    el.innerHTML = `<p style="text-align:center; font-size:12px; color:#64748b; margin-bottom:8px;">Markup Tiers Reference</p>
+        <table style="width:100%; font-size:13px;"><thead><tr><th>Cost Range</th><th>Multiplier</th><th>Markup %</th></tr></thead><tbody>
+        ${pricingTiers.slice(0, 5).map((t, i) => `<tr><td style="text-align:center; padding:6px;">${labels[i]}</td><td style="text-align:center; padding:6px;">${t.mult}x</td><td style="text-align:center; padding:6px;">${t.pct}%</td></tr>`).join("")}
+        </tbody></table>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CUSTOMER PROFILE
+// ═══════════════════════════════════════════════════════════════
+
+async function openCustomerProfile(id) {
+    const res = await api(`/customers/${id}`);
+    if (!res || !res.ok) return;
+    const c = await res.json();
+    document.getElementById("customerProfileTitle").innerText = c.name;
+    let html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
+        <div class="card"><h4 style="color:#64748b; font-size:11px; text-transform:uppercase;">Total Balance</h4><p style="font-size:24px; font-weight:800;">$${Number(c.totalBalance || 0).toLocaleString()}</p></div>
+        <div class="card"><h4 style="color:#64748b; font-size:11px; text-transform:uppercase;">Work Orders</h4><p style="font-size:24px; font-weight:800;">${c.workOrderCount || 0}</p></div>
+    </div>`;
+
+    if (c.contacts && c.contacts.length > 0) {
+        html += `<h4 style="margin-bottom:8px;">Contacts</h4>`;
+        c.contacts.forEach(ct => { html += `<div style="background:#0f172a; padding:8px 12px; border-radius:8px; margin-bottom:4px;">${ct.name || ""} ${ct.email ? '— ' + ct.email : ''} ${ct.phone ? '— ' + ct.phone : ''}</div>`; });
+        html += `<br/>`;
+    }
+
+    if (c.invoices && c.invoices.length > 0) {
+        html += `<h4 style="margin-bottom:8px;">Invoices</h4><table class="data-table"><thead><tr><th>Invoice</th><th>Date</th><th>Total</th><th>Balance</th></tr></thead><tbody>`;
+        c.invoices.forEach(inv => { html += `<tr><td>${inv.invoiceNumber || "—"}</td><td>${inv.date ? new Date(inv.date).toLocaleDateString() : "—"}</td><td>$${Number(inv.total || 0).toLocaleString()}</td><td>$${Number(inv.balance || 0).toLocaleString()}</td></tr>`; });
+        html += `</tbody></table><br/>`;
+    }
+
+    if (c.workOrders && c.workOrders.length > 0) {
+        html += `<h4 style="margin-bottom:8px;">Work Orders</h4><table class="data-table"><thead><tr><th>Job #</th><th>Status</th><th>Created</th></tr></thead><tbody>`;
+        c.workOrders.forEach(wo => { html += `<tr><td>${wo.jobNumber || "—"}</td><td>${wo.status || "—"}</td><td>${wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "—"}</td></tr>`; });
+        html += `</tbody></table><br/>`;
+    }
+
+    if (c.equipment && c.equipment.length > 0) {
+        html += `<h4 style="margin-bottom:8px;">Equipment</h4><table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody>`;
+        c.equipment.forEach(e => { html += `<tr><td>${e.type || "—"}</td><td>${e.brand || "—"}</td><td>${e.modelNumber || "—"}</td><td>${e.serialNumber || "—"}</td></tr>`; });
+        html += `</tbody></table>`;
+    }
+
+    document.getElementById("customerProfileBody").innerHTML = html;
+    document.getElementById("customerProfileModal").classList.remove("hidden");
 }
 
 function toast(message, type = "success") {
