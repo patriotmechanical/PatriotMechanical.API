@@ -53,10 +53,10 @@ public class DashboardController : ControllerBase
         var totalAr = ar.Sum(x => x.TotalOwed);
         var totalAp = ap.Sum(x => x.TotalOwed);
 
-        var excludedStatuses = new[] { "Completed", "Cancelled", "Canceled", "Cancelled", "canceled", "cancelled" };
-
         var openWorkOrders = await _context.WorkOrders
-            .Where(w => !excludedStatuses.Contains(w.Status))
+            .Where(w => w.Status != null
+                && !w.Status.ToLower().Contains("completed")
+                && !w.Status.ToLower().Contains("cancel"))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
@@ -72,41 +72,6 @@ public class DashboardController : ControllerBase
             })
             .ToListAsync();
 
-        // Board column counts with card details
-        var boardColumns = await _context.BoardColumns
-            .OrderBy(c => c.SortOrder)
-            .Select(c => new
-            {
-                c.Name,
-                c.Color,
-                Cards = c.Cards
-                    .Where(card => !isDemo || card.CustomerName.StartsWith("[DEMO]"))
-                    .Where(card => isDemo || !card.CustomerName.StartsWith("[DEMO]"))
-                    .Select(card => new { card.JobNumber, card.CustomerName })
-                    .ToList()
-            })
-            .ToListAsync();
-
-        // PM overdue count
-        var pmKeywords = new[] { "maintenance", "tune up", "tune-up", "pm" };
-        var pmCustomers = await _context.WorkOrders
-            .Where(w => w.JobTypeName != null && pmKeywords.Any(k => w.JobTypeName.ToLower().Contains(k)))
-            .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
-            .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
-            .Where(w => w.CompletedAt != null)
-            .Include(w => w.Customer)
-            .GroupBy(w => new { w.CustomerId, w.Customer.Name })
-            .Select(g => new
-            {
-                CustomerName = g.Key.Name,
-                LastPm = g.Max(w => w.CompletedAt),
-                JobNumber = g.OrderByDescending(w => w.CompletedAt).Select(w => w.JobNumber).FirstOrDefault()
-            })
-            .ToListAsync();
-
-        var now = DateTime.UtcNow;
-        var overduePms = pmCustomers.Where(p => p.LastPm == null || (now - p.LastPm.Value).TotalDays > 180).ToList();
-
         return Ok(new
         {
             TotalAR = totalAr,
@@ -114,9 +79,7 @@ public class DashboardController : ControllerBase
             NetPosition = totalAr - totalAp,
             AR = ar,
             AP = ap,
-            OpenWorkOrders = openWorkOrders,
-            BoardColumns = boardColumns,
-            OverduePms = overduePms
+            OpenWorkOrders = openWorkOrders
         });
     }
 }
