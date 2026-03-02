@@ -957,31 +957,29 @@ async function markPaid(id) { const res = await api(`/ap/pay/${id}`, { method: "
 // ═══════════════════════════════════════════════════════════════
 
 async function hardRefresh() {
-    const btn = document.getElementById("hardRefreshBtn"); btn.disabled = true; btn.innerText = "Syncing...";
+    const btn = document.getElementById("hardRefreshBtn");
+    btn.disabled = true;
+    btn.innerText = "Syncing...";
+
     try {
-        btn.innerText = "Syncing customers...";
-        await api("/servicetitan/sync/customers", { method: "POST" });
-        btn.innerText = "Syncing jobs...";
-        await api("/servicetitan/sync/jobs", { method: "POST" });
-        btn.innerText = "Syncing invoices...";
-        await api("/servicetitan/sync/invoices", { method: "POST" });
-        btn.innerText = "Syncing contacts...";
-        try {
-            const crmRes = await api("/crm/sync", { method: "POST" });
-            if (crmRes && crmRes.ok) {
-                const crmData = await crmRes.json();
-                console.log("CRM sync result:", crmData);
-            } else {
-                console.warn("CRM sync returned non-OK:", crmRes?.status);
-            }
-        } catch (crmErr) {
-            console.warn("CRM sync failed (non-fatal):", crmErr);
+        // Use the new /refresh endpoint that bypasses continuation tokens
+        // and fetches all recently modified jobs immediately via list API
+        const res = await api("/servicetitan/refresh", { method: "POST" });
+
+        if (res && res.ok) {
+            const data = await res.json();
+            await loadDashboard();
+            toast(`Synced — ${data.jobsUpdated} job(s) updated.`, "success");
+        } else {
+            toast("Sync failed.", "error");
         }
-        await loadDashboard();
-        toast("Data synced successfully.", "success");
+    } catch (err) {
+        console.error(err);
+        toast("Sync failed.", "error");
     }
-    catch (err) { console.error(err); toast("Sync failed.", "error"); }
-    btn.disabled = false; btn.innerText = "↻ Sync Data";
+
+    btn.disabled = false;
+    btn.innerText = "↻ Sync Data";
 }
 
 // ═══════════════════════════════════════════════════════════════
