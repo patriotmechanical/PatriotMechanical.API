@@ -163,12 +163,23 @@ namespace PatriotMechanical.API.Controllers
             var raw = await _service.GetAppointmentsForJobAsync(wo.ServiceTitanJobId);
             var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
 
+            // Also get tech assignments
+            string? assignRaw = null;
+            JsonElement? assignParsed = null;
+            try
+            {
+                assignRaw = await _service.GetAppointmentAssignmentsForJobAsync(wo.ServiceTitanJobId);
+                assignParsed = JsonSerializer.Deserialize<JsonElement>(assignRaw);
+            }
+            catch { }
+
             return Ok(new
             {
                 jobNumber = wo.JobNumber,
                 serviceTitanJobId = wo.ServiceTitanJobId,
                 status = wo.Status,
-                appointments = parsed
+                appointments = parsed,
+                technicianAssignments = assignParsed
             });
         }
     }

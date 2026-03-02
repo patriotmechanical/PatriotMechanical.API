@@ -466,22 +466,10 @@ namespace PatriotMechanical.API.Application.Services
                     var active = appt.GetProperty("active").GetBoolean();
                     var unused = appt.GetProperty("unused").GetBoolean();
 
-                    // Check for technician assignment - export may include various tech fields
-                    bool hasTech = false;
-                    if (appt.TryGetProperty("assignedTechnicians", out var techsProp) && techsProp.GetArrayLength() > 0)
-                        hasTech = true;
-                    else if (appt.TryGetProperty("technicianId", out var techIdProp) && techIdProp.ValueKind == JsonValueKind.Number && techIdProp.GetInt64() > 0)
-                        hasTech = true;
-                    else if (appt.TryGetProperty("technicians", out var techsProp2) && techsProp2.GetArrayLength() > 0)
-                        hasTech = true;
-                    // If status is Dispatched, Working, or Done, a tech must have been assigned
-                    else if (status == "Dispatched" || status == "Working" || status == "Done")
-                        hasTech = true;
-
                     if (!jobAppointments.ContainsKey(jobId))
                         jobAppointments[jobId] = new List<ApptInfo>();
 
-                    jobAppointments[jobId].Add(new ApptInfo { Status = status, Active = active, Unused = unused, HasTechnician = hasTech });
+                    jobAppointments[jobId].Add(new ApptInfo { Status = status, Active = active, Unused = unused, HasTechnician = false });
                 }
 
                 if (syncState == null)
@@ -495,10 +483,54 @@ namespace PatriotMechanical.API.Application.Services
 
             } while (hasMore);
 
-            await AutoBoardFromAppointmentsAsync(jobAppointments);
+            // Pull appointment assignments to know which jobs have technicians assigned
+            var jobsWithTechAssigned = new HashSet<long>();
+            try
+            {
+                var assignSyncState = await _context.ServiceTitanSyncStates
+                    .FirstOrDefaultAsync(s => s.EntityName == "AppointmentAssignments");
+                var assignToken = assignSyncState?.ContinuationToken;
+
+                do
+                {
+                    var raw = await _service.ExportAppointmentAssignmentsAsync(assignToken);
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+
+                    hasMore = parsed.GetProperty("hasMore").GetBoolean();
+                    assignToken = parsed.GetProperty("continueFrom").GetString();
+                    var assignments = parsed.GetProperty("data");
+
+                    foreach (var assignment in assignments.EnumerateArray())
+                    {
+                        var active = assignment.GetProperty("active").GetBoolean();
+                        if (!active) continue;
+
+                        var jobId = assignment.GetProperty("jobId").GetInt64();
+                        jobsWithTechAssigned.Add(jobId);
+                    }
+
+                    if (assignSyncState == null)
+                    {
+                        assignSyncState = new ServiceTitanSyncState { EntityName = "AppointmentAssignments" };
+                        _context.ServiceTitanSyncStates.Add(assignSyncState);
+                    }
+                    assignSyncState.ContinuationToken = assignToken;
+                    assignSyncState.LastSynced = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+
+                } while (hasMore);
+
+                Console.WriteLine($"[AutoBoard] Found {jobsWithTechAssigned.Count} jobs with active tech assignments.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AutoBoard] Assignment export failed (non-fatal): {ex.Message}");
+            }
+
+            await AutoBoardFromAppointmentsAsync(jobAppointments, jobsWithTechAssigned);
         }
 
-        private async Task AutoBoardFromAppointmentsAsync(Dictionary<long, List<ApptInfo>> jobAppointments)
+        private async Task AutoBoardFromAppointmentsAsync(Dictionary<long, List<ApptInfo>> jobAppointments, HashSet<long> jobsWithTechAssigned)
         {
             var needReturnCol = await _context.BoardColumns
                 .FirstOrDefaultAsync(c => c.Name.ToLower().Contains("need to return")
@@ -558,12 +590,9 @@ namespace PatriotMechanical.API.Application.Services
                 added++;
             }
 
-            // ─── PART 2: Need to Schedule — jobs with appointments but no tech assigned ───
+            // ─── PART 2: Need to Schedule — jobs with no active tech assignment ───
             if (waitScheduleCol != null)
             {
-                // Get all ST job IDs that have appointments
-                var jobIdsWithAppointments = jobAppointments.Keys.ToHashSet();
-
                 // Find active work orders not on the board
                 var openJobs = await _context.WorkOrders
                     .Include(w => w.Customer)
@@ -580,26 +609,19 @@ namespace PatriotMechanical.API.Application.Services
                     var custName = wo.Customer?.Name ?? "";
                     if (custName.StartsWith("[DEMO]")) continue;
 
-                    if (jobAppointments.TryGetValue(wo.ServiceTitanJobId, out var appts))
-                    {
-                        // Job HAS appointments - check if any active appointment has NO tech assigned
-                        var activeAppts = appts.Where(a => a.Active && !a.Unused).ToList();
-                        bool allWithoutTech = activeAppts.Count > 0 && activeAppts.All(a => !a.HasTechnician);
+                    // Skip jobs that have an active tech assignment
+                    if (jobsWithTechAssigned.Contains(wo.ServiceTitanJobId))
+                        continue;
 
-                        if (allWithoutTech)
-                        {
-                            await AddCardToColumn(waitScheduleCol, wo, custName,
-                                "Auto-added: Appointment exists but no technician assigned", existingJobNumbers);
-                            added++;
-                        }
-                    }
+                    // This job has no active tech assignment → needs scheduling
+                    string reason;
+                    if (!jobAppointments.ContainsKey(wo.ServiceTitanJobId))
+                        reason = "Auto-added: No appointment created yet";
                     else
-                    {
-                        // Job has NO appointments at all - also needs scheduling
-                        await AddCardToColumn(waitScheduleCol, wo, custName,
-                            "Auto-added: No appointment created yet", existingJobNumbers);
-                        added++;
-                    }
+                        reason = "Auto-added: Appointment exists but no technician assigned";
+
+                    await AddCardToColumn(waitScheduleCol, wo, custName, reason, existingJobNumbers);
+                    added++;
                 }
             }
 

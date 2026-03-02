@@ -392,5 +392,48 @@ namespace PatriotMechanical.API.Application.Services
 
             return await response.Content.ReadAsStringAsync();
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // APPOINTMENT ASSIGNMENTS (Dispatch API - tech assignment check)
+        // ═══════════════════════════════════════════════════════════════
+
+        public async Task<string> GetAppointmentAssignmentsForJobAsync(long jobId)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var url = $"{baseUrl}/dispatch/v2/tenant/{tenantId}/appointment-assignments?jobId={jobId}&active=True&pageSize=50";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
+
+        public async Task<string> ExportAppointmentAssignmentsAsync(string? continuationToken = null)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var url = $"{baseUrl}/dispatch/v2/tenant/{tenantId}/export/appointment-assignments";
+            if (!string.IsNullOrWhiteSpace(continuationToken)) url += $"?from={continuationToken}";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
     }
 }
