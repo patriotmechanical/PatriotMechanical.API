@@ -29,8 +29,17 @@ namespace PatriotMechanical.API.Controllers
 
             // Get board card info if on the board
             var boardCard = await _context.BoardCards
-                .Include(c => c.BoardColumn)
-                .FirstOrDefaultAsync(c => c.JobNumber == jobNumber);
+                .Where(c => c.JobNumber == jobNumber)
+                .FirstOrDefaultAsync();
+
+            object? boardColumnInfo = null;
+            if (boardCard != null)
+            {
+                var col = await _context.BoardColumns
+                    .FirstOrDefaultAsync(c => c.Id == boardCard.BoardColumnId);
+                if (col != null)
+                    boardColumnInfo = new { col.Name, col.Color };
+            }
 
             // Get subcontractor entries
             var subEntries = await _context.SubcontractorEntries
@@ -75,11 +84,7 @@ namespace PatriotMechanical.API.Controllers
                     wo.Invoice.BalanceRemaining,
                     wo.Invoice.Status
                 } : null,
-                BoardColumn = boardCard != null ? new
-                {
-                    boardCard.BoardColumn.Name,
-                    boardCard.BoardColumn.Color
-                } : null,
+                BoardColumn = boardColumnInfo,
                 SubcontractorEntries = subEntries,
                 Equipment = equipment
             });
