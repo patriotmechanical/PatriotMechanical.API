@@ -199,14 +199,16 @@ namespace PatriotMechanical.API.Application.Services
 
         // ═══════════════════════════════════════════════════════════════
         // JOBS - Manual Refresh (list endpoint - modifiedOnOrAfter)
-        // Bypasses continuation tokens for instant status updates
+        // Bypasses continuation tokens for instant status updates.
+        //
+        // NOTE: The list endpoint returns a DIFFERENT shape than the
+        // export endpoint. Key differences:
+        //   - No "total" field (dollar amount) on list response
+        //   - "modifiedOn" is a string date, not a DateTime
+        //   - Some fields may be absent depending on job state
+        // We use TryGetProperty for everything to handle both safely.
         // ═══════════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Manual refresh: Uses the Jobs list endpoint with modifiedOnOrAfter
-        /// to immediately fetch all recently changed jobs without relying on
-        /// continuation tokens. This is what the dashboard "Sync Data" button calls.
-        /// </summary>
         public async Task<int> RefreshRecentJobsAsync(int lookbackHours = 24)
         {
             var jobTypeMap = await _service.GetJobTypeMapAsync();
@@ -226,24 +228,45 @@ namespace PatriotMechanical.API.Application.Services
                 foreach (var job in jobs.EnumerateArray())
                 {
                     var jobId = job.GetProperty("id").GetInt64();
-                    var jobNumber = job.GetProperty("jobNumber").GetString();
-                    var total = job.GetProperty("total").GetDecimal();
-                    var status = job.GetProperty("jobStatus").GetString();
                     var customerId = job.GetProperty("customerId").GetInt64();
 
-                    // Parse modifiedOn from list endpoint (string format)
-                    DateTime? modifiedOn = null;
-                    if (job.TryGetProperty("modifiedOn", out var modProp) &&
-                        modProp.ValueKind == JsonValueKind.String &&
-                        DateTime.TryParse(modProp.GetString(), null,
-                            System.Globalization.DateTimeStyles.AssumeUniversal |
-                            System.Globalization.DateTimeStyles.AdjustToUniversal,
-                            out var parsedMod))
+                    // jobNumber - required field on both endpoints
+                    var jobNumber = job.TryGetProperty("jobNumber", out var jnProp)
+                        ? jnProp.GetString() : null;
+                    if (string.IsNullOrEmpty(jobNumber)) continue;
+
+                    // jobStatus - required field on both endpoints
+                    var status = job.TryGetProperty("jobStatus", out var statusProp)
+                        ? statusProp.GetString() : null;
+                    if (string.IsNullOrEmpty(status)) continue;
+
+                    // total - EXISTS on export endpoint but NOT on list endpoint
+                    // Don't crash if it's missing; keep existing value
+                    decimal? total = null;
+                    if (job.TryGetProperty("total", out var totalProp))
                     {
-                        modifiedOn = DateTime.SpecifyKind(parsedMod, DateTimeKind.Utc);
+                        if (totalProp.ValueKind == JsonValueKind.Number)
+                            total = totalProp.GetDecimal();
+                        else if (totalProp.ValueKind == JsonValueKind.String &&
+                                 decimal.TryParse(totalProp.GetString(), out var parsedTotal))
+                            total = parsedTotal;
                     }
 
-                    // Map jobTypeId to name
+                    // modifiedOn - string on list endpoint
+                    DateTime? modifiedOn = null;
+                    if (job.TryGetProperty("modifiedOn", out var modProp))
+                    {
+                        if (modProp.ValueKind == JsonValueKind.String &&
+                            DateTime.TryParse(modProp.GetString(), null,
+                                System.Globalization.DateTimeStyles.AssumeUniversal |
+                                System.Globalization.DateTimeStyles.AdjustToUniversal,
+                                out var parsedMod))
+                        {
+                            modifiedOn = DateTime.SpecifyKind(parsedMod, DateTimeKind.Utc);
+                        }
+                    }
+
+                    // jobTypeId -> name
                     string? jobTypeName = null;
                     if (job.TryGetProperty("jobTypeId", out var jobTypeIdProp) &&
                         jobTypeIdProp.ValueKind == JsonValueKind.Number)
@@ -252,7 +275,7 @@ namespace PatriotMechanical.API.Application.Services
                         jobTypeMap.TryGetValue(jobTypeId, out jobTypeName);
                     }
 
-                    // Pull completedOn
+                    // completedOn
                     DateTime? completedAt = null;
                     if (job.TryGetProperty("completedOn", out var completedProp) &&
                         completedProp.ValueKind == JsonValueKind.String &&
@@ -264,8 +287,8 @@ namespace PatriotMechanical.API.Application.Services
                         completedAt = DateTime.SpecifyKind(parsedCompleted, DateTimeKind.Utc);
                     }
 
-                    // Pull createdOn
-                    DateTime createdAt = DateTime.UtcNow;
+                    // createdOn
+                    DateTime? createdAt = null;
                     if (job.TryGetProperty("createdOn", out var createdProp) &&
                         createdProp.ValueKind == JsonValueKind.String &&
                         DateTime.TryParse(createdProp.GetString(), null,
@@ -276,42 +299,54 @@ namespace PatriotMechanical.API.Application.Services
                         createdAt = DateTime.SpecifyKind(parsedCreated, DateTimeKind.Utc);
                     }
 
+                    // Match to our customer
                     var customer = await _context.Customers
                         .FirstOrDefaultAsync(c => c.ServiceTitanCustomerId == customerId);
-
                     if (customer == null) continue;
 
+                    // Match to existing work order
                     var existing = await _context.WorkOrders
                         .FirstOrDefaultAsync(w => w.ServiceTitanJobId == jobId);
 
                     if (existing == null)
                     {
+                        // New job we haven't seen before
                         _context.WorkOrders.Add(new WorkOrder
                         {
                             ServiceTitanJobId = jobId,
                             ServiceTitanModifiedOn = modifiedOn,
                             LastSyncedFromServiceTitan = DateTime.UtcNow,
-                            JobNumber = jobNumber!,
-                            Status = status!,
-                            TotalAmount = total,
-                            TotalRevenueCalculated = total,
+                            JobNumber = jobNumber,
+                            Status = status,
+                            TotalAmount = total ?? 0m,
+                            TotalRevenueCalculated = total ?? 0m,
                             CustomerId = customer.Id,
                             JobTypeName = jobTypeName,
                             CompletedAt = completedAt,
-                            CreatedAt = createdAt
+                            CreatedAt = createdAt ?? DateTime.UtcNow
                         });
                     }
                     else
                     {
-                        existing.JobNumber = jobNumber!;
-                        existing.Status = status!;
-                        existing.TotalAmount = total;
-                        existing.TotalRevenueCalculated = total;
+                        // Update existing — always update status (the main reason for this method)
+                        existing.JobNumber = jobNumber;
+                        existing.Status = status;
                         existing.ServiceTitanModifiedOn = modifiedOn;
                         existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
                         existing.JobTypeName = jobTypeName;
-                        if (completedAt.HasValue) existing.CompletedAt = completedAt;
-                        existing.CreatedAt = createdAt;
+
+                        // Only overwrite total if the list endpoint actually returned it
+                        if (total.HasValue)
+                        {
+                            existing.TotalAmount = total.Value;
+                            existing.TotalRevenueCalculated = total.Value;
+                        }
+
+                        if (completedAt.HasValue)
+                            existing.CompletedAt = completedAt;
+
+                        if (createdAt.HasValue)
+                            existing.CreatedAt = createdAt.Value;
                     }
 
                     totalUpdated++;
@@ -358,7 +393,7 @@ namespace PatriotMechanical.API.Application.Services
                     if (inv.TryGetProperty("job", out var jobProp) && jobProp.ValueKind != JsonValueKind.Null)
                         jobId = jobProp.GetProperty("id").GetInt64();
 
-                    decimal total = decimal.Parse(inv.GetProperty("total").GetString() ?? "0");
+                    decimal invoiceTotal = decimal.Parse(inv.GetProperty("total").GetString() ?? "0");
                     decimal balance = decimal.Parse(inv.GetProperty("balance").GetString() ?? "0");
 
                     var customer = await _context.Customers
@@ -381,14 +416,14 @@ namespace PatriotMechanical.API.Application.Services
                             InvoiceNumber = invoiceNumber,
                             CustomerId = customer.Id,
                             WorkOrderId = workOrder?.Id,
-                            TotalAmount = total,
+                            TotalAmount = invoiceTotal,
                             BalanceRemaining = balance,
                             LastSyncedFromServiceTitan = DateTime.UtcNow
                         });
                     }
                     else
                     {
-                        existing.TotalAmount = total;
+                        existing.TotalAmount = invoiceTotal;
                         existing.BalanceRemaining = balance;
                         existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
                     }
