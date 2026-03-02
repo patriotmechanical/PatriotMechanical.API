@@ -278,91 +278,6 @@ async function loadDashboard() {
         });
     } else { woTable.innerHTML = '<tr class="empty-row"><td colspan="5">No open work orders</td></tr>'; }
     makeSortable("dashWoTable");
-
-    // Ops Stats Row
-    renderOpsStats(data);
-}
-
-function renderOpsStats(data) {
-    const row = document.getElementById("opsStatsRow");
-    if (!row) return;
-
-    const openWoCount = data.openWorkOrders ? data.openWorkOrders.length : 0;
-
-    // Map board columns to our stat categories
-    const columnMap = {};
-    if (data.boardColumns) {
-        data.boardColumns.forEach(col => {
-            columnMap[col.name.toLowerCase()] = { count: col.cards.length, cards: col.cards, color: col.color };
-        });
-    }
-
-    const getCol = (name) => {
-        const key = name.toLowerCase();
-        for (const [k, v] of Object.entries(columnMap)) {
-            if (k.includes(key) || key.includes(k)) return v;
-        }
-        return { count: 0, cards: [], color: "#475569" };
-    };
-
-    const needSchedule = getCol("schedule");
-    const waitingParts = getCol("waiting parts");
-    const partsOrder = getCol("parts on order");
-    const waitingQuote = getCol("waiting quote");
-    const quoteSent = getCol("quote sent");
-    const needReturn = getCol("need to return");
-    const overduePmCount = data.overduePms ? data.overduePms.length : 0;
-
-    const stats = [
-        { label: "Open WOs", count: openWoCount, color: "#2563eb", items: data.openWorkOrders, type: "wo" },
-        { label: "Need to Schedule", count: needSchedule.count, color: needSchedule.color || "#2563eb", items: needSchedule.cards, type: "board" },
-        { label: "Overdue PMs", count: overduePmCount, color: "#dc2626", items: data.overduePms, type: "pm" },
-        { label: "Waiting Quote", count: waitingQuote.count, color: waitingQuote.color || "#9333ea", items: waitingQuote.cards, type: "board" },
-        { label: "Waiting Parts", count: waitingParts.count, color: waitingParts.color || "#d97706", items: waitingParts.cards, type: "board" },
-        { label: "Need Return", count: needReturn.count, color: needReturn.color || "#dc2626", items: needReturn.cards, type: "board" },
-    ];
-
-    row.innerHTML = stats.map((s, i) => {
-        const zeroClass = s.count === 0 ? " zero" : "";
-        const onclick = s.count > 0 ? `onclick="openOpsDrilldown(${i})"` : "";
-        return `<div class="ops-stat-card" style="--stat-color:${s.color};">
-            <h4>${s.label}</h4>
-            <div class="stat-number${zeroClass}" ${onclick}>${s.count}</div>
-        </div>`;
-    }).join("");
-
-    // Store for drill-down
-    window._opsStats = stats;
-}
-
-function openOpsDrilldown(idx) {
-    const stat = window._opsStats[idx];
-    if (!stat || stat.count === 0) return;
-
-    document.getElementById("opsModalTitle").innerText = stat.label + " (" + stat.count + ")";
-    const body = document.getElementById("opsModalBody");
-
-    let html = '<table class="data-table"><thead><tr><th>Job #</th><th>Customer</th>';
-    if (stat.type === "wo") html += "<th>Status</th><th>Created</th>";
-    if (stat.type === "pm") html += "<th>Last PM</th><th>Days Since</th>";
-    html += "</tr></thead><tbody>";
-
-    stat.items.forEach(item => {
-        if (stat.type === "wo") {
-            const created = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—";
-            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td><span class="status-badge open">${item.status || "—"}</span></td><td>${created}</td></tr>`;
-        } else if (stat.type === "board") {
-            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td></tr>`;
-        } else if (stat.type === "pm") {
-            const lastPm = item.lastPm ? new Date(item.lastPm).toLocaleDateString() : "Never";
-            const days = item.lastPm ? Math.floor((Date.now() - new Date(item.lastPm).getTime()) / 86400000) : "—";
-            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
-        }
-    });
-
-    html += "</tbody></table>";
-    body.innerHTML = html;
-    document.getElementById("opsModal").classList.remove("hidden");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -957,33 +872,41 @@ async function markPaid(id) { const res = await api(`/ap/pay/${id}`, { method: "
 // ═══════════════════════════════════════════════════════════════
 
 async function hardRefresh() {
-    const btn = document.getElementById("hardRefreshBtn");
-    btn.disabled = true;
-    btn.innerText = "Syncing...";
-
+    const btn = document.getElementById("hardRefreshBtn"); btn.disabled = true; btn.innerText = "Syncing...";
     try {
-        const res = await api("/servicetitan/refresh", { method: "POST" });
-
-        if (res && res.ok) {
-            const data = await res.json();
-            await loadDashboard();
-            if (data.errors && data.errors.length > 0) {
-                toast(`Synced ${data.jobsUpdated} job(s) with warnings: ${data.errors.join("; ")}`, "error");
-            } else {
-                toast(`Synced — ${data.jobsUpdated} job(s) updated.`, "success");
+        btn.innerText = "Syncing customers...";
+        await api("/servicetitan/sync/customers", { method: "POST" });
+        btn.innerText = "Syncing jobs...";
+        await api("/servicetitan/sync/jobs", { method: "POST" });
+        btn.innerText = "Syncing invoices...";
+        await api("/servicetitan/sync/invoices", { method: "POST" });
+        btn.innerText = "Refreshing recent changes...";
+        try {
+            const refreshRes = await api("/servicetitan/refresh", { method: "POST" });
+            if (refreshRes && refreshRes.ok) {
+                const refreshData = await refreshRes.json();
+                console.log("Refresh result:", refreshData.message);
             }
-        } else {
-            const text = await res.text();
-            console.error("Sync response:", text);
-            toast("Sync failed.", "error");
+        } catch (refreshErr) {
+            console.warn("Refresh failed (non-fatal):", refreshErr);
         }
-    } catch (err) {
-        console.error(err);
-        toast("Sync failed.", "error");
+        btn.innerText = "Syncing contacts...";
+        try {
+            const crmRes = await api("/crm/sync", { method: "POST" });
+            if (crmRes && crmRes.ok) {
+                const crmData = await crmRes.json();
+                console.log("CRM sync result:", crmData);
+            } else {
+                console.warn("CRM sync returned non-OK:", crmRes?.status);
+            }
+        } catch (crmErr) {
+            console.warn("CRM sync failed (non-fatal):", crmErr);
+        }
+        await loadDashboard();
+        toast("Data synced successfully.", "success");
     }
-
-    btn.disabled = false;
-    btn.innerText = "↻ Sync Data";
+    catch (err) { console.error(err); toast("Sync failed.", "error"); }
+    btn.disabled = false; btn.innerText = "↻ Sync Data";
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -16,64 +16,18 @@ namespace PatriotMechanical.API.Controllers
             _syncEngine = syncEngine;
         }
 
-        // Temporary diagnostic — remove after debugging
-        [HttpGet("refresh/test")]
-        public IActionResult RefreshTest()
-        {
-            return Ok(new { message = "Refresh endpoint is reachable", timestamp = DateTime.UtcNow });
-        }
-
-        // ─── MANUAL REFRESH (dashboard button) ───────────────────────
-        [HttpPost("refresh")]
-        public async Task<IActionResult> RefreshRecent()
-        {
-            var errors = new List<string>();
-            int jobsUpdated = 0;
-
-            // Sync customers — don't let failure block the rest
-            try
-            {
-                await _syncEngine.SyncCustomersAsync(fullSync: true);
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Customer sync failed: {ex.Message}");
-            }
-
-            // Refresh jobs — the main reason for this endpoint
-            try
-            {
-                jobsUpdated = await _syncEngine.RefreshRecentJobsAsync(lookbackHours: 24);
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Job refresh failed: {ex.Message}");
-            }
-
-            // Sync invoices
-            try
-            {
-                await _syncEngine.SyncInvoicesAsync();
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Invoice sync failed: {ex.Message}");
-            }
-
-            return Ok(new
-            {
-                message = errors.Count == 0 ? "Dashboard refreshed" : "Refresh completed with errors",
-                jobsUpdated,
-                errors
-            });
-        }
-
-        // ─── FULL SYNC (background service / admin use) ─────────────
         [HttpPost("sync/customers")]
         public async Task<IActionResult> SyncCustomers()
         {
             await _syncEngine.SyncCustomersAsync(fullSync: true);
             return Ok(new { message = "Full customer sync complete" });
+        }
+
+        [HttpPost("sync/jobs")]
+        public async Task<IActionResult> SyncJobs()
+        {
+            await _syncEngine.SyncJobsAsync(fullSync: true);
+            return Ok(new { message = "Full job sync complete" });
         }
 
         [HttpPost("sync/invoices")]
@@ -83,11 +37,28 @@ namespace PatriotMechanical.API.Controllers
             return Ok(new { message = "Invoice sync complete" });
         }
 
-        [HttpPost("sync/jobs")]
-        public async Task<IActionResult> SyncJobs()
+        // Quick refresh - pulls recently modified jobs via list API
+        // This catches status changes (cancelled, completed, etc.) that
+        // the export continuation token may have already passed.
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshRecent()
         {
-            await _syncEngine.SyncJobsAsync(fullSync: true);
-            return Ok(new { message = "Full job sync complete" });
+            var updated = await _syncEngine.RefreshRecentJobsAsync(lookbackHours: 72);
+
+            // Appointment sync for auto-board (non-fatal if it fails)
+            string apptMessage = "";
+            try
+            {
+                await _syncEngine.SyncAppointmentsAndAutoBoardAsync();
+                apptMessage = "Appointment sync complete.";
+            }
+            catch (Exception ex)
+            {
+                apptMessage = $"Appointment sync skipped: {ex.Message}";
+                Console.WriteLine($"[Appointment Sync] {apptMessage}");
+            }
+
+            return Ok(new { message = $"Refreshed {updated} jobs. {apptMessage}" });
         }
     }
 }

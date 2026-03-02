@@ -434,5 +434,162 @@ namespace PatriotMechanical.API.Application.Services
 
             } while (hasMore);
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // APPOINTMENTS + AUTO-BOARD
+        // Pulls appointments from ServiceTitan. Jobs with appointments
+        // on Hold or with multiple active appointments (tech requested
+        // return) auto-add to the "Need to Return" board column.
+        // ═══════════════════════════════════════════════════════════════
+
+        public async Task SyncAppointmentsAndAutoBoardAsync()
+        {
+            var syncState = await _context.ServiceTitanSyncStates
+                .FirstOrDefaultAsync(s => s.EntityName == "Appointments");
+
+            var continuationToken = syncState?.ContinuationToken;
+            bool hasMore;
+            var jobAppointments = new Dictionary<long, List<ApptInfo>>();
+
+            do
+            {
+                var raw = await _service.ExportAppointmentsAsync(continuationToken);
+                var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+
+                hasMore = parsed.GetProperty("hasMore").GetBoolean();
+                continuationToken = parsed.GetProperty("continueFrom").GetString();
+                var appointments = parsed.GetProperty("data");
+
+                foreach (var appt in appointments.EnumerateArray())
+                {
+                    var jobId = appt.GetProperty("jobId").GetInt64();
+                    var status = appt.GetProperty("status").GetString() ?? "";
+                    var active = appt.GetProperty("active").GetBoolean();
+                    var unused = appt.GetProperty("unused").GetBoolean();
+
+                    if (!jobAppointments.ContainsKey(jobId))
+                        jobAppointments[jobId] = new List<ApptInfo>();
+
+                    jobAppointments[jobId].Add(new ApptInfo { Status = status, Active = active, Unused = unused });
+                }
+
+                if (syncState == null)
+                {
+                    syncState = new ServiceTitanSyncState { EntityName = "Appointments" };
+                    _context.ServiceTitanSyncStates.Add(syncState);
+                }
+                syncState.ContinuationToken = continuationToken;
+                syncState.LastSynced = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+            } while (hasMore);
+
+            await AutoBoardFromAppointmentsAsync(jobAppointments);
+        }
+
+        private async Task AutoBoardFromAppointmentsAsync(Dictionary<long, List<ApptInfo>> jobAppointments)
+        {
+            var needReturnCol = await _context.BoardColumns
+                .FirstOrDefaultAsync(c => c.Name.ToLower().Contains("need to return")
+                                       || c.Name.ToLower().Contains("return"));
+            if (needReturnCol == null)
+            {
+                Console.WriteLine("[AutoBoard] No 'Need to Return' column found.");
+                return;
+            }
+
+            var waitScheduleCol = await _context.BoardColumns
+                .FirstOrDefaultAsync(c => c.Name.ToLower().Contains("schedule"));
+
+            var existingJobNumbers = await _context.BoardCards
+                .Select(c => c.JobNumber).ToListAsync();
+
+            int added = 0;
+
+            foreach (var (stJobId, appointments) in jobAppointments)
+            {
+                var wo = await _context.WorkOrders
+                    .Include(w => w.Customer)
+                    .FirstOrDefaultAsync(w => w.ServiceTitanJobId == stJobId);
+                if (wo == null) continue;
+
+                var woStatus = wo.Status?.ToLower() ?? "";
+                if (woStatus == "completed" || woStatus.Contains("cancel")) continue;
+                if (existingJobNumbers.Contains(wo.JobNumber)) continue;
+
+                var custName = wo.Customer?.Name ?? "";
+                if (custName.StartsWith("[DEMO]")) continue;
+
+                bool hasHold = appointments.Any(a =>
+                    a.Active && a.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase));
+                var activeNonUnused = appointments.Where(a => a.Active && !a.Unused).ToList();
+                bool multiVisits = activeNonUnused.Count > 1;
+                bool hasUnused = appointments.Any(a => a.Active && a.Unused);
+
+                BoardColumn? target = null;
+                string? note = null;
+
+                if (hasHold)
+                {
+                    target = needReturnCol;
+                    note = "Auto-added: Appointment on Hold in ServiceTitan";
+                }
+                else if (multiVisits)
+                {
+                    target = needReturnCol;
+                    note = $"Auto-added: {activeNonUnused.Count} appointments — return visit requested";
+                }
+                else if (hasUnused && waitScheduleCol != null)
+                {
+                    target = waitScheduleCol;
+                    note = "Auto-added: Unused appointment needs scheduling";
+                }
+
+                if (target == null) continue;
+
+                var maxSort = await _context.BoardCards
+                    .Where(c => c.BoardColumnId == target.Id)
+                    .Select(c => (int?)c.SortOrder)
+                    .MaxAsync() ?? 0;
+
+                var card = new BoardCard
+                {
+                    Id = Guid.NewGuid(),
+                    BoardColumnId = target.Id,
+                    WorkOrderId = wo.Id,
+                    JobNumber = wo.JobNumber,
+                    CustomerName = custName,
+                    SortOrder = maxSort + 1
+                };
+                _context.BoardCards.Add(card);
+
+                if (note != null)
+                {
+                    _context.BoardCardNotes.Add(new BoardCardNote
+                    {
+                        Id = Guid.NewGuid(),
+                        BoardCardId = card.Id,
+                        Text = note,
+                        Author = "System"
+                    });
+                }
+
+                existingJobNumbers.Add(wo.JobNumber);
+                added++;
+            }
+
+            if (added > 0)
+            {
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"[AutoBoard] Added {added} cards from appointment sync.");
+            }
+        }
+
+        private class ApptInfo
+        {
+            public string Status { get; set; } = "";
+            public bool Active { get; set; }
+            public bool Unused { get; set; }
+        }
     }
 }

@@ -332,6 +332,32 @@ namespace PatriotMechanical.API.Application.Services
         }
 
         // ═══════════════════════════════════════════════════════════════
+        // APPOINTMENTS (export endpoint - for auto-board feature)
+        // ═══════════════════════════════════════════════════════════════
+
+        public async Task<string> ExportAppointmentsAsync(string? continuationToken = null)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var url = $"{baseUrl}/jpm/v2/tenant/{tenantId}/export/appointments";
+
+            if (!string.IsNullOrWhiteSpace(continuationToken))
+                url += $"?from={continuationToken}";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
         // INVOICES
         // ═══════════════════════════════════════════════════════════════
 
