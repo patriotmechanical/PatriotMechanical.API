@@ -293,7 +293,7 @@ async function loadDashboard() {
         if (data.openWorkOrders.length > 0) {
             data.openWorkOrders.forEach(wo => {
                 const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "-";
-                woTable.innerHTML += `<tr><td><b>${wo.jobNumber}</b></td><td>${wo.customerName}</td><td><span class="status-badge">${wo.status}</span></td><td>${created}</td><td>$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
+                woTable.innerHTML += `<tr><td><b><a href="#" onclick="openWoDetail('${wo.jobNumber}'); return false;" style="color:#60a5fa; text-decoration:none; cursor:pointer;">${wo.jobNumber}</a></b></td><td>${wo.customerName}</td><td><span class="status-badge">${wo.status}</span></td><td>${created}</td><td>$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
             });
         } else {
             woTable.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b;">No open work orders</td></tr>';
@@ -363,11 +363,12 @@ function openOpsDrilldown(idx) {
     html += "</tr></thead><tbody>";
 
     stat.items.forEach(item => {
+        const jobLink = item.jobNumber ? `<a href="#" onclick="openWoDetail('${item.jobNumber}'); document.getElementById('opsModal').classList.add('hidden'); return false;" style="color:#60a5fa; text-decoration:none;">${item.jobNumber}</a>` : '—';
         if (stat.type === "wo") {
             const created = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—";
-            html += `<tr><td><b>${item.jobNumber || "—"}</b></td><td>${item.customerName || "—"}</td><td>${item.status || "—"}</td><td>${created}</td></tr>`;
+            html += `<tr><td><b>${jobLink}</b></td><td>${item.customerName || "—"}</td><td>${item.status || "—"}</td><td>${created}</td></tr>`;
         } else if (stat.type === "board") {
-            html += `<tr><td><b>${item.jobNumber || "—"}</b></td><td>${item.customerName || "—"}</td></tr>`;
+            html += `<tr><td><b>${jobLink}</b></td><td>${item.customerName || "—"}</td></tr>`;
         } else if (stat.type === "pm") {
             const lastPm = item.lastPm ? new Date(item.lastPm).toLocaleDateString() : "Never";
             const days = item.lastPm ? Math.floor((Date.now() - new Date(item.lastPm).getTime()) / 86400000) : "—";
@@ -1535,7 +1536,7 @@ async function openCustomerProfile(id) {
             <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Work Orders</h4>
             <table class="data-table"><thead><tr><th>Job #</th><th>Status</th><th>Type</th><th>Created</th><th>Amount</th></tr></thead><tbody>`;
         c.workOrders.forEach(wo => {
-            html += `<tr><td>${wo.jobNumber || '—'}</td><td>${wo.status || '—'}</td><td>${wo.jobTypeName || '—'}</td><td>${wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : '—'}</td><td>${wo.totalAmount ? '$' + Number(wo.totalAmount).toLocaleString() : '—'}</td></tr>`;
+            html += `<tr><td><a href="#" onclick="openWoDetail('${wo.jobNumber}'); return false;" style="color:#60a5fa; text-decoration:none;">${wo.jobNumber || '—'}</a></td><td>${wo.status || '—'}</td><td>${wo.jobTypeName || '—'}</td><td>${wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : '—'}</td><td>${wo.totalAmount ? '$' + Number(wo.totalAmount).toLocaleString() : '—'}</td></tr>`;
         });
         html += `</tbody></table></div>`;
     }
@@ -1579,6 +1580,118 @@ async function sendPmReminder(customerId, customerName) {
         navigator.clipboard.writeText(message);
         toast("Message copied to clipboard — no email or phone on file");
     }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WORK ORDER DETAIL
+// ═══════════════════════════════════════════════════════════════
+
+async function openWoDetail(jobNumber) {
+    const res = await api(`/workorders/${jobNumber}`);
+    if (!res || !res.ok) { toast("Work order not found", "error"); return; }
+    const wo = await res.json();
+
+    document.getElementById("woDetailTitle").innerText = `Job #${wo.jobNumber}`;
+
+    let html = '';
+
+    // Status + board column badge
+    const statusColors = { Scheduled: '#2563eb', InProgress: '#d97706', Hold: '#dc2626', Completed: '#16a34a', Canceled: '#475569' };
+    const sColor = statusColors[wo.status] || '#475569';
+    html += `<div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+        <span style="background:${sColor}; color:white; padding:5px 14px; border-radius:8px; font-size:13px; font-weight:700;">${wo.status}</span>
+        ${wo.jobTypeName ? `<span style="color:#94a3b8; font-size:13px;">${wo.jobTypeName}</span>` : ''}
+        ${wo.boardColumn ? `<span style="background:${wo.boardColumn.color}; color:white; padding:4px 12px; border-radius:8px; font-size:11px; font-weight:600;">📋 ${wo.boardColumn.name}</span>` : ''}
+    </div>`;
+
+    // Info grid
+    html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+        <div style="background:#0f172a; padding:12px 16px; border-radius:10px; border:1px solid #334155;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600;">Customer</div>
+            <div style="font-size:15px; font-weight:700; color:#e2e8f0; margin-top:4px;">${wo.customerName || '—'}</div>
+            ${wo.customerId ? `<a href="#" onclick="openCustomerProfile('${wo.customerId}'); document.getElementById('woDetailModal').classList.add('hidden'); return false;" style="font-size:11px; color:#60a5fa; text-decoration:none;">View Customer →</a>` : ''}
+        </div>
+        <div style="background:#0f172a; padding:12px 16px; border-radius:10px; border:1px solid #334155;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600;">Total Amount</div>
+            <div style="font-size:22px; font-weight:800; color:#e2e8f0; margin-top:4px;">$${Number(wo.totalAmount || 0).toLocaleString()}</div>
+        </div>
+        <div style="background:#0f172a; padding:12px 16px; border-radius:10px; border:1px solid #334155;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600;">Created</div>
+            <div style="color:#e2e8f0; margin-top:4px;">${wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : '—'}</div>
+        </div>
+        <div style="background:#0f172a; padding:12px 16px; border-radius:10px; border:1px solid #334155;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600;">Completed</div>
+            <div style="color:#e2e8f0; margin-top:4px;">${wo.completedAt ? new Date(wo.completedAt).toLocaleDateString() : 'Not yet'}</div>
+        </div>
+    </div>`;
+
+    // Financials
+    if (wo.totalLaborCost > 0 || wo.totalMaterialCost > 0 || wo.grossProfit > 0) {
+        html += `<div style="margin-bottom:20px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Job Costing</h4>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px;">
+                <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center; border:1px solid #334155;">
+                    <div style="font-size:10px; color:#64748b; text-transform:uppercase;">Labor</div>
+                    <div style="font-weight:700; color:#e2e8f0;">$${Number(wo.totalLaborCost || 0).toLocaleString()}</div>
+                </div>
+                <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center; border:1px solid #334155;">
+                    <div style="font-size:10px; color:#64748b; text-transform:uppercase;">Material</div>
+                    <div style="font-weight:700; color:#e2e8f0;">$${Number(wo.totalMaterialCost || 0).toLocaleString()}</div>
+                </div>
+                <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center; border:1px solid #334155;">
+                    <div style="font-size:10px; color:#64748b; text-transform:uppercase;">Gross Profit</div>
+                    <div style="font-weight:700; color:#4ade80;">$${Number(wo.grossProfit || 0).toLocaleString()}</div>
+                </div>
+                <div style="background:#0f172a; padding:10px; border-radius:8px; text-align:center; border:1px solid #334155;">
+                    <div style="font-size:10px; color:#64748b; text-transform:uppercase;">Margin</div>
+                    <div style="font-weight:700; color:#4ade80;">${Number(wo.marginPercent || 0).toFixed(1)}%</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Invoice
+    if (wo.invoice) {
+        const invBal = Number(wo.invoice.balanceRemaining || 0);
+        html += `<div style="margin-bottom:20px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Invoice</h4>
+            <div style="background:#0f172a; padding:12px 16px; border-radius:10px; border:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span style="font-weight:700; color:#e2e8f0;">#${wo.invoice.invoiceNumber}</span>
+                    <span style="color:#64748b; margin-left:12px;">${wo.invoice.status || ''}</span>
+                </div>
+                <div>
+                    <span style="color:#94a3b8; margin-right:16px;">Total: $${Number(wo.invoice.totalAmount || 0).toLocaleString()}</span>
+                    <span style="font-weight:700; color:${invBal > 0 ? '#f87171' : '#4ade80'};">Balance: $${invBal.toLocaleString()}</span>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Subcontractor entries
+    if (wo.subcontractorEntries && wo.subcontractorEntries.length > 0) {
+        html += `<div style="margin-bottom:20px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Subcontractors</h4>
+            <table class="data-table"><thead><tr><th>Name</th><th>Hours</th><th>Rate</th><th>Cost</th><th>Date</th></tr></thead><tbody>`;
+        wo.subcontractorEntries.forEach(e => {
+            html += `<tr><td>${e.subcontractorName}</td><td>${e.hours}</td><td>$${Number(e.hourlyRate).toFixed(2)}</td><td>$${Number(e.cost).toFixed(2)}</td><td>${new Date(e.date).toLocaleDateString()}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    }
+
+    // Equipment at site
+    if (wo.equipment && wo.equipment.length > 0) {
+        html += `<div style="margin-bottom:10px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Equipment on Site</h4>
+            <table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody>`;
+        wo.equipment.forEach(e => {
+            html += `<tr><td>${e.type || '—'}</td><td>${e.brand || '—'}</td><td>${e.modelNumber || '—'}</td><td>${e.serialNumber || '—'}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    }
+
+    document.getElementById("woDetailBody").innerHTML = html;
+    document.getElementById("woDetailModal").classList.remove("hidden");
 }
 
 // ═══════════════════════════════════════════════════════════════
