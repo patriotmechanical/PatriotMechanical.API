@@ -51,7 +51,7 @@ public class DashboardController : ControllerBase
             .ToListAsync();
 
         var totalAr = ar.Sum(x => x.TotalOwed);
-        var totalAp = ap.Sum(x => x.TotalOwed);
+        var totalAp = ap.Sum(x => x.TotalInvoiceAmount);
 
         var openWorkOrders = await _context.WorkOrders
             .Where(w => w.Status != null

@@ -250,6 +250,7 @@ function showView(viewId, clickedLink) {
     if (viewId === "warrantyView") loadWarranty();
     if (viewId === "pmView") loadPm();
     if (viewId === "pricingView") initPricing();
+    setTimeout(applySortableToAll, 300);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -301,6 +302,7 @@ async function loadDashboard() {
 
     // Ops Stats Row
     renderOpsStats(data);
+    setTimeout(applyDashboardSorting, 100);
 }
 
 function renderOpsStats(data) {
@@ -1459,6 +1461,53 @@ async function openCustomerProfile(id) {
 
     document.getElementById("customerProfileBody").innerHTML = html;
     document.getElementById("customerProfileModal").classList.remove("hidden");
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SORTABLE TABLES
+// ═══════════════════════════════════════════════════════════════
+
+function makeSortable(tableSelector) {
+    const table = document.querySelector(tableSelector);
+    if (!table) return;
+    const headers = table.querySelectorAll("thead th");
+    headers.forEach((th, colIdx) => {
+        th.style.cursor = "pointer";
+        th.style.userSelect = "none";
+        th.addEventListener("click", () => {
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            const asc = th.dataset.sort !== "asc";
+            headers.forEach(h => { h.dataset.sort = ""; h.textContent = h.textContent.replace(/ [▲▼]/g, ""); });
+            th.dataset.sort = asc ? "asc" : "desc";
+            th.textContent += asc ? " ▲" : " ▼";
+            rows.sort((a, b) => {
+                const aText = a.cells[colIdx]?.textContent.trim() || "";
+                const bText = b.cells[colIdx]?.textContent.trim() || "";
+                const aNum = parseFloat(aText.replace(/[$,]/g, ""));
+                const bNum = parseFloat(bText.replace(/[$,]/g, ""));
+                if (!isNaN(aNum) && !isNaN(bNum)) return asc ? aNum - bNum : bNum - aNum;
+                return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+            });
+            rows.forEach(r => tbody.appendChild(r));
+        });
+    });
+}
+
+// Auto-apply sorting to all .data-table tables after content loads
+function applySortableToAll() {
+    document.querySelectorAll(".data-table").forEach((t, i) => {
+        t.id = t.id || `sortable-table-${i}`;
+        makeSortable(`#${t.id}`);
+    });
+}
+
+// Also make the AR/AP dashboard tables sortable
+function applyDashboardSorting() {
+    document.querySelectorAll("#customerTable, #usersTable, table").forEach((t, i) => {
+        if (!t.id) t.id = `auto-sort-${i}`;
+        makeSortable(`#${t.id}`);
+    });
 }
 
 function toast(message, type = "success") {

@@ -50,7 +50,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Services
-builder.Services.AddHttpClient<ServiceTitanService>();
+builder.Services.AddScoped<ServiceTitanService>();
 builder.Services.AddScoped<JobCostCalculator>();
 builder.Services.AddScoped<PricingEngine>();
 builder.Services.AddScoped<JobCostingService>();
