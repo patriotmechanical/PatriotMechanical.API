@@ -25,6 +25,7 @@ public class DashboardController : ControllerBase
         var ar = await _context.Invoices
             .Where(i => i.BalanceRemaining > 0)
             .Where(i => !isDemo || i.Customer.Name.StartsWith("[DEMO]"))
+            .Where(i => isDemo || !i.Customer.Name.StartsWith("[DEMO]"))
             .GroupBy(i => i.Customer.Name)
             .Select(g => new
             {
@@ -37,6 +38,7 @@ public class DashboardController : ControllerBase
         var ap = await _context.ApBills
             .Where(b => !b.IsPaid)
             .Where(b => !isDemo || b.Vendor.Name.StartsWith("[DEMO]"))
+            .Where(b => isDemo || !b.Vendor.Name.StartsWith("[DEMO]"))
             .GroupBy(b => b.Vendor.Name)
             .Select(g => new
             {
@@ -56,6 +58,7 @@ public class DashboardController : ControllerBase
         var openWorkOrders = await _context.WorkOrders
             .Where(w => !excludedStatuses.Contains(w.Status))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
+            .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
             .OrderBy(w => w.CreatedAt)
             .Select(w => new

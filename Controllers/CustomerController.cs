@@ -25,6 +25,7 @@ namespace PatriotMechanical.API.Controllers
 
             var customers = await _context.Customers
                 .Where(c => !isDemo || c.Name.StartsWith("[DEMO]"))
+                .Where(c => isDemo || !c.Name.StartsWith("[DEMO]"))
                 .OrderBy(c => c.Name)
                 .Select(c => new
                 {

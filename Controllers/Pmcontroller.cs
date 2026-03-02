@@ -27,6 +27,7 @@ namespace PatriotMechanical.API.Controllers
                 .Where(w => w.JobTypeName != null &&
                     PmKeywords.Any(k => w.JobTypeName.ToLower().Contains(k)))
                 .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
+                .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
                 .Include(w => w.Customer)
                 .ToListAsync();
 

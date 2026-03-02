@@ -25,6 +25,7 @@ namespace PatriotMechanical.API.Controllers
             var subs = await _context.Subcontractors
                 .Where(s => s.IsActive)
                 .Where(s => !isDemo || s.Name.StartsWith("[DEMO]"))
+                .Where(s => isDemo || !s.Name.StartsWith("[DEMO]"))
                 .OrderBy(s => s.Name)
                 .Select(s => new
                 {

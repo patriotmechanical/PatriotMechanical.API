@@ -24,6 +24,7 @@ public class ApController : ControllerBase
         var isDemo = DemoFilter.IsDemo(User);
         var vendors = await _context.Vendors
             .Where(v => !isDemo || v.Name.StartsWith("[DEMO]"))
+            .Where(v => isDemo || !v.Name.StartsWith("[DEMO]"))
             .Select(v => new { v.Id, v.Name })
             .ToListAsync();
         return Ok(vendors);
@@ -80,6 +81,7 @@ public class ApController : ControllerBase
         var isDemo = DemoFilter.IsDemo(User);
         var summary = await _context.Vendors
             .Where(v => !isDemo || v.Name.StartsWith("[DEMO]"))
+            .Where(v => isDemo || !v.Name.StartsWith("[DEMO]"))
             .Select(v => new
             {
                 v.Id, v.Name,

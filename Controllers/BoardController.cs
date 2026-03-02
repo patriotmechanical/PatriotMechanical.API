@@ -23,9 +23,13 @@ namespace PatriotMechanical.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetBoard()
         {
+            var isDemo = DemoFilter.IsDemo(User);
+
             var columns = await _context.BoardColumns
                 .OrderBy(c => c.SortOrder)
-                .Include(c => c.Cards.OrderBy(card => card.SortOrder))
+                .Include(c => c.Cards.Where(card => !isDemo || card.CustomerName.StartsWith("[DEMO]"))
+                                     .Where(card => isDemo || !card.CustomerName.StartsWith("[DEMO]"))
+                                     .OrderBy(card => card.SortOrder))
                     .ThenInclude(card => card.Notes.OrderByDescending(n => n.CreatedAt))
                 .ToListAsync();
 

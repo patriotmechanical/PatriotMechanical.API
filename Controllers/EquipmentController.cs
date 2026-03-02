@@ -26,6 +26,7 @@ namespace PatriotMechanical.API.Controllers
                 .Include(e => e.Customer)
                 .Include(e => e.WorkOrder)
                 .Where(e => !isDemo || e.Customer.Name.StartsWith("[DEMO]"))
+                .Where(e => isDemo || e.Customer == null || !e.Customer.Name.StartsWith("[DEMO]"))
                 .OrderByDescending(e => e.InstallDate)
                 .Select(e => new
                 {
