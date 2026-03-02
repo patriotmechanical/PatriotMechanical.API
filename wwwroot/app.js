@@ -283,7 +283,7 @@ async function loadDashboard() {
     apTable.innerHTML = "";
     data.ap.forEach(v => {
         const due = v.nextDue ? new Date(v.nextDue).toLocaleDateString() : "-";
-        apTable.innerHTML += `<tr><td>${v.name}</td><td>$${Number(v.totalOwed).toLocaleString()}</td><td>${due}</td></tr>`;
+        apTable.innerHTML += `<tr><td>${v.name}</td><td>$${Number(v.totalInvoiceAmount).toLocaleString()}</td><td>$${Number(v.totalOwed).toLocaleString()}</td><td>${due}</td></tr>`;
     });
 
     // Open Work Orders table
@@ -1430,37 +1430,155 @@ async function openCustomerProfile(id) {
     if (!res || !res.ok) return;
     const c = await res.json();
     document.getElementById("customerProfileTitle").innerText = c.name;
-    let html = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px;">
-        <div class="card"><h4 style="color:#64748b; font-size:11px; text-transform:uppercase;">Total Balance</h4><p style="font-size:24px; font-weight:800;">$${Number(c.totalBalance || 0).toLocaleString()}</p></div>
-        <div class="card"><h4 style="color:#64748b; font-size:11px; text-transform:uppercase;">Work Orders</h4><p style="font-size:24px; font-weight:800;">${c.workOrderCount || 0}</p></div>
+
+    let html = '';
+
+    // Top stats row
+    const balance = Number(c.balanceOwed || 0);
+    html += `<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
+        <div style="background:#0f172a; padding:14px 16px; border-radius:10px; border:1px solid #334155;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600;">Balance Owed</div>
+            <div style="font-size:22px; font-weight:800; color:${balance > 0 ? '#f87171' : '#4ade80'}; margin-top:4px;">$${balance.toLocaleString()}</div>
+        </div>
+        <div style="background:#0f172a; padding:14px 16px; border-radius:10px; border:1px solid #334155;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600;">Work Orders</div>
+            <div style="font-size:22px; font-weight:800; color:#e2e8f0; margin-top:4px;">${c.workOrders ? c.workOrders.length : 0}</div>
+        </div>
+        <div style="background:#0f172a; padding:14px 16px; border-radius:10px; border:1px solid #334155;">
+            <div style="font-size:11px; color:#64748b; text-transform:uppercase; font-weight:600;">Last PM</div>
+            <div style="font-size:14px; font-weight:700; margin-top:6px; color:${c.lastPm ? '#e2e8f0' : '#f87171'};">${c.lastPm ? new Date(c.lastPm.completedAt).toLocaleDateString() + ' — ' + c.lastPm.jobTypeName : 'No PM on record'}</div>
+        </div>
     </div>`;
 
+    // PM reminder banner
+    if (c.lastPm) {
+        const daysSince = Math.floor((Date.now() - new Date(c.lastPm.completedAt).getTime()) / 86400000);
+        if (daysSince >= 120) {
+            const overdue = daysSince >= 180;
+            html += `<div style="background:${overdue ? '#7f1d1d' : '#78350f'}; border:1px solid ${overdue ? '#dc2626' : '#d97706'}; border-radius:10px; padding:14px 18px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="font-weight:700; color:${overdue ? '#fca5a5' : '#fde68a'};">${overdue ? '⚠ PM OVERDUE' : '⏰ PM DUE SOON'} — ${daysSince} days since last PM</div>
+                    <div style="font-size:12px; color:#94a3b8; margin-top:2px;">Last PM: Job #${c.lastPm.jobNumber} on ${new Date(c.lastPm.completedAt).toLocaleDateString()}</div>
+                </div>
+                <button class="btn-primary" onclick="sendPmReminder('${id}', '${c.name.replace(/'/g, "\\'")}')">📧 Schedule PM</button>
+            </div>`;
+        }
+    } else {
+        html += `<div style="background:#7f1d1d; border:1px solid #dc2626; border-radius:10px; padding:14px 18px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div style="font-weight:700; color:#fca5a5;">⚠ NO PM ON RECORD</div>
+                <div style="font-size:12px; color:#94a3b8; margin-top:2px;">This customer has never had a preventive maintenance visit</div>
+            </div>
+            <button class="btn-primary" onclick="sendPmReminder('${id}', '${c.name.replace(/'/g, "\\'")}')">📧 Schedule PM</button>
+        </div>`;
+    }
+
+    // Contacts section
     if (c.contacts && c.contacts.length > 0) {
-        html += `<h4 style="margin-bottom:8px;">Contacts</h4>`;
-        c.contacts.forEach(ct => { html += `<div style="background:#0f172a; padding:8px 12px; border-radius:8px; margin-bottom:4px;">${ct.name || ""} ${ct.email ? '— ' + ct.email : ''} ${ct.phone ? '— ' + ct.phone : ''}</div>`; });
-        html += `<br/>`;
+        html += `<div style="margin-bottom:20px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Contacts</h4>`;
+        c.contacts.forEach(ct => {
+            const icon = ct.type === 'Email' ? '✉' : ct.type === 'Phone' ? '📞' : ct.type === 'MobilePhone' ? '📱' : '•';
+            const val = ct.value || '';
+            let link = val;
+            if (ct.type === 'Email') link = `<a href="mailto:${val}" style="color:#60a5fa; text-decoration:none;">${val}</a>`;
+            else if (ct.type === 'Phone' || ct.type === 'MobilePhone') link = `<a href="tel:${val}" style="color:#60a5fa; text-decoration:none;">${val}</a>`;
+            html += `<div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:#0f172a; border:1px solid #1e293b; border-radius:8px; margin-bottom:4px;">
+                <span style="font-size:16px;">${icon}</span>
+                <span style="color:#94a3b8; font-size:11px; width:80px; text-transform:uppercase;">${ct.type || 'Contact'}</span>
+                <span>${link}</span>
+                ${ct.memo ? `<span style="color:#475569; font-size:11px; margin-left:auto;">${ct.memo}</span>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
     }
 
-    if (c.invoices && c.invoices.length > 0) {
-        html += `<h4 style="margin-bottom:8px;">Invoices</h4><table class="data-table"><thead><tr><th>Invoice</th><th>Date</th><th>Total</th><th>Balance</th></tr></thead><tbody>`;
-        c.invoices.forEach(inv => { html += `<tr><td>${inv.invoiceNumber || "—"}</td><td>${inv.date ? new Date(inv.date).toLocaleDateString() : "—"}</td><td>$${Number(inv.total || 0).toLocaleString()}</td><td>$${Number(inv.balance || 0).toLocaleString()}</td></tr>`; });
-        html += `</tbody></table><br/>`;
+    // Service Locations
+    if (c.locations && c.locations.length > 0) {
+        html += `<div style="margin-bottom:20px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Service Locations</h4>`;
+        c.locations.forEach(loc => {
+            const addr = [loc.street, loc.unit, loc.city, loc.state, loc.zip].filter(Boolean).join(', ');
+            html += `<div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; padding:12px 16px; margin-bottom:8px;">
+                <div style="font-weight:600; color:#e2e8f0;">${loc.name || addr}</div>
+                ${loc.name ? `<div style="font-size:12px; color:#94a3b8; margin-top:2px;">📍 ${addr}</div>` : ''}`;
+            if (loc.contacts && loc.contacts.length > 0) {
+                loc.contacts.forEach(lc => {
+                    const lcIcon = lc.type === 'Email' ? '✉' : '📞';
+                    let lcLink = lc.value;
+                    if (lc.type === 'Email') lcLink = `<a href="mailto:${lc.value}" style="color:#60a5fa; text-decoration:none;">${lc.value}</a>`;
+                    else lcLink = `<a href="tel:${lc.value}" style="color:#60a5fa; text-decoration:none;">${lc.value}</a>`;
+                    html += `<div style="font-size:12px; color:#94a3b8; margin-top:4px;">${lcIcon} ${lc.type}: ${lcLink}</div>`;
+                });
+            }
+            html += `</div>`;
+        });
+        html += `</div>`;
     }
 
-    if (c.workOrders && c.workOrders.length > 0) {
-        html += `<h4 style="margin-bottom:8px;">Work Orders</h4><table class="data-table"><thead><tr><th>Job #</th><th>Status</th><th>Created</th></tr></thead><tbody>`;
-        c.workOrders.forEach(wo => { html += `<tr><td>${wo.jobNumber || "—"}</td><td>${wo.status || "—"}</td><td>${wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "—"}</td></tr>`; });
-        html += `</tbody></table><br/>`;
-    }
-
+    // Equipment
     if (c.equipment && c.equipment.length > 0) {
-        html += `<h4 style="margin-bottom:8px;">Equipment</h4><table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody>`;
-        c.equipment.forEach(e => { html += `<tr><td>${e.type || "—"}</td><td>${e.brand || "—"}</td><td>${e.modelNumber || "—"}</td><td>${e.serialNumber || "—"}</td></tr>`; });
-        html += `</tbody></table>`;
+        html += `<div style="margin-bottom:20px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Equipment</h4>
+            <table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Installed</th><th>Warranty</th></tr></thead><tbody>`;
+        c.equipment.forEach(e => {
+            const installed = e.installDate ? new Date(e.installDate).toLocaleDateString() : '—';
+            const warranty = e.warrantyExpiration ? new Date(e.warrantyExpiration).toLocaleDateString() : '—';
+            html += `<tr><td>${e.type || '—'}</td><td>${e.brand || '—'}</td><td>${e.modelNumber || '—'}</td><td>${e.serialNumber || '—'}</td><td>${installed}</td><td>${warranty}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    }
+
+    // Work Orders
+    if (c.workOrders && c.workOrders.length > 0) {
+        html += `<div style="margin-bottom:20px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Work Orders</h4>
+            <table class="data-table"><thead><tr><th>Job #</th><th>Status</th><th>Type</th><th>Created</th><th>Amount</th></tr></thead><tbody>`;
+        c.workOrders.forEach(wo => {
+            html += `<tr><td>${wo.jobNumber || '—'}</td><td>${wo.status || '—'}</td><td>${wo.jobTypeName || '—'}</td><td>${wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : '—'}</td><td>${wo.totalAmount ? '$' + Number(wo.totalAmount).toLocaleString() : '—'}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    }
+
+    // Invoices
+    if (c.invoices && c.invoices.length > 0) {
+        html += `<div style="margin-bottom:10px;">
+            <h4 style="font-size:13px; text-transform:uppercase; color:#64748b; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">Invoices</h4>
+            <table class="data-table"><thead><tr><th>Invoice #</th><th>Date</th><th>Total</th><th>Balance</th><th>Status</th></tr></thead><tbody>`;
+        c.invoices.forEach(inv => {
+            const bal = Number(inv.balanceRemaining || 0);
+            html += `<tr><td>${inv.invoiceNumber || '—'}</td><td>${inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : '—'}</td><td>$${Number(inv.totalAmount || 0).toLocaleString()}</td><td style="color:${bal > 0 ? '#f87171' : '#4ade80'};">$${bal.toLocaleString()}</td><td>${inv.status || '—'}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
     }
 
     document.getElementById("customerProfileBody").innerHTML = html;
     document.getElementById("customerProfileModal").classList.remove("hidden");
+}
+
+// PM Reminder — find best contact and compose message
+async function sendPmReminder(customerId, customerName) {
+    const res = await api(`/customers/${customerId}`);
+    if (!res || !res.ok) return;
+    const c = await res.json();
+
+    const message = `Hi, this is Patriot Mechanical. We'd like to schedule your next preventive maintenance visit for ${customerName}. Please let us know a date and time that works for you. Thank you!`;
+
+    // Find email contact
+    const email = (c.contacts || []).find(ct => ct.type === 'Email');
+    const phone = (c.contacts || []).find(ct => ct.type === 'Phone' || ct.type === 'MobilePhone');
+
+    if (email) {
+        const subject = encodeURIComponent(`Schedule PM — ${customerName}`);
+        const body = encodeURIComponent(message);
+        window.open(`mailto:${email.value}?subject=${subject}&body=${body}`, '_blank');
+    } else if (phone) {
+        window.open(`sms:${phone.value}?body=${encodeURIComponent(message)}`, '_blank');
+    } else {
+        // No contacts — copy to clipboard
+        navigator.clipboard.writeText(message);
+        toast("Message copied to clipboard — no email or phone on file");
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════

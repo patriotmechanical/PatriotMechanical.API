@@ -214,7 +214,7 @@
                         <div class="panel">
                             <h2>Accounts Payable</h2>
                             <table>
-                                <thead><tr><th>Vendor</th><th>Total Owed</th><th>Next Due</th></tr></thead>
+                                <thead><tr><th>Vendor</th><th>Total Invoiced</th><th>Owed Now</th><th>Next Due</th></tr></thead>
                                 <tbody id="apTable"></tbody>
                             </table>
                         </div>
@@ -532,12 +532,12 @@
                 <!-- WARRANTY DETAIL MODAL                           -->
                 <!-- ═══════════════════════════════════════════════ -->
                 <div class="modal hidden" id="warrantyModal">
-                    <div class="modal-content" style="width:700px; max-height:85vh; overflow-y:auto;">
+                    <div class="modal-content" style="width:700px;">
                         <div class="modal-header">
                             <h2 id="warrantyModalTitle">Warranty Claim</h2>
                             <button class="modal-close" onclick="document.getElementById('warrantyModal').classList.add('hidden')">✕</button>
                         </div>
-                        <div id="warrantyModalBody"></div>
+                        <div class="modal-body" id="warrantyModalBody"></div>
                     </div>
                 </div>
 
@@ -550,7 +550,7 @@
                             <h2 id="cardDetailTitle">Card Details</h2>
                             <button class="modal-close" onclick="document.getElementById('cardDetailModal').classList.add('hidden')">✕</button>
                         </div>
-                        <div id="cardDetailBody"></div>
+                        <div class="modal-body" id="cardDetailBody"></div>
                     </div>
                 </div>
 
@@ -563,19 +563,21 @@
                             <h2>Add Work Order to Board</h2>
                             <button class="modal-close" onclick="document.getElementById('addCardModal').classList.add('hidden')">✕</button>
                         </div>
-                        <div class="form-group">
-                            <label>Column</label>
-                            <select id="addCardColumn"></select>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label>Column</label>
+                                <select id="addCardColumn"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Job Number</label>
+                                <input type="text" id="addCardJob" placeholder="e.g. 80041" />
+                            </div>
+                            <div class="form-group">
+                                <label>Customer Name</label>
+                                <input type="text" id="addCardCustomer" placeholder="e.g. HCA Houston" />
+                            </div>
+                            <button class="btn-primary btn-full" onclick="submitAddCard()">Add to Board</button>
                         </div>
-                        <div class="form-group">
-                            <label>Job Number</label>
-                            <input type="text" id="addCardJob" placeholder="e.g. 80041" />
-                        </div>
-                        <div class="form-group">
-                            <label>Customer Name</label>
-                            <input type="text" id="addCardCustomer" placeholder="e.g. HCA Houston" />
-                        </div>
-                        <button class="btn-primary btn-full" onclick="submitAddCard()">Add to Board</button>
                     </div>
                 </div>
 
@@ -588,15 +590,17 @@
                             <h2>Add Column</h2>
                             <button class="modal-close" onclick="document.getElementById('addColumnModal').classList.add('hidden')">✕</button>
                         </div>
-                        <div class="form-group">
-                            <label>Column Name</label>
-                            <input type="text" id="addColumnName" placeholder="e.g. Waiting Inspection" />
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label>Column Name</label>
+                                <input type="text" id="addColumnName" placeholder="e.g. Waiting Inspection" />
+                            </div>
+                            <div class="form-group">
+                                <label>Color</label>
+                                <input type="color" id="addColumnColor" value="#2563eb" />
+                            </div>
+                            <button class="btn-primary btn-full" onclick="submitAddColumn()">Create Column</button>
                         </div>
-                        <div class="form-group">
-                            <label>Color</label>
-                            <input type="color" id="addColumnColor" value="#2563eb" />
-                        </div>
-                        <button class="btn-primary btn-full" onclick="submitAddColumn()">Create Column</button>
                     </div>
                 </div>
 
@@ -604,12 +608,12 @@
                 <!-- SUB DETAIL MODAL                                -->
                 <!-- ═══════════════════════════════════════════════ -->
                 <div class="modal hidden" id="subDetailModal">
-                    <div class="modal-content" style="width:600px; max-height:80vh; overflow-y:auto;">
+                    <div class="modal-content" style="width:600px;">
                         <div class="modal-header">
                             <h2 id="subDetailTitle">Subcontractor</h2>
                             <button class="modal-close" onclick="document.getElementById('subDetailModal').classList.add('hidden')">✕</button>
                         </div>
-                        <div id="subDetailBody"></div>
+                        <div class="modal-body" id="subDetailBody"></div>
                     </div>
                 </div>
 
@@ -617,12 +621,12 @@
                 <!-- CUSTOMER PROFILE MODAL                          -->
                 <!-- ═══════════════════════════════════════════════ -->
                 <div class="modal hidden" id="customerProfileModal">
-                    <div class="modal-content" style="width:800px; max-height:90vh; overflow-y:auto;">
+                    <div class="modal-content" style="width:850px;">
                         <div class="modal-header">
                             <h2 id="customerProfileTitle">Customer</h2>
                             <button class="modal-close" onclick="document.getElementById('customerProfileModal').classList.add('hidden')">✕</button>
                         </div>
-                        <div id="customerProfileBody"></div>
+                        <div class="modal-body" id="customerProfileBody"></div>
                     </div>
                 </div>
 
@@ -769,23 +773,27 @@
 
     <!-- CUSTOMER MODAL (shared) -->
     <div class="modal hidden" id="customerModal">
-        <div class="modal-content">
-            <h2 id="modalTitle"></h2>
-            <div class="invoice-scroll">
-                <table>
-                    <thead>
-                        <tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr>
-                    </thead>
-                    <tbody id="invoiceBody"></tbody>
-                </table>
+        <div class="modal-content" style="width:600px;">
+            <div class="modal-header">
+                <h2 id="modalTitle"></h2>
+                <button class="modal-close" onclick="closeModal()">✕</button>
             </div>
-            <button class="btn-secondary" onclick="closeModal()" style="margin-top:15px;">Close</button>
+            <div class="modal-body">
+                <div class="invoice-scroll">
+                    <table>
+                        <thead>
+                            <tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr>
+                        </thead>
+                        <tbody id="invoiceBody"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- OPS STAT DRILL-DOWN MODAL -->
     <div class="modal hidden" id="opsModal">
-        <div class="modal-content" style="width:600px; max-height:80vh; overflow-y:auto;">
+        <div class="modal-content" style="width:600px;">
             <div class="modal-header">
                 <h2 id="opsModalTitle">Details</h2>
                 <button class="modal-close" onclick="document.getElementById('opsModal').classList.add('hidden')">✕</button>
