@@ -16,6 +16,13 @@ namespace PatriotMechanical.API.Controllers
             _syncEngine = syncEngine;
         }
 
+        // Temporary diagnostic — remove after debugging
+        [HttpGet("refresh/test")]
+        public IActionResult RefreshTest()
+        {
+            return Ok(new { message = "Refresh endpoint is reachable", timestamp = DateTime.UtcNow });
+        }
+
         // ─── MANUAL REFRESH (dashboard button) ───────────────────────
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshRecent()
