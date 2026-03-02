@@ -369,5 +369,28 @@ namespace PatriotMechanical.API.Application.Services
 
             return await response.Content.ReadAsStringAsync();
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // APPOINTMENTS LIST API (per-job lookup for technician check)
+        // ═══════════════════════════════════════════════════════════════
+
+        public async Task<string> GetAppointmentsForJobAsync(long jobId)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var url = $"{baseUrl}/jpm/v2/tenant/{tenantId}/appointments?jobId={jobId}&active=True&pageSize=50";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
     }
 }

@@ -149,5 +149,27 @@ namespace PatriotMechanical.API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { pmJobsFound = pmJobs.Count, updated, failed });
         }
+
+        // Inspect raw appointment data for a specific job
+        [HttpGet("appointments/{jobNumber}")]
+        public async Task<IActionResult> GetJobAppointments(string jobNumber)
+        {
+            var wo = await _context.WorkOrders
+                .Where(w => w.JobNumber == jobNumber)
+                .FirstOrDefaultAsync();
+
+            if (wo == null) return NotFound($"Job {jobNumber} not found");
+
+            var raw = await _service.GetAppointmentsForJobAsync(wo.ServiceTitanJobId);
+            var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+
+            return Ok(new
+            {
+                jobNumber = wo.JobNumber,
+                serviceTitanJobId = wo.ServiceTitanJobId,
+                status = wo.Status,
+                appointments = parsed
+            });
+        }
     }
 }

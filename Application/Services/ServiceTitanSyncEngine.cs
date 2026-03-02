@@ -466,10 +466,22 @@ namespace PatriotMechanical.API.Application.Services
                     var active = appt.GetProperty("active").GetBoolean();
                     var unused = appt.GetProperty("unused").GetBoolean();
 
+                    // Check for technician assignment - export may include various tech fields
+                    bool hasTech = false;
+                    if (appt.TryGetProperty("assignedTechnicians", out var techsProp) && techsProp.GetArrayLength() > 0)
+                        hasTech = true;
+                    else if (appt.TryGetProperty("technicianId", out var techIdProp) && techIdProp.ValueKind == JsonValueKind.Number && techIdProp.GetInt64() > 0)
+                        hasTech = true;
+                    else if (appt.TryGetProperty("technicians", out var techsProp2) && techsProp2.GetArrayLength() > 0)
+                        hasTech = true;
+                    // If status is Dispatched, Working, or Done, a tech must have been assigned
+                    else if (status == "Dispatched" || status == "Working" || status == "Done")
+                        hasTech = true;
+
                     if (!jobAppointments.ContainsKey(jobId))
                         jobAppointments[jobId] = new List<ApptInfo>();
 
-                    jobAppointments[jobId].Add(new ApptInfo { Status = status, Active = active, Unused = unused });
+                    jobAppointments[jobId].Add(new ApptInfo { Status = status, Active = active, Unused = unused, HasTechnician = hasTech });
                 }
 
                 if (syncState == null)
@@ -491,20 +503,22 @@ namespace PatriotMechanical.API.Application.Services
             var needReturnCol = await _context.BoardColumns
                 .FirstOrDefaultAsync(c => c.Name.ToLower().Contains("need to return")
                                        || c.Name.ToLower().Contains("return"));
-            if (needReturnCol == null)
-            {
-                Console.WriteLine("[AutoBoard] No 'Need to Return' column found.");
-                return;
-            }
 
             var waitScheduleCol = await _context.BoardColumns
                 .FirstOrDefaultAsync(c => c.Name.ToLower().Contains("schedule"));
+
+            if (needReturnCol == null && waitScheduleCol == null)
+            {
+                Console.WriteLine("[AutoBoard] No relevant board columns found.");
+                return;
+            }
 
             var existingJobNumbers = await _context.BoardCards
                 .Select(c => c.JobNumber).ToListAsync();
 
             int added = 0;
 
+            // ─── PART 1: Appointment-based auto-board (Need to Return) ───
             foreach (var (stJobId, appointments) in jobAppointments)
             {
                 var wo = await _context.WorkOrders
@@ -513,7 +527,7 @@ namespace PatriotMechanical.API.Application.Services
                 if (wo == null) continue;
 
                 var woStatus = wo.Status?.ToLower() ?? "";
-                if (woStatus == "completed" || woStatus.Contains("cancel")) continue;
+                if (woStatus.Contains("completed") || woStatus.Contains("cancel")) continue;
                 if (existingJobNumbers.Contains(wo.JobNumber)) continue;
 
                 var custName = wo.Customer?.Name ?? "";
@@ -523,58 +537,70 @@ namespace PatriotMechanical.API.Application.Services
                     a.Active && a.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase));
                 var activeNonUnused = appointments.Where(a => a.Active && !a.Unused).ToList();
                 bool multiVisits = activeNonUnused.Count > 1;
-                bool hasUnused = appointments.Any(a => a.Active && a.Unused);
 
                 BoardColumn? target = null;
                 string? note = null;
 
-                if (hasHold)
+                if (hasHold && needReturnCol != null)
                 {
                     target = needReturnCol;
                     note = "Auto-added: Appointment on Hold in ServiceTitan";
                 }
-                else if (multiVisits)
+                else if (multiVisits && needReturnCol != null)
                 {
                     target = needReturnCol;
                     note = $"Auto-added: {activeNonUnused.Count} appointments — return visit requested";
                 }
-                else if (hasUnused && waitScheduleCol != null)
-                {
-                    target = waitScheduleCol;
-                    note = "Auto-added: Unused appointment needs scheduling";
-                }
 
                 if (target == null) continue;
 
-                var maxSort = await _context.BoardCards
-                    .Where(c => c.BoardColumnId == target.Id)
-                    .Select(c => (int?)c.SortOrder)
-                    .MaxAsync() ?? 0;
-
-                var card = new BoardCard
-                {
-                    Id = Guid.NewGuid(),
-                    BoardColumnId = target.Id,
-                    WorkOrderId = wo.Id,
-                    JobNumber = wo.JobNumber,
-                    CustomerName = custName,
-                    SortOrder = maxSort + 1
-                };
-                _context.BoardCards.Add(card);
-
-                if (note != null)
-                {
-                    _context.BoardCardNotes.Add(new BoardCardNote
-                    {
-                        Id = Guid.NewGuid(),
-                        BoardCardId = card.Id,
-                        Text = note,
-                        Author = "System"
-                    });
-                }
-
-                existingJobNumbers.Add(wo.JobNumber);
+                await AddCardToColumn(target, wo, custName, note, existingJobNumbers);
                 added++;
+            }
+
+            // ─── PART 2: Need to Schedule — jobs with appointments but no tech assigned ───
+            if (waitScheduleCol != null)
+            {
+                // Get all ST job IDs that have appointments
+                var jobIdsWithAppointments = jobAppointments.Keys.ToHashSet();
+
+                // Find active work orders not on the board
+                var openJobs = await _context.WorkOrders
+                    .Include(w => w.Customer)
+                    .Where(w => w.Status != null
+                        && !w.Status.ToLower().Contains("completed")
+                        && !w.Status.ToLower().Contains("cancel")
+                        && w.ServiceTitanJobId > 0)
+                    .ToListAsync();
+
+                foreach (var wo in openJobs)
+                {
+                    if (existingJobNumbers.Contains(wo.JobNumber)) continue;
+
+                    var custName = wo.Customer?.Name ?? "";
+                    if (custName.StartsWith("[DEMO]")) continue;
+
+                    if (jobAppointments.TryGetValue(wo.ServiceTitanJobId, out var appts))
+                    {
+                        // Job HAS appointments - check if any active appointment has NO tech assigned
+                        var activeAppts = appts.Where(a => a.Active && !a.Unused).ToList();
+                        bool allWithoutTech = activeAppts.Count > 0 && activeAppts.All(a => !a.HasTechnician);
+
+                        if (allWithoutTech)
+                        {
+                            await AddCardToColumn(waitScheduleCol, wo, custName,
+                                "Auto-added: Appointment exists but no technician assigned", existingJobNumbers);
+                            added++;
+                        }
+                    }
+                    else
+                    {
+                        // Job has NO appointments at all - also needs scheduling
+                        await AddCardToColumn(waitScheduleCol, wo, custName,
+                            "Auto-added: No appointment created yet", existingJobNumbers);
+                        added++;
+                    }
+                }
             }
 
             if (added > 0)
@@ -584,11 +610,45 @@ namespace PatriotMechanical.API.Application.Services
             }
         }
 
+        private async Task AddCardToColumn(BoardColumn target, WorkOrder wo, string custName,
+            string? note, List<string> existingJobNumbers)
+        {
+            var maxSort = await _context.BoardCards
+                .Where(c => c.BoardColumnId == target.Id)
+                .Select(c => (int?)c.SortOrder)
+                .MaxAsync() ?? 0;
+
+            var card = new BoardCard
+            {
+                Id = Guid.NewGuid(),
+                BoardColumnId = target.Id,
+                WorkOrderId = wo.Id,
+                JobNumber = wo.JobNumber,
+                CustomerName = custName,
+                SortOrder = maxSort + 1
+            };
+            _context.BoardCards.Add(card);
+
+            if (note != null)
+            {
+                _context.BoardCardNotes.Add(new BoardCardNote
+                {
+                    Id = Guid.NewGuid(),
+                    BoardCardId = card.Id,
+                    Text = note,
+                    Author = "System"
+                });
+            }
+
+            existingJobNumbers.Add(wo.JobNumber);
+        }
+
         private class ApptInfo
         {
             public string Status { get; set; } = "";
             public bool Active { get; set; }
             public bool Unused { get; set; }
+            public bool HasTechnician { get; set; }
         }
     }
 }
