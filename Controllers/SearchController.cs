@@ -61,13 +61,13 @@ namespace PatriotMechanical.API.Controllers
                 .Where(e => (e.SerialNumber != null && e.SerialNumber.ToLower().Contains(term))
                          || (e.ModelNumber != null && e.ModelNumber.ToLower().Contains(term))
                          || (e.Brand != null && e.Brand.ToLower().Contains(term))
-                         || (e.EquipmentType != null && e.EquipmentType.ToLower().Contains(term)))
+                         || (e.Type != null && e.Type.ToLower().Contains(term)))
                 .Take(5)
-                .Select(e => new { e.Id, e.EquipmentType, e.Brand, e.SerialNumber, CustomerName = e.Customer != null ? e.Customer.Name : "" })
+                .Select(e => new { e.Id, e.Type, e.Brand, e.SerialNumber, CustomerName = e.Customer != null ? e.Customer.Name : "" })
                 .ToListAsync();
 
             foreach (var e in equipment)
-                results.Add(new { type = "equipment", id = e.Id, title = (e.Brand + " " + e.EquipmentType).Trim(), subtitle = "S/N: " + (e.SerialNumber ?? "—") + " — " + e.CustomerName });
+                results.Add(new { type = "equipment", id = e.Id, title = (e.Brand + " " + e.Type).Trim(), subtitle = "S/N: " + (e.SerialNumber ?? "—") + " — " + e.CustomerName });
 
             // Vendors
             var vendors = await _context.Vendors
