@@ -17,24 +17,47 @@ namespace PatriotMechanical.API.Controllers
         }
 
         // ─── MANUAL REFRESH (dashboard button) ───────────────────────
-        // Uses the list endpoint with modifiedOnOrAfter for instant results.
-        // One click catches all changes from the last 24 hours.
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshRecent()
         {
-            // Sync customers with full export (they change less often)
-            await _syncEngine.SyncCustomersAsync(fullSync: true);
+            var errors = new List<string>();
+            int jobsUpdated = 0;
 
-            // Refresh jobs using list endpoint — catches all changes in last 24h immediately
-            var jobsUpdated = await _syncEngine.RefreshRecentJobsAsync(lookbackHours: 24);
+            // Sync customers — don't let failure block the rest
+            try
+            {
+                await _syncEngine.SyncCustomersAsync(fullSync: true);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Customer sync failed: {ex.Message}");
+            }
 
-            // Sync invoices normally
-            await _syncEngine.SyncInvoicesAsync();
+            // Refresh jobs — the main reason for this endpoint
+            try
+            {
+                jobsUpdated = await _syncEngine.RefreshRecentJobsAsync(lookbackHours: 24);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Job refresh failed: {ex.Message}");
+            }
+
+            // Sync invoices
+            try
+            {
+                await _syncEngine.SyncInvoicesAsync();
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Invoice sync failed: {ex.Message}");
+            }
 
             return Ok(new
             {
-                message = "Dashboard refreshed",
-                jobsUpdated
+                message = errors.Count == 0 ? "Dashboard refreshed" : "Refresh completed with errors",
+                jobsUpdated,
+                errors
             });
         }
 

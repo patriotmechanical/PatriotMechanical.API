@@ -962,15 +962,19 @@ async function hardRefresh() {
     btn.innerText = "Syncing...";
 
     try {
-        // Use the new /refresh endpoint that bypasses continuation tokens
-        // and fetches all recently modified jobs immediately via list API
         const res = await api("/servicetitan/refresh", { method: "POST" });
 
         if (res && res.ok) {
             const data = await res.json();
             await loadDashboard();
-            toast(`Synced — ${data.jobsUpdated} job(s) updated.`, "success");
+            if (data.errors && data.errors.length > 0) {
+                toast(`Synced ${data.jobsUpdated} job(s) with warnings: ${data.errors.join("; ")}`, "error");
+            } else {
+                toast(`Synced — ${data.jobsUpdated} job(s) updated.`, "success");
+            }
         } else {
+            const text = await res.text();
+            console.error("Sync response:", text);
             toast("Sync failed.", "error");
         }
     } catch (err) {
