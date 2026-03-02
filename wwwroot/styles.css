@@ -582,6 +582,53 @@ table:not(.data-table) td {
 /* ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════════════════════════════════════════════════════ */
+/* OPS STATS ROW                                                    */
+/* ═══════════════════════════════════════════════════════════════ */
+
+.ops-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.ops-stat-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: center;
+    border-top: 3px solid var(--stat-color, #475569);
+}
+
+.ops-stat-card h4 {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.ops-stat-card .stat-number {
+    font-size: 28px;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    transition: color 0.15s;
+    line-height: 1;
+}
+
+.ops-stat-card .stat-number:hover {
+    color: var(--accent);
+}
+
+.ops-stat-card .stat-number.zero {
+    color: #334155;
+    cursor: default;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
 /* GLOBAL SEARCH                                                    */
 /* ═══════════════════════════════════════════════════════════════ */
 
@@ -594,7 +641,7 @@ table:not(.data-table) td {
     display: flex;
     align-items: center;
     background: #1e293b;
-    border: 1px solid #334155;
+    border: 2px solid #475569;
     border-radius: 12px;
     padding: 0 16px;
     transition: border-color 0.15s;

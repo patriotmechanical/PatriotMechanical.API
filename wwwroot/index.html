@@ -105,6 +105,7 @@
                         <div class="card"><h3>Total AP</h3><p id="totalAP">$0</p></div>
                         <div class="card"><h3>Net Position</h3><p id="netPosition">$0</p></div>
                     </div>
+                    <div class="ops-stats" id="opsStatsRow"></div>
                     <div class="grid">
                         <div class="panel"><h2>Accounts Receivable</h2>
                             <table class="data-table" id="dashArTable"><thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead><tbody id="arTableBody"></tbody></table>
@@ -468,6 +469,17 @@
                 </div>
 
             </div>
+        </div>
+    </div>
+
+    <!-- OPS STAT DRILL-DOWN MODAL -->
+    <div class="modal hidden" id="opsModal">
+        <div class="modal-content" style="width:600px; max-height:80vh; overflow-y:auto;">
+            <div class="modal-header">
+                <h2 id="opsModalTitle">Details</h2>
+                <button class="modal-close" onclick="document.getElementById('opsModal').classList.add('hidden')">✕</button>
+            </div>
+            <div class="modal-body" id="opsModalBody"></div>
         </div>
     </div>
 
