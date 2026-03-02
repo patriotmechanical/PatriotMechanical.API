@@ -278,6 +278,88 @@ async function loadDashboard() {
         });
     } else { woTable.innerHTML = '<tr class="empty-row"><td colspan="5">No open work orders</td></tr>'; }
     makeSortable("dashWoTable");
+
+    // Ops Stats Row
+    renderOpsStats(data);
+}
+
+function renderOpsStats(data) {
+    const row = document.getElementById("opsStatsRow");
+    if (!row) return;
+
+    const openWoCount = data.openWorkOrders ? data.openWorkOrders.length : 0;
+
+    // Map board columns to stat categories
+    const columnMap = {};
+    if (data.boardColumns) {
+        data.boardColumns.forEach(col => {
+            columnMap[col.name.toLowerCase()] = { count: col.cards.length, cards: col.cards, color: col.color };
+        });
+    }
+
+    const getCol = (name) => {
+        const key = name.toLowerCase();
+        for (const [k, v] of Object.entries(columnMap)) {
+            if (k.includes(key) || key.includes(k)) return v;
+        }
+        return { count: 0, cards: [], color: "#475569" };
+    };
+
+    const needSchedule = getCol("schedule");
+    const waitingParts = getCol("waiting parts");
+    const waitingQuote = getCol("waiting quote");
+    const needReturn = getCol("need to return");
+    const overduePmCount = data.overduePms ? data.overduePms.length : 0;
+
+    const stats = [
+        { label: "Open WOs", count: openWoCount, color: "#2563eb", items: data.openWorkOrders, type: "wo" },
+        { label: "Need to Schedule", count: needSchedule.count, color: needSchedule.color || "#2563eb", items: needSchedule.cards, type: "board" },
+        { label: "Overdue PMs", count: overduePmCount, color: "#dc2626", items: data.overduePms, type: "pm" },
+        { label: "Waiting Quote", count: waitingQuote.count, color: waitingQuote.color || "#9333ea", items: waitingQuote.cards, type: "board" },
+        { label: "Waiting Parts", count: waitingParts.count, color: waitingParts.color || "#d97706", items: waitingParts.cards, type: "board" },
+        { label: "Need Return", count: needReturn.count, color: needReturn.color || "#dc2626", items: needReturn.cards, type: "board" },
+    ];
+
+    row.innerHTML = stats.map((s, i) => {
+        const zeroClass = s.count === 0 ? " zero" : "";
+        const onclick = s.count > 0 ? `onclick="openOpsDrilldown(${i})"` : "";
+        return `<div class="ops-stat-card" style="--stat-color:${s.color};">
+            <h4>${s.label}</h4>
+            <div class="stat-number${zeroClass}" ${onclick}>${s.count}</div>
+        </div>`;
+    }).join("");
+
+    window._opsStats = stats;
+}
+
+function openOpsDrilldown(idx) {
+    const stat = window._opsStats[idx];
+    if (!stat || stat.count === 0) return;
+
+    document.getElementById("opsModalTitle").innerText = stat.label + " (" + stat.count + ")";
+    const body = document.getElementById("opsModalBody");
+
+    let html = '<table class="data-table"><thead><tr><th>Job #</th><th>Customer</th>';
+    if (stat.type === "wo") html += "<th>Status</th><th>Created</th>";
+    if (stat.type === "pm") html += "<th>Last PM</th><th>Days Since</th>";
+    html += "</tr></thead><tbody>";
+
+    stat.items.forEach(item => {
+        if (stat.type === "wo") {
+            const created = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—";
+            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td><span class="status-badge open">${item.status || "—"}</span></td><td>${created}</td></tr>`;
+        } else if (stat.type === "board") {
+            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td></tr>`;
+        } else if (stat.type === "pm") {
+            const lastPm = item.lastPm ? new Date(item.lastPm).toLocaleDateString() : "Never";
+            const days = item.lastPm ? Math.floor((Date.now() - new Date(item.lastPm).getTime()) / 86400000) : "—";
+            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
+        }
+    });
+
+    html += "</tbody></table>";
+    body.innerHTML = html;
+    document.getElementById("opsModal").classList.remove("hidden");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1169,6 +1251,88 @@ document.addEventListener("keydown", function(e) {
         e.preventDefault();
         document.getElementById("globalSearchInput").focus();
     }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL SEARCH
+// ═══════════════════════════════════════════════════════════════
+
+let searchTimeout = null;
+let searchSelectedIdx = -1;
+let searchResultsData = [];
+
+async function onGlobalSearch() {
+    const q = document.getElementById("globalSearchInput").value.trim();
+    const wrap = document.getElementById("searchResults");
+    if (q.length < 2) { wrap.classList.add("hidden"); searchResultsData = []; searchSelectedIdx = -1; return; }
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+        const res = await api(`/search?q=${encodeURIComponent(q)}`);
+        if (!res || !res.ok) return;
+        const data = await res.json();
+        searchResultsData = data.results || [];
+        searchSelectedIdx = -1;
+        renderSearchResults();
+    }, 250);
+}
+
+function renderSearchResults() {
+    const wrap = document.getElementById("searchResults");
+    if (searchResultsData.length === 0) { wrap.innerHTML = '<div class="search-empty">No results found</div>'; wrap.classList.remove("hidden"); return; }
+    const icons = { customer: "👤", workorder: "📋", equipment: "⚙️", vendor: "💰", warranty: "🛡️", subcontractor: "🏗️" };
+    wrap.innerHTML = searchResultsData.map((r, i) =>
+        `<div class="search-result-item${i === searchSelectedIdx ? ' selected' : ''}" onclick="selectSearchResult(${i})" onmouseenter="searchSelectedIdx=${i}; renderSearchResults();">
+            <div class="search-result-icon">${icons[r.type] || "•"}</div>
+            <div class="search-result-text">
+                <div class="search-result-title">${r.title}</div>
+                <div class="search-result-subtitle">${r.subtitle}</div>
+            </div>
+            <span class="search-result-type">${r.type}</span>
+        </div>`
+    ).join("");
+    wrap.classList.remove("hidden");
+}
+
+function onSearchKeydown(e) {
+    const wrap = document.getElementById("searchResults");
+    if (wrap.classList.contains("hidden")) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); searchSelectedIdx = Math.min(searchSelectedIdx + 1, searchResultsData.length - 1); renderSearchResults(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); searchSelectedIdx = Math.max(searchSelectedIdx - 1, 0); renderSearchResults(); }
+    else if (e.key === "Enter" && searchSelectedIdx >= 0) { e.preventDefault(); selectSearchResult(searchSelectedIdx); }
+    else if (e.key === "Escape") { closeSearch(); }
+}
+
+function selectSearchResult(idx) {
+    const r = searchResultsData[idx]; if (!r) return; closeSearch();
+    switch (r.type) {
+        case "customer": showView("customersView", document.querySelector('[onclick*="customersView"]')); setTimeout(() => openCustomerProfile(r.id), 300); break;
+        case "workorder": showView("boardView", document.querySelector('[onclick*="boardView"]')); break;
+        case "equipment": showView("equipmentView", document.querySelector('[onclick*="equipmentView"]')); break;
+        case "vendor": showView("apView", document.querySelector('[onclick*="apView"]')); break;
+        case "warranty": showView("warrantyView", document.querySelector('[onclick*="warrantyView"]')); setTimeout(() => openWarrantyModal(r.id), 300); break;
+        case "subcontractor": showView("subsView", document.querySelector('[onclick*="subsView"]')); break;
+    }
+}
+
+function onSearchFocus() {
+    const q = document.getElementById("globalSearchInput").value.trim();
+    if (q.length >= 2 && searchResultsData.length > 0) document.getElementById("searchResults").classList.remove("hidden");
+}
+
+function closeSearch() {
+    document.getElementById("searchResults").classList.add("hidden");
+    document.getElementById("globalSearchInput").value = "";
+    document.getElementById("globalSearchInput").blur();
+    searchResultsData = []; searchSelectedIdx = -1;
+}
+
+document.addEventListener("click", function(e) {
+    const wrap = document.querySelector(".global-search-wrap");
+    if (wrap && !wrap.contains(e.target)) document.getElementById("searchResults").classList.add("hidden");
+});
+
+document.addEventListener("keydown", function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); document.getElementById("globalSearchInput").focus(); }
 });
 
 // ═══════════════════════════════════════════════════════════════
