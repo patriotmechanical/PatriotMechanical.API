@@ -478,15 +478,31 @@ async function openCustomerProfile(id) {
             const locContacts = l.contacts && l.contacts.length > 0
                 ? l.contacts.map(lc => `<div class="contact-item" style="padding:4px 0;"><span class="contact-badge">${lc.type}</span><span>${lc.value}</span>${lc.memo ? `<span class="muted"> — ${lc.memo}</span>` : ""}</div>`).join("")
                 : '<div class="muted" style="padding:4px 0;">No contacts for this location</div>';
+
+            let woHtml = "";
+            if (l.workOrders && l.workOrders.length > 0) {
+                woHtml = `<div style="font-size:12px; font-weight:600; color:#94a3b8; margin-top:10px; margin-bottom:6px;">WORK ORDERS (${l.workOrders.length})</div>
+                    <table class="data-table" style="font-size:12px;"><thead><tr><th>Job #</th><th>Type</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody>` +
+                    l.workOrders.map(wo => {
+                        const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "-";
+                        const statusClass = wo.status === "Completed" ? "completed" : "open";
+                        return `<tr><td class="bold">${wo.jobNumber}</td><td>${wo.jobTypeName || "-"}</td><td><span class="status-badge ${statusClass}">${wo.status}</span></td><td>${created}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
+                    }).join("") + `</tbody></table>`;
+            } else {
+                woHtml = '<div class="muted" style="padding:4px 0; margin-top:8px;">No work orders at this location</div>';
+            }
+
+            const woCount = l.workOrders ? l.workOrders.length : 0;
             return `<div class="location-card clickable-row" onclick="toggleLocDetail(${i})" style="cursor:pointer;">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div class="loc-name">${l.name || "Service Location"}</div>
+                    <div class="loc-name">${l.name || "Service Location"} ${woCount > 0 ? `<span class="muted" style="font-size:12px; font-weight:400;">(${woCount} WOs)</span>` : ""}</div>
                     <span class="loc-toggle muted" id="locToggle${i}">▸</span>
                 </div>
                 <div class="loc-addr">${addr || "No address"}</div>
-                <div class="loc-detail hidden" id="locDetail${i}" style="margin-top:10px; padding-top:10px; border-top:1px solid #334155;">
+                <div class="loc-detail hidden" id="locDetail${i}" style="margin-top:10px; padding-top:10px; border-top:1px solid #334155;" onclick="event.stopPropagation();">
                     <div style="font-size:12px; font-weight:600; color:#94a3b8; margin-bottom:6px;">CONTACTS</div>
                     ${locContacts}
+                    ${woHtml}
                 </div>
             </div>`;
         }).join("");

@@ -111,6 +111,11 @@ namespace PatriotMechanical.API.Application.Services
                     var status = job.GetProperty("jobStatus").GetString();
                     var customerId = job.GetProperty("customerId").GetInt64();
 
+                    // Parse locationId
+                    long locationId = 0;
+                    if (job.TryGetProperty("locationId", out var locIdProp) && locIdProp.ValueKind == JsonValueKind.Number)
+                        locationId = locIdProp.GetInt64();
+
                     // Map jobTypeId to name using lookup
                     string? jobTypeName = null;
                     if (job.TryGetProperty("jobTypeId", out var jobTypeIdProp) &&
@@ -164,6 +169,7 @@ namespace PatriotMechanical.API.Application.Services
                             TotalAmount = total,
                             TotalRevenueCalculated = total,
                             CustomerId = customer.Id,
+                            ServiceTitanLocationId = locationId,
                             JobTypeName = jobTypeName,
                             CompletedAt = completedAt,
                             CreatedAt = createdAt
@@ -173,6 +179,7 @@ namespace PatriotMechanical.API.Application.Services
                     {
                         existing.JobNumber = jobNumber!;
                         existing.Status = status!;
+                        existing.ServiceTitanLocationId = locationId;
                         existing.TotalAmount = total;
                         existing.TotalRevenueCalculated = total;
                         existing.ServiceTitanModifiedOn = modifiedOn;
@@ -229,6 +236,11 @@ namespace PatriotMechanical.API.Application.Services
                 {
                     var jobId = job.GetProperty("id").GetInt64();
                     var customerId = job.GetProperty("customerId").GetInt64();
+
+                    // Parse locationId
+                    long locationId2 = 0;
+                    if (job.TryGetProperty("locationId", out var locIdProp2) && locIdProp2.ValueKind == JsonValueKind.Number)
+                        locationId2 = locIdProp2.GetInt64();
 
                     // jobNumber - required field on both endpoints
                     var jobNumber = job.TryGetProperty("jobNumber", out var jnProp)
@@ -321,6 +333,7 @@ namespace PatriotMechanical.API.Application.Services
                             TotalAmount = total ?? 0m,
                             TotalRevenueCalculated = total ?? 0m,
                             CustomerId = customer.Id,
+                            ServiceTitanLocationId = locationId2,
                             JobTypeName = jobTypeName,
                             CompletedAt = completedAt,
                             CreatedAt = createdAt ?? DateTime.UtcNow
@@ -331,6 +344,7 @@ namespace PatriotMechanical.API.Application.Services
                         // Update existing — always update status (the main reason for this method)
                         existing.JobNumber = jobNumber;
                         existing.Status = status;
+                        existing.ServiceTitanLocationId = locationId2;
                         existing.ServiceTitanModifiedOn = modifiedOn;
                         existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
                         existing.JobTypeName = jobTypeName;

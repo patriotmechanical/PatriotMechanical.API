@@ -66,7 +66,6 @@ public class DashboardController : ControllerBase
             {
                 w.Id,
                 w.JobNumber,
-                w.CustomerId,
                 CustomerName = w.Customer.Name,
                 w.Status,
                 w.CreatedAt,
@@ -84,7 +83,7 @@ public class DashboardController : ControllerBase
                 Cards = c.Cards
                     .Where(card => !isDemo || card.CustomerName.StartsWith("[DEMO]"))
                     .Where(card => isDemo || !card.CustomerName.StartsWith("[DEMO]"))
-                    .Select(card => new { card.JobNumber, card.CustomerName })
+                    .Select(card => new { card.JobNumber, card.CustomerName, CustomerId = card.WorkOrder != null ? card.WorkOrder.CustomerId : (Guid?)null })
                     .ToList()
             })
             .ToListAsync();
@@ -100,7 +99,6 @@ public class DashboardController : ControllerBase
             .GroupBy(w => new { w.CustomerId, w.Customer.Name })
             .Select(g => new
             {
-                CustomerId = g.Key.CustomerId,
                 CustomerName = g.Key.Name,
                 LastPm = g.Max(w => w.CompletedAt),
                 JobNumber = g.OrderByDescending(w => w.CompletedAt).Select(w => w.JobNumber).FirstOrDefault()
