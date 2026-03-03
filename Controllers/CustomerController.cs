@@ -81,13 +81,12 @@ namespace PatriotMechanical.API.Controllers
                 .Select(c => new { c.Type, c.Value, c.Memo })
                 .ToListAsync();
 
-            // Service locations with their contacts and work orders
+            // Service locations with their contacts
             var locations = await _context.CustomerLocations
                 .Where(l => l.CustomerId == id && l.Active)
                 .Include(l => l.Contacts)
                 .Select(l => new
                 {
-                    l.ServiceTitanLocationId,
                     l.Name,
                     l.Street,
                     l.Unit,
@@ -97,12 +96,6 @@ namespace PatriotMechanical.API.Controllers
                     Contacts = l.Contacts
                         .Where(c => c.Active)
                         .Select(c => new { c.Type, c.Value, c.Memo })
-                        .ToList(),
-                    WorkOrders = _context.WorkOrders
-                        .Where(w => w.CustomerId == id && w.ServiceTitanLocationId == l.ServiceTitanLocationId)
-                        .OrderByDescending(w => w.CreatedAt)
-                        .Take(10)
-                        .Select(w => new { w.JobNumber, w.Status, w.JobTypeName, w.CreatedAt, w.CompletedAt, w.TotalAmount })
                         .ToList()
                 })
                 .ToListAsync();
