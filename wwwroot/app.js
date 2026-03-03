@@ -274,7 +274,8 @@ async function loadDashboard() {
     if (data.openWorkOrders && data.openWorkOrders.length > 0) {
         data.openWorkOrders.forEach(wo => {
             const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "-";
-            woTable.innerHTML += `<tr><td class="bold">${wo.jobNumber}</td><td>${wo.customerName}</td><td><span class="status-badge open">${wo.status}</span></td><td>${created}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
+            const click = wo.customerId ? ` class="clickable-row" onclick="openCustomerProfile('${wo.customerId}')"` : "";
+            woTable.innerHTML += `<tr${click}><td class="bold">${wo.jobNumber}</td><td>${wo.customerName}</td><td><span class="status-badge open">${wo.status}</span></td><td>${created}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
         });
     } else { woTable.innerHTML = '<tr class="empty-row"><td colspan="5">No open work orders</td></tr>'; }
     makeSortable("dashWoTable");
@@ -472,12 +473,22 @@ async function openCustomerProfile(id) {
     // Locations
     const locsDiv = document.getElementById("profileLocations");
     if (c.locations && c.locations.length > 0) {
-        locsDiv.innerHTML = c.locations.map(l => {
+        locsDiv.innerHTML = "<h3>Service Locations</h3>" + c.locations.map((l, i) => {
             const addr = [l.street, l.unit, l.city, l.state, l.zip].filter(Boolean).join(", ");
             const locContacts = l.contacts && l.contacts.length > 0
-                ? l.contacts.map(lc => `<div class="contact-item" style="padding:4px 0;"><span class="contact-badge">${lc.type}</span><span>${lc.value}</span></div>`).join("")
-                : "";
-            return `<div class="location-card"><div class="loc-name">${l.name || "Service Location"}</div><div class="loc-addr">${addr || "No address"}</div>${locContacts}</div>`;
+                ? l.contacts.map(lc => `<div class="contact-item" style="padding:4px 0;"><span class="contact-badge">${lc.type}</span><span>${lc.value}</span>${lc.memo ? `<span class="muted"> — ${lc.memo}</span>` : ""}</div>`).join("")
+                : '<div class="muted" style="padding:4px 0;">No contacts for this location</div>';
+            return `<div class="location-card clickable-row" onclick="toggleLocDetail(${i})" style="cursor:pointer;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="loc-name">${l.name || "Service Location"}</div>
+                    <span class="loc-toggle muted" id="locToggle${i}">▸</span>
+                </div>
+                <div class="loc-addr">${addr || "No address"}</div>
+                <div class="loc-detail hidden" id="locDetail${i}" style="margin-top:10px; padding-top:10px; border-top:1px solid #334155;">
+                    <div style="font-size:12px; font-weight:600; color:#94a3b8; margin-bottom:6px;">CONTACTS</div>
+                    ${locContacts}
+                </div>
+            </div>`;
         }).join("");
     } else {
         locsDiv.innerHTML = '<div class="muted" style="padding:8px 0;">No locations on file</div>';
@@ -522,6 +533,18 @@ async function openCustomerProfile(id) {
 }
 
 function closeModal() { document.getElementById("customerModal").classList.add("hidden"); }
+
+function toggleLocDetail(idx) {
+    const detail = document.getElementById("locDetail" + idx);
+    const toggle = document.getElementById("locToggle" + idx);
+    if (detail.classList.contains("hidden")) {
+        detail.classList.remove("hidden");
+        toggle.innerText = "▾";
+    } else {
+        detail.classList.add("hidden");
+        toggle.innerText = "▸";
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // WORK ORDER BOARD (KANBAN)
