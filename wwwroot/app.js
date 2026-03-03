@@ -345,15 +345,16 @@ function openOpsDrilldown(idx) {
     html += "</tr></thead><tbody>";
 
     stat.items.forEach(item => {
+        const custClick = item.customerId ? ` class="clickable-row" onclick="document.getElementById('opsModal').classList.add('hidden'); openCustomerProfile('${item.customerId}')"` : "";
         if (stat.type === "wo") {
             const created = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—";
-            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td><span class="status-badge open">${item.status || "—"}</span></td><td>${created}</td></tr>`;
+            html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td><span class="status-badge open">${item.status || "—"}</span></td><td>${created}</td></tr>`;
         } else if (stat.type === "board") {
-            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td></tr>`;
+            html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td></tr>`;
         } else if (stat.type === "pm") {
             const lastPm = item.lastPm ? new Date(item.lastPm).toLocaleDateString() : "Never";
             const days = item.lastPm ? Math.floor((Date.now() - new Date(item.lastPm).getTime()) / 86400000) : "—";
-            html += `<tr><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
+            html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
         }
     });
 
