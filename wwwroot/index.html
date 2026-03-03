@@ -320,23 +320,44 @@
                     <div class="page-header"><h1>Pricing Calculator</h1></div>
                     <div style="margin-bottom:15px;">
                         <label>Part Cost: $</label>
-                        <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calcAutoPrice(); calcCustomPrice();" style="width:120px;" />
-                        <label style="margin-left:15px;"><input type="checkbox" id="ccToggle" onchange="calcAutoPrice(); calcCustomPrice();" /> Include CC Surcharge</label>
+                        <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calculateAllPricing()" style="width:120px;" />
+                        <label style="margin-left:15px;"><input type="checkbox" id="ccToggle" onchange="calculateAllPricing()" /> Include CC Surcharge</label>
                     </div>
                     <div class="grid">
                         <div class="panel">
                             <h2>Auto-Tiered Markup</h2>
-                            <div id="autoResult"></div>
+                            <div class="price-row"><span class="price-label">Cost</span><span class="price-value" id="atCost">—</span></div>
+                            <div class="price-row"><span class="price-label">Multiplier</span><span class="price-value" id="atMultiplier">—</span></div>
+                            <div class="price-row"><span class="price-label">Markup %</span><span class="price-value" id="atMarkupPct">—</span></div>
+                            <div class="price-row"><span class="price-label">Base Price</span><span class="price-value" id="atBase">—</span></div>
+                            <div class="price-row"><span class="price-label">CC Surcharge</span><span class="price-value" id="atCC">—</span></div>
+                            <div class="price-row"><span class="price-label">Sell Price</span><span class="price-value price-highlight" id="atSell">—</span></div>
+                            <div class="price-row"><span class="price-label">Profit</span><span class="price-value" id="atProfit">—</span></div>
+                            <div class="price-row"><span class="price-label">Margin</span><span class="price-value" id="atMargin">—</span></div>
                         </div>
                         <div class="panel">
                             <h2>Custom Markup</h2>
                             <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
                                 <label>Markup %</label>
-                                <input type="number" id="customMarkupPct" value="50" step="1" oninput="calcCustomPrice()" style="width:80px;" />
+                                <input type="number" id="customMarkupPct" value="50" step="1" oninput="customFromPct()" style="width:80px;" />
                                 <label>Multiplier</label>
-                                <input type="number" id="customMultiplier" value="1.5" step="0.01" oninput="calcCustomFromMultiplier()" style="width:80px;" />
+                                <input type="number" id="customMultiplier" value="1.5" step="0.01" oninput="customFromMult()" style="width:80px;" />
                             </div>
-                            <div id="customResult"></div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
+                                <button class="preset-btn" onclick="applyPreset(1.5, 50, event)">1.5x (50%)</button>
+                                <button class="preset-btn" onclick="applyPreset(1.75, 75, event)">1.75x (75%)</button>
+                                <button class="preset-btn" onclick="applyPreset(2, 100, event)">2x (100%)</button>
+                                <button class="preset-btn" onclick="applyPreset(2.5, 150, event)">2.5x (150%)</button>
+                                <button class="preset-btn" onclick="applyPreset(3, 200, event)">3x (200%)</button>
+                            </div>
+                            <div class="price-row"><span class="price-label">Cost</span><span class="price-value" id="cmCost">—</span></div>
+                            <div class="price-row"><span class="price-label">Multiplier</span><span class="price-value" id="cmMultiplier">—</span></div>
+                            <div class="price-row"><span class="price-label">Markup %</span><span class="price-value" id="cmMarkupPct">—</span></div>
+                            <div class="price-row"><span class="price-label">Base Price</span><span class="price-value" id="cmBase">—</span></div>
+                            <div class="price-row"><span class="price-label">CC Surcharge</span><span class="price-value" id="cmCC">—</span></div>
+                            <div class="price-row"><span class="price-label">Sell Price</span><span class="price-value price-highlight" id="cmSell">—</span></div>
+                            <div class="price-row"><span class="price-label">Profit</span><span class="price-value" id="cmProfit">—</span></div>
+                            <div class="price-row"><span class="price-label">Margin</span><span class="price-value" id="cmMargin">—</span></div>
                         </div>
                     </div>
                 </div>
