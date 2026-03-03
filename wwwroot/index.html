@@ -318,25 +318,79 @@
                 <!-- ═══════════════════════════════════════════════════ -->
                 <div id="pricingView" style="display:none;">
                     <div class="page-header"><h1>Pricing Calculator</h1></div>
-                    <div style="margin-bottom:15px;">
-                        <label>Part Cost: $</label>
-                        <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calcAutoPrice(); calcCustomPrice();" style="width:120px;" />
-                        <label style="margin-left:15px;"><input type="checkbox" id="ccToggle" onchange="calcAutoPrice(); calcCustomPrice();" /> Include CC Surcharge</label>
+                    <p class="muted" style="margin-bottom:20px;">Enter your cost to see auto-tiered and custom pricing side by side.</p>
+
+                    <!-- Cost Input -->
+                    <div class="panel" style="margin-bottom:20px; text-align:center; padding:20px;">
+                        <label style="font-size:13px; text-transform:uppercase; letter-spacing:0.5px; color:#94a3b8; display:block; margin-bottom:8px;">Item Cost ($)</label>
+                        <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calculateAllPricing()" style="width:100%; max-width:600px; font-size:18px; text-align:center; padding:12px;" />
+                        <label style="margin-top:12px; display:inline-flex; align-items:center; gap:6px; color:#94a3b8; font-size:13px;">
+                            <input type="checkbox" id="ccToggle" onchange="calculateAllPricing()" /> Include 2.5% CC Surcharge
+                        </label>
                     </div>
+
                     <div class="grid">
+                        <!-- Auto-Tiered Panel -->
                         <div class="panel">
-                            <h2>Auto-Tiered Markup</h2>
-                            <div id="autoResult"></div>
-                        </div>
-                        <div class="panel">
-                            <h2>Custom Markup</h2>
-                            <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-                                <label>Markup %</label>
-                                <input type="number" id="customMarkupPct" value="50" step="1" oninput="calcCustomPrice()" style="width:80px;" />
-                                <label>Multiplier</label>
-                                <input type="number" id="customMultiplier" value="1.5" step="0.01" oninput="calcCustomFromMultiplier()" style="width:80px;" />
+                            <h2 style="text-align:center;">Auto-Tiered Markup</h2>
+                            <p class="muted" style="text-align:center; margin-bottom:16px;">Based on your standard markup tiers</p>
+                            <div class="price-row"><span class="price-label">Cost</span><span class="price-value" id="atCost">—</span></div>
+                            <div class="price-row"><span class="price-label">Multiplier</span><span class="price-value" id="atMultiplier">—</span></div>
+                            <div class="price-row"><span class="price-label">Markup %</span><span class="price-value" id="atMarkupPct">—</span></div>
+                            <div class="price-row"><span class="price-label">Base Price</span><span class="price-value" id="atBase">—</span></div>
+                            <div class="price-row"><span class="price-label">CC Surcharge (2.5%)</span><span class="price-value" id="atCC">—</span></div>
+                            <div class="price-row price-row-highlight"><span class="price-label" style="font-weight:700; color:#e2e8f0;">Sell Price</span><span class="price-value price-highlight" id="atSell">—</span></div>
+                            <div class="price-row"><span class="price-label">Gross Profit</span><span class="price-value" style="color:var(--accent);" id="atProfit">—</span></div>
+                            <div class="price-row"><span class="price-label">Margin</span><span class="price-value" style="color:var(--accent);" id="atMargin">—</span></div>
+
+                            <div style="margin-top:20px; text-align:center;">
+                                <p class="muted" style="font-size:12px; margin-bottom:8px;">Markup Tiers Reference</p>
+                                <table class="data-table" style="font-size:12px;">
+                                    <thead><tr><th style="text-align:center;">Cost Range</th><th style="text-align:center;">Multiplier</th><th style="text-align:center;">Markup %</th></tr></thead>
+                                    <tbody>
+                                        <tr><td style="text-align:center;">Under $5</td><td style="text-align:center;">8x</td><td style="text-align:center;">700%</td></tr>
+                                        <tr><td style="text-align:center;">$5 – $10</td><td style="text-align:center;">6x</td><td style="text-align:center;">500%</td></tr>
+                                        <tr><td style="text-align:center;">$10 – $50</td><td style="text-align:center;">4x</td><td style="text-align:center;">300%</td></tr>
+                                        <tr><td style="text-align:center;">$50 – $100</td><td style="text-align:center;">2.5x</td><td style="text-align:center;">150%</td></tr>
+                                        <tr><td style="text-align:center;">Over $100</td><td style="text-align:center;">1.75x</td><td style="text-align:center;">75%</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
-                            <div id="customResult"></div>
+                        </div>
+
+                        <!-- Custom Markup Panel -->
+                        <div class="panel">
+                            <h2 style="text-align:center;">Custom Markup</h2>
+                            <p class="muted" style="text-align:center; margin-bottom:16px;">Enter a percentage or multiplier</p>
+                            <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                                <div style="flex:1; text-align:center;">
+                                    <label style="font-size:11px; text-transform:uppercase; color:#94a3b8;">Markup %</label>
+                                    <input type="number" id="customMarkupPct" value="75" step="1" oninput="customFromPct()" style="width:100%; text-align:center; margin-top:4px;" />
+                                </div>
+                                <span class="muted" style="padding-top:16px;">or</span>
+                                <div style="flex:1; text-align:center;">
+                                    <label style="font-size:11px; text-transform:uppercase; color:#94a3b8;">Multiplier</label>
+                                    <input type="number" id="customMultiplier" value="1.7500" step="0.01" oninput="customFromMult()" style="width:100%; text-align:center; margin-top:4px;" />
+                                </div>
+                            </div>
+                            <div style="text-align:center; margin-bottom:16px;">
+                                <p class="muted" style="font-size:11px; margin-bottom:6px;">Quick Presets</p>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center;">
+                                    <button class="preset-btn active" onclick="setCustomPreset(1.75, 75)">1.75x / 75%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(2, 100)">2x / 100%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(2.5, 150)">2.5x / 150%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(3, 200)">3x / 200%</button>
+                                    <button class="preset-btn" onclick="setCustomPreset(4, 300)">4x / 300%</button>
+                                </div>
+                            </div>
+                            <div class="price-row"><span class="price-label">Cost</span><span class="price-value" id="cmCost">—</span></div>
+                            <div class="price-row"><span class="price-label">Multiplier</span><span class="price-value" id="cmMultiplier">—</span></div>
+                            <div class="price-row"><span class="price-label">Markup %</span><span class="price-value" id="cmMarkupPct">—</span></div>
+                            <div class="price-row"><span class="price-label">Base Price</span><span class="price-value" id="cmBase">—</span></div>
+                            <div class="price-row"><span class="price-label">CC Surcharge (2.5%)</span><span class="price-value" id="cmCC">—</span></div>
+                            <div class="price-row price-row-highlight"><span class="price-label" style="font-weight:700; color:#e2e8f0;">Sell Price</span><span class="price-value price-highlight" id="cmSell">—</span></div>
+                            <div class="price-row"><span class="price-label">Gross Profit</span><span class="price-value" style="color:var(--accent);" id="cmProfit">—</span></div>
+                            <div class="price-row"><span class="price-label">Margin</span><span class="price-value" style="color:var(--accent);" id="cmMargin">—</span></div>
                         </div>
                     </div>
                 </div>
@@ -479,17 +533,6 @@
                 <button class="modal-close" onclick="document.getElementById('opsModal').classList.add('hidden')">✕</button>
             </div>
             <div class="modal-body" id="opsModalBody"></div>
-        </div>
-    </div>
-
-    <!-- Work Order Detail Modal -->
-    <div class="modal hidden" id="woDetailModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="woDetailTitle"></h2>
-                <button class="modal-close" onclick="document.getElementById('woDetailModal').classList.add('hidden')">✕</button>
-            </div>
-            <div class="modal-body" id="woDetailBody"></div>
         </div>
     </div>
 
