@@ -69,12 +69,6 @@
                     <span id="sidebarCompanyName">MOB</span>
                 </div>
 
-                <!-- Global Search -->
-                <div class="search-bar">
-                    <input type="text" id="globalSearchInput" placeholder="Search... (Ctrl+K)" autocomplete="off" />
-                    <div id="searchResults" class="search-results hidden"></div>
-                </div>
-
                 <nav class="sidebar-nav">
                     <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)"><span class="nav-icon">◉</span> Dashboard</a>
                     <a href="#" class="nav-link" onclick="showView('boardView', this)"><span class="nav-icon">▦</span> WO Board</a>
@@ -109,6 +103,16 @@
 
             <div class="content">
 
+                <!-- Global Search -->
+                <div class="global-search-wrap">
+                    <div class="global-search-box">
+                        <span class="search-icon">⌕</span>
+                        <input type="text" id="globalSearchInput" placeholder="Search customers, jobs, equipment, vendors..." autocomplete="off" oninput="onGlobalSearch()" onkeydown="onSearchKeydown(event)" onfocus="onSearchFocus()" />
+                        <span id="searchShortcut" class="search-shortcut">Ctrl+K</span>
+                    </div>
+                    <div id="searchResults" class="search-results hidden"></div>
+                </div>
+
                 <!-- ═══════════════════════════════════════════════════ -->
                 <!-- DASHBOARD                                         -->
                 <!-- ═══════════════════════════════════════════════════ -->
@@ -121,15 +125,15 @@
                     </div>
 
                     <!-- Ops Stats -->
-                    <div id="opsStatsRow" class="ops-stats-row"></div>
+                    <div class="ops-stats" id="opsStatsRow"></div>
 
                     <div class="grid">
-                        <div class="panel"><h2>Accounts Receivable</h2><table class="data-table"><thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead><tbody id="arTableBody"></tbody></table></div>
-                        <div class="panel"><h2>Accounts Payable</h2><table class="data-table"><thead><tr><th>Vendor</th><th>Total Invoices</th><th>Total Owed</th><th>Next Due</th></tr></thead><tbody id="apBody"></tbody></table></div>
+                        <div class="panel"><h2>Accounts Receivable</h2><table class="data-table" id="dashArTable"><thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead><tbody id="arTableBody"></tbody></table></div>
+                        <div class="panel"><h2>Accounts Payable</h2><table class="data-table" id="dashApTable"><thead><tr><th>Vendor</th><th>Total Invoices</th><th>Total Owed</th><th>Next Due</th></tr></thead><tbody id="apTableBody2"></tbody></table></div>
                     </div>
 
                     <!-- Open Work Orders -->
-                    <div class="panel" style="margin-top:20px;"><h2>Open Work Orders</h2><table class="data-table"><thead><tr><th>Job #</th><th>Customer</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="openWoBody"></tbody></table></div>
+                    <div class="panel" style="margin-top:20px;"><h2>Open Work Orders</h2><table class="data-table" id="dashWoTable"><thead><tr><th>Job #</th><th>Customer</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="openWoBody"></tbody></table></div>
                 </div>
 
                 <!-- ═══════════════════════════════════════════════════ -->
@@ -187,7 +191,7 @@
                         <button class="tab" onclick="setCustomerTab('balance')">With Balance</button>
                         <button class="tab" onclick="setCustomerTab('overdue')">Overdue</button>
                     </div>
-                    <table class="data-table"><thead><tr><th>Customer</th><th>Total</th><th>0-30</th><th>31-60</th><th>61-90</th><th>90+</th></tr></thead><tbody id="custBody"></tbody></table>
+                    <table class="data-table" id="custTable"><thead><tr><th>Customer</th><th>Total</th><th>0-30</th><th>31-60</th><th>61-90</th><th>90+</th></tr></thead><tbody id="custBody"></tbody></table>
                 </div>
 
                 <!-- ═══════════════════════════════════════════════════ -->
@@ -204,7 +208,7 @@
                             <button class="btn-primary" style="height:40px;" onclick="addSubcontractor()">Add</button>
                         </div>
                     </div>
-                    <div class="panel"><table class="data-table"><thead><tr><th>Name</th><th>Company</th><th>Trade</th><th>Total Hours</th><th>Total Cost</th><th>Actions</th></tr></thead><tbody id="subsBody"></tbody></table></div>
+                    <div class="panel"><table class="data-table" id="subsTable"><thead><tr><th>Name</th><th>Company</th><th>Trade</th><th>Total Hours</th><th>Total Cost</th><th>Actions</th></tr></thead><tbody id="subsBody"></tbody></table></div>
                     <div id="subDetail" class="panel" style="display:none; margin-top:20px;">
                         <h2 id="subDetailTitle"></h2>
                         <h3 style="margin-top:15px; margin-bottom:10px; font-size:14px; color:#94a3b8;">Log Hours</h3>
@@ -216,7 +220,7 @@
                             <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Notes</label><input type="text" id="subEntryNotes" placeholder="Optional" /></div>
                             <button class="btn-primary" style="height:40px;" onclick="logSubHours()">Log</button>
                         </div>
-                        <table class="data-table" style="margin-top:15px;"><thead><tr><th>Date</th><th>Job</th><th>Customer</th><th>Hours</th><th>Rate</th><th>Cost</th><th>Notes</th><th></th></tr></thead><tbody id="subEntriesBody"></tbody></table>
+                        <table class="data-table" id="subEntriesTable" style="margin-top:15px;"><thead><tr><th>Date</th><th>Job</th><th>Customer</th><th>Hours</th><th>Rate</th><th>Cost</th><th>Notes</th><th></th></tr></thead><tbody id="subEntriesBody"></tbody></table>
                     </div>
                 </div>
 
@@ -238,7 +242,7 @@
                             <button class="btn-primary" style="height:40px;" onclick="addEquipment()">Add</button>
                         </div>
                     </div>
-                    <div class="panel"><table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Customer</th><th>Installed</th><th>Warranty</th><th>Registered</th><th>Actions</th></tr></thead><tbody id="equipBody"></tbody></table></div>
+                    <div class="panel"><table class="data-table" id="equipTable"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Customer</th><th>Installed</th><th>Warranty</th><th>Registered</th><th>Actions</th></tr></thead><tbody id="equipBody"></tbody></table></div>
                 </div>
 
                 <!-- ═══════════════════════════════════════════════════ -->
@@ -277,7 +281,7 @@
                 <!-- ═══════════════════════════════════════════════════ -->
                 <div id="pmView" style="display:none;">
                     <div class="page-header"><h1>PM Tracker</h1></div>
-                    <div class="panel"><table class="data-table"><thead><tr><th>Customer</th><th>Last PM Date</th><th>Last Job #</th><th>Job Type</th><th>Total PMs</th><th>Days Since</th><th>Status</th></tr></thead><tbody id="pmBody"></tbody></table></div>
+                    <div class="panel"><table class="data-table" id="pmTable"><thead><tr><th>Customer</th><th>Last PM Date</th><th>Last Job #</th><th>Job Type</th><th>Total PMs</th><th>Days Since</th><th>Status</th></tr></thead><tbody id="pmBody"></tbody></table></div>
                 </div>
 
                 <!-- ═══════════════════════════════════════════════════ -->
@@ -295,10 +299,10 @@
                     </div>
                     <div class="panel" style="margin-top:20px;">
                         <h3>Vendors Owed</h3>
-                        <table class="data-table"><thead><tr><th>Vendor</th><th>Total Invoices</th><th>Amount Due Now</th><th>Next Due</th></tr></thead><tbody id="apTableBody2"></tbody></table>
+                        <table class="data-table" id="apMainTable"><thead><tr><th>Vendor</th><th>Total Invoices</th><th>Amount Due Now</th><th>Next Due</th></tr></thead><tbody id="apBody"></tbody></table>
                         <div id="vendorDetail" style="display:none; margin-top:20px;">
                             <h3 id="vendorDetailTitle"></h3>
-                            <table class="data-table"><thead><tr><th>Owed Now</th><th>Total Invoice</th><th>Due Date</th><th>Actions</th></tr></thead><tbody id="vendorBillsBody"></tbody></table>
+                            <table class="data-table" id="vendorBillsTable"><thead><tr><th>Owed Now</th><th>Total Invoice</th><th>Due Date</th><th>Actions</th></tr></thead><tbody id="vendorBillsBody"></tbody></table>
                         </div>
                     </div>
                 </div>
@@ -345,7 +349,7 @@
 
                     <div class="settings-section"><h2>Your Account</h2><div class="settings-card"><div class="form-group"><label>Current Password</label><input type="password" id="adminCurrentPw" /></div><div class="form-group"><label>New Password</label><input type="password" id="adminNewPw" placeholder="At least 8 characters" /></div><button class="btn-primary" onclick="changePassword()">Update Password</button></div></div>
 
-                    <div class="settings-section"><h2>Users</h2><div class="settings-card"><div class="add-user-form"><h3 style="margin-bottom:12px; font-size:15px; color:#e2e8f0;">Add New User</h3><div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;"><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Full Name</label><input type="text" id="newUserName" placeholder="Jane Smith" /></div><div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Email</label><input type="email" id="newUserEmail" placeholder="jane@company.com" /></div><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Password</label><input type="password" id="newUserPassword" placeholder="Min 8 characters" /></div><button class="btn-primary" style="height:40px;" onclick="createUser()">Add User</button></div></div><hr style="border:none; border-top:1px solid #334155; margin:20px 0;" /><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="usersBody"></tbody></table></div></div>
+                    <div class="settings-section"><h2>Users</h2><div class="settings-card"><div class="add-user-form"><h3 style="margin-bottom:12px; font-size:15px; color:#e2e8f0;">Add New User</h3><div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;"><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Full Name</label><input type="text" id="newUserName" placeholder="Jane Smith" /></div><div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Email</label><input type="email" id="newUserEmail" placeholder="jane@company.com" /></div><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Password</label><input type="password" id="newUserPassword" placeholder="Min 8 characters" /></div><button class="btn-primary" style="height:40px;" onclick="createUser()">Add User</button></div></div><hr style="border:none; border-top:1px solid #334155; margin:20px 0;" /><table class="data-table" id="usersTable"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="usersBody"></tbody></table></div></div>
 
                     <!-- Theme Picker -->
                     <div class="settings-section"><h2>Theme</h2><div class="settings-card"><div id="themePicker" style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -385,11 +389,11 @@
                 <div id="profileContacts"></div>
                 <div id="profileLocations"></div>
                 <h3>Equipment</h3>
-                <table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Installed</th><th>Warranty</th></tr></thead><tbody id="profileEquipment"></tbody></table>
+                <div id="profileEquipment"></div>
                 <h3>Work Orders</h3>
-                <table class="data-table"><thead><tr><th>Job #</th><th>Type</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="profileWoBody"></tbody></table>
+                <table class="data-table" id="profileWoTable"><thead><tr><th>Job #</th><th>Type</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="profileWoBody"></tbody></table>
                 <h3>Invoices</h3>
-                <table class="data-table"><thead><tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr></thead><tbody id="profileInvBody"></tbody></table>
+                <table class="data-table" id="profileInvTable"><thead><tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr></thead><tbody id="profileInvBody"></tbody></table>
             </div>
         </div>
     </div>
