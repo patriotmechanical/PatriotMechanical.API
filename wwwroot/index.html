@@ -3,812 +3,469 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Patriot Mechanical</title>
+    <title>MyOpsBoard</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- LOGIN SCREEN                                               -->
-    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- LOGIN SCREEN -->
     <div id="loginScreen" class="auth-screen">
         <div class="auth-card">
-            <div class="auth-logo">P</div>
-            <h1>Patriot Mechanical</h1>
+            <div class="auth-logo">M</div>
+            <h1>MyOpsBoard</h1>
             <p class="auth-subtitle">Sign in to your account</p>
-
             <div id="loginError" class="auth-error hidden"></div>
-
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="loginEmail" placeholder="you@company.com" />
-            </div>
-
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="loginPassword" placeholder="••••••••" 
-                       onkeydown="if(event.key==='Enter') doLogin()" />
-            </div>
-
+            <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="you@company.com" /></div>
+            <div class="form-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter') doLogin()" /></div>
             <button class="btn-primary btn-full" onclick="doLogin()">Sign In</button>
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- SETUP WIZARD (first-time only)                             -->
-    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- SETUP WIZARD -->
     <div id="setupScreen" class="auth-screen hidden">
         <div class="auth-card setup-card">
-            <div class="auth-logo">P</div>
-            <h1>Welcome to Patriot Mechanical</h1>
+            <div class="auth-logo">M</div>
+            <h1>Welcome to MyOpsBoard</h1>
             <p class="auth-subtitle">Let's get your account set up</p>
-
             <div id="setupError" class="auth-error hidden"></div>
-
-            <!-- Step 1: Company + Account -->
             <div id="setupStep1">
                 <h3 class="step-title">Step 1: Your Company & Account</h3>
-
-                <div class="form-group">
-                    <label>Company Name</label>
-                    <input type="text" id="setupCompanyName" placeholder="Your Company Name" />
-                </div>
-
-                <div class="form-group">
-                    <label>Your Name</label>
-                    <input type="text" id="setupFullName" placeholder="John Smith" />
-                </div>
-
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="setupEmail" placeholder="you@company.com" />
-                </div>
-
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="setupPassword" placeholder="At least 8 characters" />
-                </div>
-
-                <button class="btn-primary btn-full" onclick="goToSetupStep2()">
-                    Next: ServiceTitan Setup →
-                </button>
+                <div class="form-group"><label>Company Name</label><input type="text" id="setupCompanyName" placeholder="Your Company Name" /></div>
+                <div class="form-group"><label>Your Name</label><input type="text" id="setupFullName" placeholder="John Smith" /></div>
+                <div class="form-group"><label>Email</label><input type="email" id="setupEmail" placeholder="you@company.com" /></div>
+                <div class="form-group"><label>Password</label><input type="password" id="setupPassword" placeholder="At least 8 characters" /></div>
+                <button class="btn-primary btn-full" onclick="goToSetupStep2()">Next: ServiceTitan Setup →</button>
             </div>
-
-            <!-- Step 2: ServiceTitan Credentials -->
             <div id="setupStep2" class="hidden">
                 <h3 class="step-title">Step 2: Connect ServiceTitan</h3>
-                <p class="step-desc">Enter your ServiceTitan API credentials. You can find these in your ServiceTitan Developer Portal.</p>
-
-                <div class="form-group">
-                    <label>Tenant ID</label>
-                    <input type="text" id="setupTenantId" placeholder="e.g. 4146821403" />
-                </div>
-
-                <div class="form-group">
-                    <label>Client ID</label>
-                    <input type="text" id="setupClientId" placeholder="e.g. cid.xxxx" />
-                </div>
-
-                <div class="form-group">
-                    <label>Client Secret</label>
-                    <input type="password" id="setupClientSecret" placeholder="e.g. cs3.xxxx" />
-                </div>
-
-                <div class="form-group">
-                    <label>Application Key</label>
-                    <input type="text" id="setupAppKey" placeholder="e.g. ak1.xxxx" />
-                </div>
-
+                <p class="step-desc">Enter your ServiceTitan API credentials.</p>
+                <div class="form-group"><label>Tenant ID</label><input type="text" id="setupTenantId" placeholder="e.g. 4146821403" /></div>
+                <div class="form-group"><label>Client ID</label><input type="text" id="setupClientId" placeholder="e.g. cid.xxxx" /></div>
+                <div class="form-group"><label>Client Secret</label><input type="password" id="setupClientSecret" placeholder="e.g. cs3.xxxx" /></div>
+                <div class="form-group"><label>Application Key</label><input type="text" id="setupAppKey" placeholder="e.g. ak1.xxxx" /></div>
                 <div class="setup-buttons">
                     <button class="btn-secondary" onclick="goToSetupStep1()">← Back</button>
                     <button class="btn-primary" onclick="completeSetup()">Complete Setup</button>
                 </div>
-
                 <p class="skip-link" onclick="skipServiceTitan()">Skip for now — I'll add this later</p>
             </div>
         </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════ -->
-    <!-- MAIN APP (after login)                                     -->
-    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- MAIN APP -->
     <div id="mainApp" class="hidden">
-        <div class="layout">
 
+        <!-- Mobile hamburger -->
+        <div class="mobile-header">
+            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <span>MyOpsBoard</span>
+        </div>
+        <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <div class="layout">
             <div class="sidebar">
                 <div class="sidebar-brand">
-                    <div class="brand-icon">P</div>
-                    <span id="sidebarCompanyName">Patriot</span>
+                    <div class="brand-icon">M</div>
+                    <span id="sidebarCompanyName">MOB</span>
+                </div>
+
+                <!-- Global Search -->
+                <div class="search-bar">
+                    <input type="text" id="globalSearchInput" placeholder="Search... (Ctrl+K)" autocomplete="off" />
+                    <div id="searchResults" class="search-results hidden"></div>
                 </div>
 
                 <nav class="sidebar-nav">
-                    <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)">
-                        <span class="nav-icon">◉</span> Dashboard
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('boardView', this)">
-                        <span class="nav-icon">▦</span> WO Board
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('todoView', this)">
-                        <span class="nav-icon">☑</span> To-Do
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('customersView', this)">
-                        <span class="nav-icon">◎</span> Customers
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('subsView', this)">
-                        <span class="nav-icon">◆</span> Subcontractors
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('equipmentView', this)">
-                        <span class="nav-icon">▣</span> Equipment
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('warrantyView', this)">
-                        <span class="nav-icon">◇</span> Warranty
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('pmView', this)">
-                        <span class="nav-icon">⏱</span> PM Tracker
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('apView', this)">
-                        <span class="nav-icon">◈</span> AP
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('pricingView', this)">
-                        <span class="nav-icon">$</span> Pricing
-                    </a>
-                    <a href="#" class="nav-link" onclick="showView('adminView', this)">
-                        <span class="nav-icon">⚙</span> Settings
-                    </a>
+                    <a href="#" class="nav-link active" onclick="showView('dashboardPage', this)"><span class="nav-icon">◉</span> Dashboard</a>
+                    <a href="#" class="nav-link" onclick="showView('boardView', this)"><span class="nav-icon">▦</span> WO Board</a>
+                    <a href="#" class="nav-link" onclick="showView('todoView', this)"><span class="nav-icon">☑</span> To-Do</a>
+                    <a href="#" class="nav-link" onclick="showView('customersView', this)"><span class="nav-icon">◎</span> Customers</a>
+                    <a href="#" class="nav-link" onclick="showView('subsView', this)"><span class="nav-icon">◆</span> Subcontractors</a>
+                    <a href="#" class="nav-link" onclick="showView('equipmentView', this)"><span class="nav-icon">▣</span> Equipment</a>
+                    <a href="#" class="nav-link" onclick="showView('warrantyView', this)"><span class="nav-icon">⛨</span> Warranty</a>
+                    <a href="#" class="nav-link" onclick="showView('pmView', this)"><span class="nav-icon">⏱</span> PM Tracker</a>
+                    <a href="#" class="nav-link" onclick="showView('apView', this)"><span class="nav-icon">◈</span> AP</a>
+                    <a href="#" class="nav-link" onclick="showView('pricingView', this)"><span class="nav-icon">$</span> Pricing</a>
+                    <a href="#" class="nav-link" onclick="showView('adminView', this)"><span class="nav-icon">⚙</span> Settings</a>
                 </nav>
 
+                <!-- Theme dots -->
+                <div class="sidebar-theme">
+                    <div class="theme-dot" data-theme="red" style="background:#dc2626;" title="Red"></div>
+                    <div class="theme-dot" data-theme="blue" style="background:#2563eb;" title="Blue"></div>
+                    <div class="theme-dot" data-theme="green" style="background:#16a34a;" title="Green"></div>
+                    <div class="theme-dot" data-theme="purple" style="background:#9333ea;" title="Purple"></div>
+                    <div class="theme-dot" data-theme="orange" style="background:#ea580c;" title="Orange"></div>
+                    <div class="theme-dot" data-theme="teal" style="background:#0d9488;" title="Teal"></div>
+                    <div class="theme-dot" data-theme="pink" style="background:#db2777;" title="Pink"></div>
+                    <div class="theme-dot" data-theme="amber" style="background:#d97706;" title="Amber"></div>
+                </div>
+
                 <div class="sidebar-footer">
-                    <div class="user-info">
-                        <span id="sidebarUserName">User</span>
-                    </div>
+                    <div class="user-info"><span id="sidebarUserName">User</span></div>
                     <button class="btn-logout" onclick="doLogout()">Sign Out</button>
                 </div>
             </div>
 
             <div class="content">
 
-                <!-- Global Search -->
-                <div class="global-search-wrap">
-                    <div class="global-search-box">
-                        <span class="search-icon">⌕</span>
-                        <input type="text" id="globalSearchInput" placeholder="Search customers, jobs, equipment, vendors..." autocomplete="off" oninput="onGlobalSearch()" onkeydown="onSearchKeydown(event)" onfocus="onSearchFocus()" />
-                        <span id="searchShortcut" class="search-shortcut">Ctrl+K</span>
-                    </div>
-                    <div id="searchResults" class="search-results hidden"></div>
-                </div>
-
-                <!-- DASHBOARD -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- DASHBOARD                                         -->
+                <!-- ═══════════════════════════════════════════════════ -->
                 <div id="dashboardPage">
-                    <div class="page-header">
-                        <h1>Dashboard</h1>
-                        <button id="hardRefreshBtn" class="btn-refresh" onclick="hardRefresh()">
-                            ↻ Sync Data
-                        </button>
-                    </div>
-
+                    <div class="page-header"><h1>Dashboard</h1><button id="hardRefreshBtn" class="btn-refresh" onclick="hardRefresh()">↻ Sync Data</button></div>
                     <div class="overview-cards">
-                        <div class="card">
-                            <h3>Total AR</h3>
-                            <p id="totalAR">$0</p>
-                        </div>
-                        <div class="card">
-                            <h3>Total AP</h3>
-                            <p id="totalAP">$0</p>
-                        </div>
-                        <div class="card">
-                            <h3>Net Position</h3>
-                            <p id="netPosition">$0</p>
-                        </div>
+                        <div class="card"><h3>Total AR</h3><p id="totalAR">$0</p></div>
+                        <div class="card"><h3>Total AP</h3><p id="totalAP">$0</p></div>
+                        <div class="card"><h3>Net Position</h3><p id="netPosition">$0</p></div>
                     </div>
 
-                    <div class="ops-stats" id="opsStatsRow"></div>
+                    <!-- Ops Stats -->
+                    <div id="opsStatsRow" class="ops-stats-row"></div>
 
                     <div class="grid">
-                        <div class="panel">
-                            <h2>Accounts Receivable</h2>
-                            <table>
-                                <thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead>
-                                <tbody id="arTable"></tbody>
-                            </table>
-                        </div>
-                        <div class="panel">
-                            <h2>Accounts Payable</h2>
-                            <table>
-                                <thead><tr><th>Vendor</th><th>Total Invoiced</th><th>Owed Now</th><th>Next Due</th></tr></thead>
-                                <tbody id="apTable"></tbody>
-                            </table>
-                        </div>
+                        <div class="panel"><h2>Accounts Receivable</h2><table class="data-table"><thead><tr><th>Customer</th><th>Amount Owed</th></tr></thead><tbody id="arTableBody"></tbody></table></div>
+                        <div class="panel"><h2>Accounts Payable</h2><table class="data-table"><thead><tr><th>Vendor</th><th>Total Invoices</th><th>Total Owed</th><th>Next Due</th></tr></thead><tbody id="apBody"></tbody></table></div>
                     </div>
-                    <div class="panel" style="margin-top:20px;">
-                        <h2>Open Work Orders</h2>
-                        <table class="data-table">
-                            <thead><tr><th>Job #</th><th>Customer</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead>
-                            <tbody id="openWoBody"></tbody>
-                        </table>
-                    </div>
+
+                    <!-- Open Work Orders -->
+                    <div class="panel" style="margin-top:20px;"><h2>Open Work Orders</h2><table class="data-table"><thead><tr><th>Job #</th><th>Customer</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="openWoBody"></tbody></table></div>
                 </div>
 
-                <!-- CUSTOMERS -->
-                <div id="customersView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Customers</h1>
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- WO BOARD (Kanban)                                 -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="boardView" style="display:none;">
+                    <div class="page-header"><h1>Work Order Board</h1></div>
+
+                    <!-- Add Card Form -->
+                    <div id="addCardForm" class="card" style="background:#1e293b; margin-bottom:15px;">
+                        <h3 style="margin-bottom:10px;">Add Card</h3>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Job #</label><input type="text" id="boardJobNumber" placeholder="Job number" /></div>
+                            <div class="form-group" style="flex:1; min-width:140px; margin-bottom:0;"><label>Column</label><select id="boardColumnSelect"></select></div>
+                            <div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Note (optional)</label><input type="text" id="boardInitialNote" placeholder="Initial note..." /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="addBoardCard()">Add</button>
+                        </div>
                     </div>
 
+                    <!-- Add Column Form -->
+                    <div id="addColumnForm" class="card" style="background:#1e293b; margin-bottom:15px;">
+                        <h3 style="margin-bottom:10px;">Add Column</h3>
+                        <div style="display:flex; gap:10px; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;"><label>Name</label><input type="text" id="boardNewColName" placeholder="Column name" /></div>
+                            <div class="form-group" style="min-width:80px; margin-bottom:0;"><label>Color</label><input type="color" id="boardNewColColor" value="#2563eb" /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="addBoardColumn()">Add</button>
+                        </div>
+                    </div>
+
+                    <div id="kanbanBoard" class="kanban-board"></div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- TO-DO LIST                                        -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="todoView" style="display:none;">
+                    <div class="page-header"><h1>To-Do List</h1></div>
+                    <div class="card" style="background:#1e293b; margin-bottom:20px;">
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Title</label><input type="text" id="todoTitle" placeholder="Task title" /></div>
+                            <div class="form-group" style="flex:2; min-width:250px; margin-bottom:0;"><label>Description</label><input type="text" id="todoDesc" placeholder="Optional description" /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="addTodo()">Add</button>
+                        </div>
+                    </div>
+                    <div id="todoList" class="todo-list"></div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- CUSTOMERS                                         -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="customersView" style="display:none;">
+                    <div class="page-header"><h1>Customers</h1></div>
                     <div class="tabs">
                         <button class="tab active" onclick="setCustomerTab('all')">All</button>
                         <button class="tab" onclick="setCustomerTab('balance')">With Balance</button>
                         <button class="tab" onclick="setCustomerTab('overdue')">Overdue</button>
                     </div>
-
-                    <table id="customerTable">
-                        <thead>
-                            <tr>
-                                <th>Customer</th><th>Total</th>
-                                <th>0-30</th><th>31-60</th><th>61-90</th><th>90+</th>
-                            </tr>
-                        </thead>
-                        <tbody id="customerTableBody"></tbody>
-                    </table>
+                    <table class="data-table"><thead><tr><th>Customer</th><th>Total</th><th>0-30</th><th>31-60</th><th>61-90</th><th>90+</th></tr></thead><tbody id="custBody"></tbody></table>
                 </div>
 
-                <!-- AP VIEW -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- SUBCONTRACTORS                                    -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="subsView" style="display:none;">
+                    <div class="page-header"><h1>Subcontractors</h1></div>
+                    <div class="card" style="background:#1e293b; margin-bottom:20px;">
+                        <h3 style="margin-bottom:10px;">Add Subcontractor</h3>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;"><label>Name</label><input type="text" id="subName" placeholder="John Doe" /></div>
+                            <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;"><label>Company</label><input type="text" id="subCompany" placeholder="ABC Plumbing" /></div>
+                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Trade</label><input type="text" id="subTrade" placeholder="Plumbing" /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="addSubcontractor()">Add</button>
+                        </div>
+                    </div>
+                    <div class="panel"><table class="data-table"><thead><tr><th>Name</th><th>Company</th><th>Trade</th><th>Total Hours</th><th>Total Cost</th><th>Actions</th></tr></thead><tbody id="subsBody"></tbody></table></div>
+                    <div id="subDetail" class="panel" style="display:none; margin-top:20px;">
+                        <h2 id="subDetailTitle"></h2>
+                        <h3 style="margin-top:15px; margin-bottom:10px; font-size:14px; color:#94a3b8;">Log Hours</h3>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Work Order</label><select id="subEntryWorkOrder"></select></div>
+                            <div class="form-group" style="min-width:80px; margin-bottom:0;"><label>Hours</label><input type="number" id="subEntryHours" step="0.5" placeholder="8" /></div>
+                            <div class="form-group" style="min-width:80px; margin-bottom:0;"><label>Rate ($/hr)</label><input type="number" id="subEntryRate" step="0.01" placeholder="45" /></div>
+                            <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>Date</label><input type="date" id="subEntryDate" /></div>
+                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Notes</label><input type="text" id="subEntryNotes" placeholder="Optional" /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="logSubHours()">Log</button>
+                        </div>
+                        <table class="data-table" style="margin-top:15px;"><thead><tr><th>Date</th><th>Job</th><th>Customer</th><th>Hours</th><th>Rate</th><th>Cost</th><th>Notes</th><th></th></tr></thead><tbody id="subEntriesBody"></tbody></table>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- EQUIPMENT                                         -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="equipmentView" style="display:none;">
+                    <div class="page-header"><h1>Equipment</h1></div>
+                    <div class="card" style="background:#1e293b; margin-bottom:20px;">
+                        <h3 style="margin-bottom:10px;">Add Equipment</h3>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Customer</label><select id="equipCustomerSelect"></select></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Type</label><input type="text" id="equipType" placeholder="AC Unit" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Brand</label><input type="text" id="equipBrand" placeholder="Carrier" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Model #</label><input type="text" id="equipModel" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Serial #</label><input type="text" id="equipSerial" /></div>
+                            <div class="form-group" style="min-width:110px; margin-bottom:0;"><label>Install Date</label><input type="date" id="equipInstallDate" /></div>
+                            <div class="form-group" style="min-width:110px; margin-bottom:0;"><label>Warranty Exp</label><input type="date" id="equipWarrantyExp" /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="addEquipment()">Add</button>
+                        </div>
+                    </div>
+                    <div class="panel"><table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Customer</th><th>Installed</th><th>Warranty</th><th>Registered</th><th>Actions</th></tr></thead><tbody id="equipBody"></tbody></table></div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- WARRANTY CLAIMS                                   -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="warrantyView" style="display:none;">
+                    <div class="page-header"><h1>Warranty Claims</h1></div>
+
+                    <!-- New Claim Form -->
+                    <div id="newClaimForm" class="card" style="background:#1e293b; margin-bottom:20px;">
+                        <h3 style="margin-bottom:10px;">New Warranty Claim</h3>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0;"><label>Customer</label><input type="text" id="wcCustomer" placeholder="Customer name" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Job #</label><input type="text" id="wcJobNumber" placeholder="Job #" /></div>
+                            <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>Part Name</label><input type="text" id="wcPartName" placeholder="Part name" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Part Model</label><input type="text" id="wcPartModel" placeholder="Part model" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Unit Model</label><input type="text" id="wcUnitModel" placeholder="Unit model" /></div>
+                            <div class="form-group" style="min-width:100px; margin-bottom:0;"><label>Unit Serial</label><input type="text" id="wcUnitSerial" placeholder="Unit serial" /></div>
+                            <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>Manufacturer</label><input type="text" id="wcManufacturer" placeholder="Manufacturer" /></div>
+                            <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>Supplier</label><input type="text" id="wcSupplier" placeholder="Supplier" /></div>
+                            <div class="form-group" style="min-width:120px; margin-bottom:0;">
+                                <label>Type</label>
+                                <select id="wcClaimType"><option value="Parts">Parts</option><option value="Labor">Labor</option><option value="Parts & Labor">Parts & Labor</option></select>
+                            </div>
+                            <div class="form-group" style="flex:2; min-width:200px; margin-bottom:0;"><label>Initial Note</label><input type="text" id="wcNote" placeholder="Description of issue..." /></div>
+                            <button class="btn-primary" style="height:40px;" onclick="createWarrantyClaim()">Submit Claim</button>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:10px;"><label><input type="checkbox" id="warrantyShowClosed" onchange="loadWarrantyClaims()" /> Show closed claims</label></div>
+                    <div id="warrantyTableWrap"></div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- PM TRACKER                                        -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="pmView" style="display:none;">
+                    <div class="page-header"><h1>PM Tracker</h1></div>
+                    <div class="panel"><table class="data-table"><thead><tr><th>Customer</th><th>Last PM Date</th><th>Last Job #</th><th>Job Type</th><th>Total PMs</th><th>Days Since</th><th>Status</th></tr></thead><tbody id="pmBody"></tbody></table></div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- AP VIEW                                           -->
+                <!-- ═══════════════════════════════════════════════════ -->
                 <div id="apView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Accounts Payable</h1>
-                    </div>
-
-                    <div class="card" style="background: white; color: #111;">
+                    <div class="page-header"><h1>Accounts Payable</h1></div>
+                    <div class="card" style="background:#1e293b;">
                         <h3>Add Bill</h3>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <select id="vendorSelect"></select>
-                            <button class="btn-secondary" onclick="toggleNewVendor()">+ New Vendor</button>
-                        </div>
-
-                        <div id="newVendorSection" style="display:none; margin-top:10px;">
-                            <input type="text" id="newVendorName" placeholder="Vendor Name" />
-                            <button class="btn-secondary" onclick="addVendor()">Save Vendor</button>
-                        </div>
-
+                        <div style="display:flex; gap:10px; align-items:center;"><select id="vendorSelect"></select><button class="btn-secondary" onclick="toggleNewVendor()">+ New Vendor</button></div>
+                        <div id="newVendorSection" style="display:none; margin-top:10px;"><input type="text" id="newVendorName" placeholder="Vendor Name" /><button class="btn-secondary" onclick="addVendor()">Save Vendor</button></div>
                         <div style="display:flex; gap:10px; margin-top:15px; align-items:center;">
-                            <input type="number" id="billAmount" placeholder="Amount" />
-                            <input type="number" id="billTotalAmount" placeholder="Total Invoice Amount" />
-                            <input type="date" id="billDueDate" />
-                            <button class="btn-primary" onclick="addBill()">Add Bill</button>
+                            <input type="number" id="billAmount" placeholder="Amount" /><input type="number" id="billTotalAmount" placeholder="Total Invoice Amount" /><input type="date" id="billDueDate" /><button class="btn-primary" onclick="addBill()">Add Bill</button>
                         </div>
                     </div>
-
-                    <div class="card" style="background: white; color: #111; margin-top: 20px;">
+                    <div class="panel" style="margin-top:20px;">
                         <h3>Vendors Owed</h3>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Vendor</th><th>Total Invoices</th>
-                                    <th>Amount Due Now</th><th>Next Due</th>
-                                </tr>
-                            </thead>
-                            <tbody id="apTableBody"></tbody>
-                        </table>
-
+                        <table class="data-table"><thead><tr><th>Vendor</th><th>Total Invoices</th><th>Amount Due Now</th><th>Next Due</th></tr></thead><tbody id="apTableBody2"></tbody></table>
                         <div id="vendorDetail" style="display:none; margin-top:20px;">
                             <h3 id="vendorDetailTitle"></h3>
-                            <table>
-                                <thead>
-                                    <tr><th>Owed Now</th><th>Total Invoice</th><th>Due Date</th><th>Actions</th></tr>
-                                </thead>
-                                <tbody id="vendorBillsTable"></tbody>
-                            </table>
+                            <table class="data-table"><thead><tr><th>Owed Now</th><th>Total Invoice</th><th>Due Date</th><th>Actions</th></tr></thead><tbody id="vendorBillsBody"></tbody></table>
                         </div>
                     </div>
                 </div>
 
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- WO BOARD                                        -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div id="boardView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Work Order Board</h1>
-                        <div>
-                            <button class="btn-primary" onclick="openAddCardModal()">+ Add Work Order</button>
-                            <button class="btn-secondary" onclick="openAddColumnModal()">+ Add Column</button>
-                        </div>
-                    </div>
-                    <div id="boardContainer" class="board-container"></div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- TO-DO LIST                                      -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div id="todoView" style="display:none;">
-                    <div class="page-header">
-                        <h1>To-Do List</h1>
-                    </div>
-                    <div class="card" style="margin-bottom:20px;">
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <div style="flex:2;">
-                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600;">Task</label>
-                                <input type="text" id="todoTitle" placeholder="What needs to be done?" />
-                            </div>
-                            <div style="flex:2;">
-                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600;">Description (optional)</label>
-                                <input type="text" id="todoDesc" placeholder="Additional details..." />
-                            </div>
-                            <button class="btn-primary" onclick="addTodo()" style="align-self:flex-end; height:40px;">Add</button>
-                        </div>
-                    </div>
-                    <div id="todoList"></div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- SUBCONTRACTORS                                  -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div id="subsView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Subcontractors</h1>
-                    </div>
-                    <div class="card" style="margin-bottom:20px;">
-                        <h3 style="text-align:center; margin-bottom:12px;">Add Subcontractor</h3>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <div style="flex:1;">
-                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Name</label>
-                                <input type="text" id="subName" placeholder="John Doe" />
-                            </div>
-                            <div style="flex:1;">
-                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Company</label>
-                                <input type="text" id="subCompany" placeholder="ABC Plumbing" />
-                            </div>
-                            <div style="flex:1;">
-                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Trade</label>
-                                <input type="text" id="subTrade" placeholder="Plumbing" />
-                            </div>
-                            <button class="btn-primary" onclick="addSubcontractor()" style="align-self:flex-end; height:40px;">Add</button>
-                        </div>
-                    </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr><th>Name</th><th>Company</th><th>Trade</th><th>Total Hours</th><th>Total Cost</th><th>Actions</th></tr>
-                        </thead>
-                        <tbody id="subsTableBody"></tbody>
-                    </table>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- EQUIPMENT                                       -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div id="equipmentView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Equipment</h1>
-                    </div>
-                    <div class="card" style="margin-bottom:20px;">
-                        <h3 style="text-align:center; margin-bottom:12px;">Add Equipment</h3>
-                        <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
-                            <div>
-                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Customer</label>
-                                <select id="equipCustomerSelect"></select>
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Type</label>
-                                <input type="text" id="equipType" placeholder="AC Unit" style="width:100px;" />
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Brand</label>
-                                <input type="text" id="equipBrand" placeholder="Carrier" style="width:100px;" />
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Model #</label>
-                                <input type="text" id="equipModel" placeholder="" style="width:80px;" />
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Serial #</label>
-                                <input type="text" id="equipSerial" placeholder="" style="width:100px;" />
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Install Date</label>
-                                <input type="date" id="equipInstall" />
-                            </div>
-                            <div>
-                                <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Warranty Exp</label>
-                                <input type="date" id="equipWarranty" />
-                            </div>
-                            <button class="btn-primary" onclick="addEquipment()" style="height:40px;">Add</button>
-                        </div>
-                    </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Customer</th><th>Installed</th><th>Warranty</th><th>Registered</th><th>Actions</th></tr>
-                        </thead>
-                        <tbody id="equipTableBody"></tbody>
-                    </table>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- WARRANTY CLAIMS                                 -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div id="warrantyView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Warranty Claims</h1>
-                        <div>
-                            <label style="font-size:12px; color:#94a3b8; margin-right:8px;">
-                                <input type="checkbox" id="showClosedWarranty" onchange="loadWarranty()" /> Show closed
-                            </label>
-                            <button class="btn-primary" onclick="openNewWarrantyForm()">+ New Claim</button>
-                        </div>
-                    </div>
-                    <div id="newWarrantyForm" class="card hidden" style="margin-bottom:20px;">
-                        <h3>New Warranty Claim</h3>
-                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                            <input type="text" id="wPartName" placeholder="Part Name *" style="flex:1; min-width:150px;" />
-                            <input type="text" id="wCustomerName" placeholder="Customer" style="flex:1; min-width:150px;" />
-                            <input type="text" id="wJobNumber" placeholder="Job #" style="flex:1; min-width:100px;" />
-                            <input type="text" id="wSupplier" placeholder="Supplier" style="flex:1; min-width:120px;" />
-                            <input type="text" id="wRma" placeholder="RMA #" style="flex:1; min-width:100px;" />
-                            <select id="wType" style="flex:1; min-width:120px;">
-                                <option value="Replacement">Replacement</option>
-                                <option value="Repair">Repair</option>
-                                <option value="Credit">Credit</option>
-                            </select>
-                            <button class="btn-primary" onclick="createWarranty()">Create</button>
-                        </div>
-                    </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr><th>Part</th><th>Customer</th><th>Job #</th><th>Supplier</th><th>RMA</th><th>Type</th><th>Status</th><th>ETA</th><th>Age</th></tr>
-                        </thead>
-                        <tbody id="warrantyTableBody"></tbody>
-                    </table>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- PM TRACKER                                      -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div id="pmView" style="display:none;">
-                    <div class="page-header">
-                        <h1>PM Tracker</h1>
-                    </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr><th>Customer</th><th>Last PM Date</th><th>Last Job #</th><th>Job Type</th><th>Total PMs</th><th>Days Since</th><th>Status</th></tr>
-                        </thead>
-                        <tbody id="pmTableBody"></tbody>
-                    </table>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- PRICING CALCULATOR                              -->
-                <!-- ═══════════════════════════════════════════════ -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- PRICING CALCULATOR                                -->
+                <!-- ═══════════════════════════════════════════════════ -->
                 <div id="pricingView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Pricing Calculator</h1>
+                    <div class="page-header"><h1>Pricing Calculator</h1></div>
+                    <div style="margin-bottom:15px;">
+                        <label>Part Cost: $</label>
+                        <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calcAutoPrice(); calcCustomPrice();" style="width:120px;" />
+                        <label style="margin-left:15px;"><input type="checkbox" id="ccToggle" onchange="calcAutoPrice(); calcCustomPrice();" /> Include CC Surcharge</label>
                     </div>
-                    <p style="color:#94a3b8; margin-bottom:20px;">Enter your cost to see auto-tiered and custom pricing side by side.</p>
-
-                    <div class="card" style="margin-bottom:20px;">
-                        <div style="display:flex; align-items:center; gap:20px;">
-                            <div style="flex:1;">
-                                <label style="font-size:12px; color:#94a3b8; text-transform:uppercase; font-weight:600; text-align:center; display:block;">Item Cost ($)</label>
-                                <input type="number" id="pricingCost" placeholder="0.00" step="0.01" oninput="calculatePricing()" style="font-size:18px; text-align:center;" />
-                            </div>
-                            <label style="color:#94a3b8; font-size:13px; white-space:nowrap;">
-                                <input type="checkbox" id="pricingCcToggle" checked onchange="calculatePricing()" />
-                                Include 2.5% CC Surcharge
-                            </label>
+                    <div class="grid">
+                        <div class="panel">
+                            <h2>Auto-Tiered Markup</h2>
+                            <div id="autoResult"></div>
                         </div>
-                    </div>
-
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-                        <div class="card">
-                            <h3 style="text-align:center;">Auto-Tiered Markup</h3>
-                            <p style="text-align:center; font-size:12px; color:#64748b;">Based on your standard markup tiers</p>
-                            <div id="autoTierResults"></div>
-                            <div id="tierReference" style="margin-top:20px;"></div>
-                        </div>
-                        <div class="card">
-                            <h3 style="text-align:center;">Custom Markup</h3>
-                            <p style="text-align:center; font-size:12px; color:#64748b;">Enter a percentage or multiplier</p>
+                        <div class="panel">
+                            <h2>Custom Markup</h2>
                             <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-                                <div style="flex:1;">
-                                    <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Markup %</label>
-                                    <input type="number" id="customMarkupPct" value="75" oninput="syncFromPct()" />
-                                </div>
-                                <span style="color:#64748b;">or</span>
-                                <div style="flex:1;">
-                                    <label style="font-size:11px; color:#94a3b8; text-transform:uppercase;">Multiplier</label>
-                                    <input type="number" id="customMultiplier" value="1.75" step="0.01" oninput="syncFromMult()" />
-                                </div>
+                                <label>Markup %</label>
+                                <input type="number" id="customMarkupPct" value="50" step="1" oninput="calcCustomPrice()" style="width:80px;" />
+                                <label>Multiplier</label>
+                                <input type="number" id="customMultiplier" value="1.5" step="0.01" oninput="calcCustomFromMultiplier()" style="width:80px;" />
                             </div>
-                            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
-                                <span style="font-size:11px; color:#64748b;">Quick Presets</span>
-                                <button class="btn-sm" onclick="setCustomPreset(1.75, 75)">1.75x / 75%</button>
-                                <button class="btn-sm" onclick="setCustomPreset(2, 100)">2x / 100%</button>
-                                <button class="btn-sm" onclick="setCustomPreset(2.5, 150)">2.5x / 150%</button>
-                                <button class="btn-sm" onclick="setCustomPreset(3, 200)">3x / 200%</button>
-                                <button class="btn-sm" onclick="setCustomPreset(4, 300)">4x / 300%</button>
-                            </div>
-                            <div id="customResults"></div>
+                            <div id="customResult"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- WARRANTY DETAIL MODAL                           -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="modal hidden" id="warrantyModal">
-                    <div class="modal-content" style="width:700px;">
-                        <div class="modal-header">
-                            <h2 id="warrantyModalTitle">Warranty Claim</h2>
-                            <button class="modal-close" onclick="document.getElementById('warrantyModal').classList.add('hidden')">✕</button>
-                        </div>
-                        <div class="modal-body" id="warrantyModalBody"></div>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- BOARD CARD DETAIL MODAL                         -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="modal hidden" id="cardDetailModal">
-                    <div class="modal-content" style="width:500px;">
-                        <div class="modal-header">
-                            <h2 id="cardDetailTitle">Card Details</h2>
-                            <button class="modal-close" onclick="document.getElementById('cardDetailModal').classList.add('hidden')">✕</button>
-                        </div>
-                        <div class="modal-body" id="cardDetailBody"></div>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- ADD CARD MODAL                                  -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="modal hidden" id="addCardModal">
-                    <div class="modal-content" style="width:400px;">
-                        <div class="modal-header">
-                            <h2>Add Work Order to Board</h2>
-                            <button class="modal-close" onclick="document.getElementById('addCardModal').classList.add('hidden')">✕</button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="form-group">
-                                <label>Column</label>
-                                <select id="addCardColumn"></select>
-                            </div>
-                            <div class="form-group">
-                                <label>Job Number</label>
-                                <input type="text" id="addCardJob" placeholder="e.g. 80041" />
-                            </div>
-                            <div class="form-group">
-                                <label>Customer Name</label>
-                                <input type="text" id="addCardCustomer" placeholder="e.g. HCA Houston" />
-                            </div>
-                            <button class="btn-primary btn-full" onclick="submitAddCard()">Add to Board</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- ADD COLUMN MODAL                                -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="modal hidden" id="addColumnModal">
-                    <div class="modal-content" style="width:350px;">
-                        <div class="modal-header">
-                            <h2>Add Column</h2>
-                            <button class="modal-close" onclick="document.getElementById('addColumnModal').classList.add('hidden')">✕</button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="form-group">
-                                <label>Column Name</label>
-                                <input type="text" id="addColumnName" placeholder="e.g. Waiting Inspection" />
-                            </div>
-                            <div class="form-group">
-                                <label>Color</label>
-                                <input type="color" id="addColumnColor" value="#2563eb" />
-                            </div>
-                            <button class="btn-primary btn-full" onclick="submitAddColumn()">Create Column</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- SUB DETAIL MODAL                                -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="modal hidden" id="subDetailModal">
-                    <div class="modal-content" style="width:600px;">
-                        <div class="modal-header">
-                            <h2 id="subDetailTitle">Subcontractor</h2>
-                            <button class="modal-close" onclick="document.getElementById('subDetailModal').classList.add('hidden')">✕</button>
-                        </div>
-                        <div class="modal-body" id="subDetailBody"></div>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- CUSTOMER PROFILE MODAL                          -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="modal hidden" id="customerProfileModal">
-                    <div class="modal-content" style="width:850px;">
-                        <div class="modal-header">
-                            <h2 id="customerProfileTitle">Customer</h2>
-                            <button class="modal-close" onclick="document.getElementById('customerProfileModal').classList.add('hidden')">✕</button>
-                        </div>
-                        <div class="modal-body" id="customerProfileBody"></div>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- WORK ORDER DETAIL MODAL                         -->
-                <!-- ═══════════════════════════════════════════════ -->
-                <div class="modal hidden" id="woDetailModal">
-                    <div class="modal-content" style="width:700px;">
-                        <div class="modal-header">
-                            <h2 id="woDetailTitle">Work Order</h2>
-                            <button class="modal-close" onclick="document.getElementById('woDetailModal').classList.add('hidden')">✕</button>
-                        </div>
-                        <div class="modal-body" id="woDetailBody"></div>
-                    </div>
-                </div>
-
-                <!-- ═══════════════════════════════════════════════ -->
-                <!-- ADMIN CENTER / SETTINGS                        -->
-                <!-- ═══════════════════════════════════════════════ -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- SETTINGS / ADMIN                                  -->
+                <!-- ═══════════════════════════════════════════════════ -->
                 <div id="adminView" style="display:none;">
-                    <div class="page-header">
-                        <h1>Settings</h1>
-                    </div>
+                    <div class="page-header"><h1>Settings</h1></div>
 
-                    <!-- Company Info -->
-                    <div class="settings-section">
-                        <h2>Company Information</h2>
-                        <div class="settings-card">
-                            <div class="form-group">
-                                <label>Company Name</label>
-                                <input type="text" id="adminCompanyName" />
-                            </div>
-                            <div class="form-group">
-                                <label>Credit Card Fee %</label>
-                                <input type="number" id="adminCcFee" step="0.1" />
-                            </div>
-                            <button class="btn-primary" onclick="saveCompanySettings()">Save Changes</button>
-                        </div>
-                    </div>
+                    <div class="settings-section"><h2>Company Information</h2><div class="settings-card"><div class="form-group"><label>Company Name</label><input type="text" id="adminCompanyName" /></div><div class="form-group"><label>Credit Card Fee %</label><input type="number" id="adminCcFee" step="0.1" /></div><button class="btn-primary" onclick="saveCompanySettings()">Save Changes</button></div></div>
 
-                    <!-- ServiceTitan -->
-                    <div class="settings-section">
-                        <h2>ServiceTitan Connection</h2>
-                        <div class="settings-card">
-                            <div id="stConnectionStatus" class="connection-badge">
-                                Checking...
-                            </div>
+                    <div class="settings-section"><h2>ServiceTitan Connection</h2><div class="settings-card"><div id="stConnectionStatus" class="connection-badge">Checking...</div><div class="form-group"><label>Tenant ID</label><input type="text" id="adminStTenantId" /></div><div class="form-group"><label>Client ID</label><input type="text" id="adminStClientId" placeholder="Enter new value to update" /></div><div class="form-group"><label>Client Secret</label><input type="password" id="adminStClientSecret" placeholder="Enter new value to update" /></div><div class="form-group"><label>Application Key</label><input type="text" id="adminStAppKey" placeholder="Enter new value to update" /></div><div style="display:flex; gap:10px;"><button class="btn-primary" onclick="saveServiceTitanSettings()">Save Credentials</button><button class="btn-secondary" onclick="testServiceTitanConnection()">Test Connection</button></div><div id="stTestResult" class="hidden" style="margin-top:15px;"></div></div></div>
 
-                            <div class="form-group">
-                                <label>Tenant ID</label>
-                                <input type="text" id="adminStTenantId" />
-                            </div>
-                            <div class="form-group">
-                                <label>Client ID</label>
-                                <input type="text" id="adminStClientId" placeholder="Enter new value to update" />
-                            </div>
-                            <div class="form-group">
-                                <label>Client Secret</label>
-                                <input type="password" id="adminStClientSecret" placeholder="Enter new value to update" />
-                            </div>
-                            <div class="form-group">
-                                <label>Application Key</label>
-                                <input type="text" id="adminStAppKey" placeholder="Enter new value to update" />
-                            </div>
+                    <div class="settings-section"><h2>Sync Settings</h2><div class="settings-card"><div class="form-group"><label><input type="checkbox" id="adminAutoSync" /> Enable automatic syncing</label></div><div class="form-group"><label>Sync Interval (minutes)</label><input type="number" id="adminSyncInterval" min="15" max="1440" /></div><div id="lastSyncInfo" class="sync-info"></div><button class="btn-primary" onclick="saveSyncSettings()">Save Sync Settings</button></div></div>
 
-                            <div style="display:flex; gap:10px;">
-                                <button class="btn-primary" onclick="saveServiceTitanSettings()">Save Credentials</button>
-                                <button class="btn-secondary" onclick="testServiceTitanConnection()">Test Connection</button>
-                            </div>
+                    <div class="settings-section"><h2>Your Account</h2><div class="settings-card"><div class="form-group"><label>Current Password</label><input type="password" id="adminCurrentPw" /></div><div class="form-group"><label>New Password</label><input type="password" id="adminNewPw" placeholder="At least 8 characters" /></div><button class="btn-primary" onclick="changePassword()">Update Password</button></div></div>
 
-                            <div id="stTestResult" class="hidden" style="margin-top:15px;"></div>
-                        </div>
-                    </div>
+                    <div class="settings-section"><h2>Users</h2><div class="settings-card"><div class="add-user-form"><h3 style="margin-bottom:12px; font-size:15px; color:#e2e8f0;">Add New User</h3><div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;"><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Full Name</label><input type="text" id="newUserName" placeholder="Jane Smith" /></div><div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Email</label><input type="email" id="newUserEmail" placeholder="jane@company.com" /></div><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Password</label><input type="password" id="newUserPassword" placeholder="Min 8 characters" /></div><button class="btn-primary" style="height:40px;" onclick="createUser()">Add User</button></div></div><hr style="border:none; border-top:1px solid #334155; margin:20px 0;" /><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="usersBody"></tbody></table></div></div>
 
-                    <!-- Sync Settings -->
-                    <div class="settings-section">
-                        <h2>Sync Settings</h2>
-                        <div class="settings-card">
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="adminAutoSync" />
-                                    Enable automatic syncing
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label>Sync Interval (minutes)</label>
-                                <input type="number" id="adminSyncInterval" min="15" max="1440" />
-                            </div>
-                            <div id="lastSyncInfo" class="sync-info"></div>
-                            <button class="btn-primary" onclick="saveSyncSettings()">Save Sync Settings</button>
-                        </div>
-                    </div>
-
-                    <!-- Account -->
-                    <div class="settings-section">
-                        <h2>Your Account</h2>
-                        <div class="settings-card">
-                            <div class="form-group">
-                                <label>Current Password</label>
-                                <input type="password" id="adminCurrentPw" />
-                            </div>
-                            <div class="form-group">
-                                <label>New Password</label>
-                                <input type="password" id="adminNewPw" placeholder="At least 8 characters" />
-                            </div>
-                            <button class="btn-primary" onclick="changePassword()">Update Password</button>
-                        </div>
-                    </div>
-
-                    <!-- User Management -->
-                    <div class="settings-section">
-                        <h2>Users</h2>
-                        <div class="settings-card">
-
-                            <!-- Add User Form -->
-                            <div class="add-user-form">
-                                <h3 style="margin-bottom:12px; font-size:15px; color:#e2e8f0;">Add New User</h3>
-                                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                                    <div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;">
-                                        <label>Full Name</label>
-                                        <input type="text" id="newUserName" placeholder="Jane Smith" />
-                                    </div>
-                                    <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;">
-                                        <label>Email</label>
-                                        <input type="email" id="newUserEmail" placeholder="jane@company.com" />
-                                    </div>
-                                    <div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;">
-                                        <label>Password</label>
-                                        <input type="password" id="newUserPassword" placeholder="Min 8 characters" />
-                                    </div>
-                                    <button class="btn-primary" style="height:40px;" onclick="createUser()">Add User</button>
-                                </div>
-                            </div>
-
-                            <hr style="border:none; border-top:1px solid #334155; margin:20px 0;" />
-
-                            <!-- User List -->
-                            <table id="usersTable">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Email</th>
-                                        <th>Status</th>
-                                        <th>Last Login</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="usersTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <!-- Theme Picker -->
+                    <div class="settings-section"><h2>Theme</h2><div class="settings-card"><div id="themePicker" style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <div class="theme-swatch" data-theme="red" style="background:#dc2626;" title="Red"></div>
+                        <div class="theme-swatch" data-theme="blue" style="background:#2563eb;" title="Blue"></div>
+                        <div class="theme-swatch" data-theme="green" style="background:#16a34a;" title="Green"></div>
+                        <div class="theme-swatch" data-theme="purple" style="background:#9333ea;" title="Purple"></div>
+                        <div class="theme-swatch" data-theme="orange" style="background:#ea580c;" title="Orange"></div>
+                        <div class="theme-swatch" data-theme="teal" style="background:#0d9488;" title="Teal"></div>
+                        <div class="theme-swatch" data-theme="pink" style="background:#db2777;" title="Pink"></div>
+                        <div class="theme-swatch" data-theme="amber" style="background:#d97706;" title="Amber"></div>
+                    </div></div></div>
                 </div>
 
             </div>
         </div>
     </div>
 
-    <!-- CUSTOMER MODAL (shared) -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- MODALS                                                    -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+    <!-- Customer Profile Modal -->
     <div class="modal hidden" id="customerModal">
-        <div class="modal-content" style="width:600px;">
+        <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modalTitle"></h2>
-                <button class="modal-close" onclick="closeModal()">✕</button>
+                <h2 id="profileName"></h2>
+                <button class="modal-close" onclick="document.getElementById('customerModal').classList.add('hidden')">✕</button>
             </div>
             <div class="modal-body">
-                <div class="invoice-scroll">
-                    <table>
-                        <thead>
-                            <tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr>
-                        </thead>
-                        <tbody id="invoiceBody"></tbody>
-                    </table>
+                <div class="profile-stats">
+                    <div class="stat-box"><h4>Balance Owed</h4><p id="profileBalance">$0</p></div>
+                    <div class="stat-box"><h4>Work Orders</h4><p id="profileWoCount">0</p></div>
+                    <div class="stat-box"><h4>Last PM</h4><p id="profileLastPm">—</p></div>
+                </div>
+                <div id="profilePmSection"></div>
+                <div id="profileContacts"></div>
+                <div id="profileLocations"></div>
+                <h3>Equipment</h3>
+                <table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Installed</th><th>Warranty</th></tr></thead><tbody id="profileEquipment"></tbody></table>
+                <h3>Work Orders</h3>
+                <table class="data-table"><thead><tr><th>Job #</th><th>Type</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="profileWoBody"></tbody></table>
+                <h3>Invoices</h3>
+                <table class="data-table"><thead><tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr></thead><tbody id="profileInvBody"></tbody></table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Board Card Detail Modal -->
+    <div class="modal hidden" id="cardModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="cardModalTitle"></h2>
+                <button class="modal-close" onclick="document.getElementById('cardModal').classList.add('hidden')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Customer:</strong> <span id="cardModalCustomer"></span></p>
+                <p><strong>Column:</strong> <span id="cardModalColumn"></span></p>
+                <p><strong>Added:</strong> <span id="cardModalAdded"></span></p>
+                <hr style="border:none; border-top:1px solid #334155; margin:15px 0;" />
+                <h3>Notes</h3>
+                <div id="cardNotesList"></div>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <input type="text" id="cardNoteInput" placeholder="Add a note..." style="flex:1;" />
+                    <button class="btn-primary" onclick="addCardNote()">Add</button>
+                </div>
+                <div id="cardModalActions" style="margin-top:15px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warranty Claim Detail Modal -->
+    <div class="modal hidden" id="warrantyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="wmTitle"></h2>
+                <button class="modal-close" onclick="document.getElementById('warrantyModal').classList.add('hidden')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="wmPipeline" style="margin-bottom:15px;"></div>
+                <div id="wmStatusButtons" style="margin-bottom:15px;"></div>
+                <div class="grid" style="gap:10px;">
+                    <div><strong>Customer:</strong> <span id="wmCustomer"></span></div>
+                    <div><strong>Job #:</strong> <span id="wmJob"></span></div>
+                    <div><strong>Part:</strong> <span id="wmPart"></span></div>
+                    <div><strong>Part Model:</strong> <span id="wmPartModel"></span></div>
+                    <div><strong>Unit Model:</strong> <span id="wmUnitModel"></span></div>
+                    <div><strong>Unit Serial:</strong> <span id="wmUnitSerial"></span></div>
+                    <div><strong>Manufacturer:</strong> <span id="wmManufacturer"></span></div>
+                    <div><strong>Supplier:</strong> <span id="wmSupplier"></span></div>
+                    <div><strong>Type:</strong> <span id="wmType"></span></div>
+                    <div><strong>RMA #:</strong> <span id="wmRma"></span></div>
+                    <div><strong>ETA:</strong> <span id="wmEta"></span></div>
+                    <div><strong>Return Job #:</strong> <span id="wmReturnJob"></span></div>
+                </div>
+                <hr style="border:none; border-top:1px solid #334155; margin:15px 0;" />
+                <h3>Edit Fields</h3>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                    <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>RMA #</label><input type="text" id="wmEditRma" /></div>
+                    <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>ETA</label><input type="date" id="wmEditEta" /></div>
+                    <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>Return Job #</label><input type="text" id="wmEditReturnJob" /></div>
+                    <div class="form-group" style="min-width:120px; margin-bottom:0;"><label>Credit Amount</label><input type="number" id="wmEditCredit" step="0.01" /></div>
+                    <button class="btn-primary" style="height:40px; align-self:flex-end;" onclick="updateWarrantyClaim()">Save</button>
+                </div>
+                <hr style="border:none; border-top:1px solid #334155; margin:15px 0;" />
+                <h3>Notes</h3>
+                <div id="wmNotesList"></div>
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <input type="text" id="wmNoteInput" placeholder="Add a note..." style="flex:1;" />
+                    <button class="btn-primary" onclick="addWarrantyNote()">Add</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- OPS STAT DRILL-DOWN MODAL -->
+    <!-- Ops Stats Drilldown Modal -->
     <div class="modal hidden" id="opsModal">
-        <div class="modal-content" style="width:600px;">
+        <div class="modal-content">
             <div class="modal-header">
-                <h2 id="opsModalTitle">Details</h2>
+                <h2 id="opsModalTitle"></h2>
                 <button class="modal-close" onclick="document.getElementById('opsModal').classList.add('hidden')">✕</button>
             </div>
             <div class="modal-body" id="opsModalBody"></div>
