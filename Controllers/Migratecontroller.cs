@@ -41,9 +41,11 @@ public class MigrateController : ControllerBase
         {
             await _context.Database.ExecuteSqlRawAsync(@"
                 DROP INDEX IF EXISTS ""IX_Invoices_WorkOrderId"";
-                CREATE INDEX ""IX_Invoices_WorkOrderId"" ON ""Invoices"" (""WorkOrderId"");
+                CREATE INDEX IF NOT EXISTS ""IX_Invoices_WorkOrderId"" ON ""Invoices"" (""WorkOrderId"");
+                ALTER TABLE ""Invoices"" ALTER COLUMN ""Status"" DROP NOT NULL;
+                ALTER TABLE ""Invoices"" ALTER COLUMN ""IssueDate"" DROP NOT NULL;
             ");
-            return Ok(new { message = "Dropped unique constraint on Invoices.WorkOrderId. Invoice sync should work now." });
+            return Ok(new { message = "Fixed invoice constraints." });
         }
         catch (Exception ex)
         {

@@ -16,7 +16,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public decimal TotalAmount { get; set; }
         public decimal BalanceRemaining { get; set; }
 
-        public string Status { get; set; } = null!;
+        public string? Status { get; set; }
 
         // Relationships
         public Guid CustomerId { get; set; }
