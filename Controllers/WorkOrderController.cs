@@ -22,7 +22,7 @@ namespace PatriotMechanical.API.Controllers
         {
             var wo = await _context.WorkOrders
                 .Include(w => w.Customer)
-                .Include(w => w.Invoice)
+                .Include(w => w.Invoices)
                 .FirstOrDefaultAsync(w => w.JobNumber == jobNumber);
 
             if (wo == null) return NotFound();
@@ -74,12 +74,12 @@ namespace PatriotMechanical.API.Controllers
                 wo.TotalMaterialCost,
                 wo.GrossProfit,
                 wo.MarginPercent,
-                Invoice = wo.Invoice != null ? new
+                Invoice = wo.Invoices.Any() ? new
                 {
-                    wo.Invoice.InvoiceNumber,
-                    wo.Invoice.TotalAmount,
-                    wo.Invoice.BalanceRemaining,
-                    wo.Invoice.Status
+                    wo.Invoices.First().InvoiceNumber,
+                    wo.Invoices.First().TotalAmount,
+                    wo.Invoices.First().BalanceRemaining,
+                    wo.Invoices.First().Status
                 } : null,
                 BoardColumn = boardColumnInfo,
                 SubcontractorEntries = subEntries,

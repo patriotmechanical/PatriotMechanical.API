@@ -32,7 +32,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public ICollection<WorkOrderLabor> LaborEntries { get; set; } = new List<WorkOrderLabor>();
         public ICollection<WorkOrderMaterial> MaterialEntries { get; set; } = new List<WorkOrderMaterial>();
 
-        public Invoice? Invoice { get; set; }
+        public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
 
         public decimal TotalLaborCost { get; set; }
         public decimal TotalMaterialCost { get; set; }

@@ -83,6 +83,12 @@ namespace PatriotMechanical.API.Infrastructure.Data
                 .HasForeignKey(w => w.CustomerId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            modelBuilder.Entity<Invoice>()
+                .HasOne(i => i.WorkOrder)
+                .WithMany(w => w.Invoices)
+                .HasForeignKey(i => i.WorkOrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             base.OnModelCreating(modelBuilder);
         }
     }
