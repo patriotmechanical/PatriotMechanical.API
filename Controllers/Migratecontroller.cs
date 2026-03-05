@@ -16,6 +16,28 @@ public class MigrateController : ControllerBase
         _context = context;
     }
 
+    [HttpGet("apply")]
+    public async Task<IActionResult> ApplyMigrations()
+    {
+        try
+        {
+            var pending = await _context.Database.GetPendingMigrationsAsync();
+            var pendingList = pending.ToList();
+
+            if (pendingList.Count == 0)
+            {
+                return Ok(new { message = "No pending migrations." });
+            }
+
+            await _context.Database.MigrateAsync();
+            return Ok(new { message = $"Applied {pendingList.Count} migration(s).", migrations = pendingList });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
+        }
+    }
+
     /// <summary>
     /// Hit GET /migrate/fix ONE TIME to seed CompanySettings and link existing users.
     /// DELETE THIS CONTROLLER after it works.
