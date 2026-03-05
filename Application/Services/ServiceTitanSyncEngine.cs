@@ -551,95 +551,14 @@ namespace PatriotMechanical.API.Application.Services
             var existingJobNumbers = await _context.BoardCards
                 .Select(c => c.JobNumber).ToListAsync();
 
-            int added = 0;
-
-            // ─── PART 1: Appointment-based auto-board (Need to Return) ───
-            foreach (var (stJobId, appointments) in jobAppointments)
-            {
-                var wo = await _context.WorkOrders
-                    .Include(w => w.Customer)
-                    .FirstOrDefaultAsync(w => w.ServiceTitanJobId == stJobId);
-                if (wo == null) continue;
-
-                var woStatus = wo.Status?.ToLower() ?? "";
-                if (woStatus.Contains("completed") || woStatus.Contains("cancel")) continue;
-                if (existingJobNumbers.Contains(wo.JobNumber)) continue;
-
-                var custName = wo.Customer?.Name ?? "";
-                if (custName.StartsWith("[DEMO]")) continue;
-
-                bool hasHold = appointments.Any(a =>
-                    a.Active && a.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase));
-                var activeNonUnused = appointments.Where(a => a.Active && !a.Unused).ToList();
-                bool multiVisits = activeNonUnused.Count > 1;
-
-                BoardColumn? target = null;
-                string? note = null;
-
-                if (hasHold && needReturnCol != null)
-                {
-                    target = needReturnCol;
-                    note = "Auto-added: Appointment on Hold in ServiceTitan";
-                }
-                else if (multiVisits && needReturnCol != null)
-                {
-                    target = needReturnCol;
-                    note = $"Auto-added: {activeNonUnused.Count} appointments — return visit requested";
-                }
-
-                if (target == null) continue;
-
-                await AddCardToColumn(target, wo, custName, note, existingJobNumbers);
-                added++;
-            }
-
-            // ─── PART 2: Need to Schedule — jobs with no active tech assignment ───
-            if (waitScheduleCol != null)
-            {
-                // Find active work orders not on the board
-                var openJobs = await _context.WorkOrders
-                    .Include(w => w.Customer)
-                    .Where(w => w.Status != null
-                        && !w.Status.ToLower().Contains("completed")
-                        && !w.Status.ToLower().Contains("cancel")
-                        && w.ServiceTitanJobId > 0)
-                    .ToListAsync();
-
-                foreach (var wo in openJobs)
-                {
-                    if (existingJobNumbers.Contains(wo.JobNumber)) continue;
-
-                    var custName = wo.Customer?.Name ?? "";
-                    if (custName.StartsWith("[DEMO]")) continue;
-
-                    // Skip jobs that have an active tech assignment
-                    if (jobsWithTechAssigned.Contains(wo.ServiceTitanJobId))
-                        continue;
-
-                    // This job has no active tech assignment → needs scheduling
-                    string reason;
-                    if (!jobAppointments.ContainsKey(wo.ServiceTitanJobId))
-                        reason = "Auto-added: No appointment created yet";
-                    else
-                        reason = "Auto-added: Appointment exists but no technician assigned";
-
-                    await AddCardToColumn(waitScheduleCol, wo, custName, reason, existingJobNumbers);
-                    added++;
-                }
-            }
-
-            if (added > 0)
-            {
-                await _context.SaveChangesAsync();
-                Console.WriteLine($"[AutoBoard] Added {added} cards from appointment sync.");
-            }
+            // All board columns are manual — no auto-population
+            // Cleanup completed/canceled cards only
         }
 
         private async Task CleanupCompletedBoardCardsAsync()
         {
             var closedStatuses = new[] { "completed", "canceled", "cancelled" };
 
-            // Find board cards that have a linked WorkOrder with a closed status
             var staleCards = await _context.BoardCards
                 .Include(c => c.WorkOrder)
                 .Where(c => c.WorkOrder != null
