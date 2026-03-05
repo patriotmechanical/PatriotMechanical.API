@@ -26,13 +26,21 @@ namespace PatriotMechanical.API.Controllers
         [HttpPost("sync")]
         public async Task<IActionResult> SyncAll()
         {
-            var results = new Dictionary<string, int>();
+            try
+            {
+                var results = new Dictionary<string, int>();
 
-            results["customerContacts"] = await SyncCustomerContacts();
-            results["locations"] = await SyncLocations();
-            results["locationContacts"] = await SyncLocationContacts();
+                results["customerContacts"] = await SyncCustomerContacts();
+                results["locations"] = await SyncLocations();
+                results["locationContacts"] = await SyncLocationContacts();
 
-            return Ok(new { message = "CRM sync complete", results });
+                return Ok(new { message = "CRM sync complete", results });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CRM Sync Error] {ex.Message}");
+                return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
+            }
         }
 
         private async Task<int> SyncCustomerContacts()

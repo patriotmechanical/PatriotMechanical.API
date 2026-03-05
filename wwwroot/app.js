@@ -689,26 +689,9 @@ async function openCardModal(card, col) {
     }
 
     document.getElementById("cardModal").classList.remove("hidden");
-
-    // Actions
-    document.getElementById("cardModalActions").innerHTML = `
-        <button class="btn-secondary" style="width:100%;" onclick="removeCardFromBoard()">✕ Remove from Board</button>
-    `;
 }
 
 function closeCardModal() { document.getElementById("cardModal").classList.add("hidden"); currentCardId = null; }
-
-async function removeCardFromBoard() {
-    if (!currentCardId || !confirm("Remove this job from the board?")) return;
-    const res = await api(`/board/cards/${currentCardId}`, { method: "DELETE" });
-    if (res && res.ok) {
-        closeCardModal();
-        await loadBoard();
-        toast("Removed from board.", "success");
-    } else {
-        toast("Failed to remove.", "error");
-    }
-}
 
 async function addCardNote() {
     const text = document.getElementById("cardNoteInput").value.trim();
@@ -979,7 +962,15 @@ async function hardRefresh() {
         btn.innerText = "Syncing jobs...";
         await api("/servicetitan/sync/jobs", { method: "POST" });
         btn.innerText = "Syncing invoices...";
-        await api("/servicetitan/sync/invoices", { method: "POST" });
+        try {
+            const invRes = await api("/servicetitan/sync/invoices", { method: "POST" });
+            if (invRes && invRes.ok) {
+                console.log("Invoice sync complete");
+            } else if (invRes) {
+                const invErr = await invRes.json().catch(() => ({}));
+                console.error("Invoice sync error:", invErr.error, invErr.inner);
+            }
+        } catch (invErr) { console.warn("Invoice sync failed:", invErr); }
         btn.innerText = "Refreshing recent changes...";
         try {
             const refreshRes = await api("/servicetitan/refresh", { method: "POST" });
@@ -996,8 +987,9 @@ async function hardRefresh() {
             if (crmRes && crmRes.ok) {
                 const crmData = await crmRes.json();
                 console.log("CRM sync result:", crmData);
-            } else {
-                console.warn("CRM sync returned non-OK:", crmRes?.status);
+            } else if (crmRes) {
+                const crmErr = await crmRes.json().catch(() => ({}));
+                console.error("CRM sync error:", crmErr.error, crmErr.inner);
             }
         } catch (crmErr) {
             console.warn("CRM sync failed (non-fatal):", crmErr);
