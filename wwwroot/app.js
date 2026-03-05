@@ -1090,10 +1090,32 @@ async function sendPmReminder(customerId, customerName, daysSince) {
     }
 
     const companyName = document.getElementById("sidebarCompanyName").innerText || "MyOpsBoard";
-    const daysText = daysSince > 0 ? `${daysSince} days` : "a while";
+    const isDueSoon = daysSince >= 120 && daysSince <= 180;
+    const daysUntilDue = 180 - daysSince;
 
-    const subject = encodeURIComponent(`Preventive Maintenance Reminder - ${companyName}`);
-    const body = encodeURIComponent(
+    let subject, body, smsText;
+
+    if (isDueSoon) {
+        // ── DUE SOON MESSAGE ──
+        subject = encodeURIComponent(`Your Preventive Maintenance is Coming Due - ${companyName}`);
+        body = encodeURIComponent(
+`Hi ${customerName},
+
+This is a friendly heads-up from ${companyName} that your preventive maintenance will be due in approximately ${daysUntilDue} days.
+
+Regular maintenance helps prevent costly breakdowns, extends equipment life, and keeps your system running efficiently. Scheduling ahead ensures we can find a time that works best for you.
+
+We'd love to get your next PM visit on the calendar. Please reply to this email or give us a call to book a convenient time.
+
+Thank you,
+${companyName}`
+        );
+        smsText = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. Your preventive maintenance will be due in about ${daysUntilDue} days. We'd love to get you on the schedule — give us a call or reply here!`);
+    } else {
+        // ── OVERDUE MESSAGE ──
+        const daysText = daysSince > 0 ? `${daysSince} days` : "a while";
+        subject = encodeURIComponent(`Preventive Maintenance Reminder - ${companyName}`);
+        body = encodeURIComponent(
 `Hi ${customerName},
 
 This is a friendly reminder from ${companyName} that it has been ${daysText} since your last preventive maintenance service.
@@ -1104,7 +1126,9 @@ We'd love to get you scheduled. Please reply to this email or give us a call to 
 
 Thank you,
 ${companyName}`
-    );
+        );
+        smsText = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. It's been ${daysText} since your last preventive maintenance. We'd love to get you scheduled — give us a call or reply here!`);
+    }
 
     // Build options
     let options = [];
@@ -1112,8 +1136,7 @@ ${companyName}`
         options.push(`<a href="mailto:${email.value}?subject=${subject}&body=${body}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px;">📧 Email ${email.value}</a>`);
     }
     if (phone) {
-        const smsBody = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. It's been ${daysText} since your last preventive maintenance. We'd love to get you scheduled — give us a call or reply here!`);
-        options.push(`<a href="sms:${phone.value}?body=${smsBody}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px; background:#16a34a;">💬 Text ${phone.value}</a>`);
+        options.push(`<a href="sms:${phone.value}?body=${smsText}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px; background:#16a34a;">💬 Text ${phone.value}</a>`);
     }
 
     if (options.length === 0) {
