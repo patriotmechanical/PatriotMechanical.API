@@ -440,6 +440,16 @@ async function openCustomerProfile(id) {
                     </div>
                     <button class="btn-primary" style="font-size:13px; padding:8px 16px;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${daysSince})">📧 Send PM Reminder</button>
                 </div>`;
+        } else if (daysSince >= 120) {
+            const daysUntilDue = 180 - daysSince;
+            pmSection.innerHTML = `
+                <div style="background:#7c2d1222; border:1px solid #ea580c; border-radius:8px; padding:14px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <span style="color:#fdba74; font-weight:600;">🔔 PM Due Soon</span>
+                        <span class="muted" style="margin-left:8px;">PM will be due in ${daysUntilDue} days</span>
+                    </div>
+                    <button class="btn-primary" style="font-size:13px; padding:8px 16px; background:#ea580c;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\\\'")}', ${daysSince})">📧 Send PM Reminder</button>
+                </div>`;
         } else {
             pmSection.innerHTML = '';
         }
