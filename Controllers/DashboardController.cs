@@ -55,9 +55,9 @@ public class DashboardController : ControllerBase
 
         var openWorkOrders = await _context.WorkOrders
             .Where(w => w.Status != null
-                && (w.Status.ToLower().Contains("inprogress")
-                    || w.Status.ToLower().Contains("scheduled")
-                    || w.Status.ToLower().Contains("hold")))
+                && !w.Status.ToLower().Contains("completed")
+                && !w.Status.ToLower().Contains("canceled")
+                && !w.Status.ToLower().Contains("cancelled"))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
@@ -83,7 +83,7 @@ public class DashboardController : ControllerBase
                 Cards = c.Cards
                     .Where(card => !isDemo || card.CustomerName.StartsWith("[DEMO]"))
                     .Where(card => isDemo || !card.CustomerName.StartsWith("[DEMO]"))
-                    .Select(card => new { card.JobNumber, card.CustomerName, CustomerId = card.WorkOrder != null ? card.WorkOrder.CustomerId : (Guid?)null })
+                    .Select(card => new { card.JobNumber, card.CustomerName })
                     .ToList()
             })
             .ToListAsync();
