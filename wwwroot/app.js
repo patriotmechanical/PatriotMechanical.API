@@ -962,15 +962,7 @@ async function hardRefresh() {
         btn.innerText = "Syncing jobs...";
         await api("/servicetitan/sync/jobs", { method: "POST" });
         btn.innerText = "Syncing invoices...";
-        try {
-            const invRes = await api("/servicetitan/sync/invoices", { method: "POST" });
-            if (invRes && invRes.ok) {
-                console.log("Invoice sync complete");
-            } else if (invRes) {
-                try { const invErr = await invRes.json(); console.error("Invoice sync error:", invErr.error, invErr.inner); }
-                catch { const invText = await invRes.text().catch(() => ""); console.error("Invoice sync error (raw):", invRes.status, invText.substring(0, 200)); }
-            }
-        } catch (invErr) { console.warn("Invoice sync failed:", invErr); }
+        await api("/servicetitan/sync/invoices", { method: "POST" });
         btn.innerText = "Refreshing recent changes...";
         try {
             const refreshRes = await api("/servicetitan/refresh", { method: "POST" });
@@ -987,9 +979,8 @@ async function hardRefresh() {
             if (crmRes && crmRes.ok) {
                 const crmData = await crmRes.json();
                 console.log("CRM sync result:", crmData);
-            } else if (crmRes) {
-                try { const crmErr = await crmRes.json(); console.error("CRM sync error:", crmErr.error, crmErr.inner); }
-                catch { console.error("CRM sync error (raw):", crmRes.status); }
+            } else {
+                console.warn("CRM sync returned non-OK:", crmRes?.status);
             }
         } catch (crmErr) {
             console.warn("CRM sync failed (non-fatal):", crmErr);
@@ -1076,6 +1067,18 @@ async function sendPmReminder(customerId, customerName, daysSince) {
     const emailContact = (cust.contacts || []).find(c => c.type && c.type.toLowerCase().includes("email"));
     const phoneContact = (cust.contacts || []).find(c => c.type && (c.type.toLowerCase().includes("phone") || c.type.toLowerCase().includes("mobile")));
 
+    // If no customer-level contacts, check location contacts
+    let email = emailContact;
+    let phone = phoneContact;
+    if (!email || !phone) {
+        (cust.locations || []).forEach(loc => {
+            (loc.contacts || []).forEach(lc => {
+                if (!email && lc.type && lc.type.toLowerCase().includes("email")) email = lc;
+                if (!phone && lc.type && (lc.type.toLowerCase().includes("phone") || lc.type.toLowerCase().includes("mobile"))) phone = lc;
+            });
+        });
+    }
+
     const companyName = document.getElementById("sidebarCompanyName").innerText || "MyOpsBoard";
     const daysText = daysSince > 0 ? `${daysSince} days` : "a while";
 
@@ -1095,12 +1098,12 @@ ${companyName}`
 
     // Build options
     let options = [];
-    if (emailContact) {
-        options.push(`<a href="mailto:${emailContact.value}?subject=${subject}&body=${body}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px;">📧 Email ${emailContact.value}</a>`);
+    if (email) {
+        options.push(`<a href="mailto:${email.value}?subject=${subject}&body=${body}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px;">📧 Email ${email.value}</a>`);
     }
-    if (phoneContact) {
+    if (phone) {
         const smsBody = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. It's been ${daysText} since your last preventive maintenance. We'd love to get you scheduled — give us a call or reply here!`);
-        options.push(`<a href="sms:${phoneContact.value}?body=${smsBody}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px; background:#16a34a;">💬 Text ${phoneContact.value}</a>`);
+        options.push(`<a href="sms:${phone.value}?body=${smsBody}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px; background:#16a34a;">💬 Text ${phone.value}</a>`);
     }
 
     if (options.length === 0) {
