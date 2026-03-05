@@ -274,7 +274,7 @@ async function loadDashboard() {
     if (data.openWorkOrders && data.openWorkOrders.length > 0) {
         data.openWorkOrders.forEach(wo => {
             const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "-";
-            woTable.innerHTML += `<tr class="clickable-row"><td class="bold"><a href="#" onclick="openWoDetail('${wo.jobNumber}'); return false;" style="color:var(--accent); text-decoration:none;">${wo.jobNumber}</a></td><td>${wo.customerName}</td><td><span class="status-badge open">${wo.status}</span></td><td>${created}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
+            woTable.innerHTML += `<tr><td class="bold">${wo.jobNumber}</td><td>${wo.customerName}</td><td><span class="status-badge open">${wo.status}</span></td><td>${created}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
         });
     } else { woTable.innerHTML = '<tr class="empty-row"><td colspan="5">No open work orders</td></tr>'; }
     makeSortable("dashWoTable");
@@ -348,13 +348,13 @@ function openOpsDrilldown(idx) {
         const custClick = item.customerId ? ` class="clickable-row" onclick="document.getElementById('opsModal').classList.add('hidden'); openCustomerProfile('${item.customerId}')"` : "";
         if (stat.type === "wo") {
             const created = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "—";
-            html += `<tr${custClick}><td class="bold"><a href="#" onclick="document.getElementById('opsModal').classList.add('hidden'); openWoDetail('${item.jobNumber}'); return false;" style="color:var(--accent); text-decoration:none;">${item.jobNumber || "—"}</a></td><td>${item.customerName || "—"}</td><td><span class="status-badge open">${item.status || "—"}</span></td><td>${created}</td></tr>`;
+            html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td><span class="status-badge open">${item.status || "—"}</span></td><td>${created}</td></tr>`;
         } else if (stat.type === "board") {
-            html += `<tr${custClick}><td class="bold"><a href="#" onclick="document.getElementById('opsModal').classList.add('hidden'); openWoDetail('${item.jobNumber}'); return false;" style="color:var(--accent); text-decoration:none;">${item.jobNumber || "—"}</a></td><td>${item.customerName || "—"}</td></tr>`;
+            html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td></tr>`;
         } else if (stat.type === "pm") {
             const lastPm = item.lastPm ? new Date(item.lastPm).toLocaleDateString() : "Never";
             const days = item.lastPm ? Math.floor((Date.now() - new Date(item.lastPm).getTime()) / 86400000) : "—";
-            html += `<tr${custClick}><td class="bold"><a href="#" onclick="document.getElementById('opsModal').classList.add('hidden'); openWoDetail('${item.jobNumber}'); return false;" style="color:var(--accent); text-decoration:none;">${item.jobNumber || "—"}</a></td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
+            html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
         }
     });
 
@@ -490,7 +490,7 @@ async function openCustomerProfile(id) {
             const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "-";
             const completed = wo.completedAt ? new Date(wo.completedAt).toLocaleDateString() : "-";
             const statusClass = wo.status === "Completed" ? "completed" : (wo.status === "Cancelled" || wo.status === "Canceled") ? "default" : "open";
-            return `<tr><td class="bold"><a href="#" onclick="openWoDetail('${wo.jobNumber}'); return false;" style="color:var(--accent); text-decoration:none;">${wo.jobNumber}</a></td><td>${wo.jobTypeName || "-"}</td><td><span class="status-badge ${statusClass}">${wo.status}</span></td><td>${created}</td><td>${completed}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
+            return `<tr><td class="bold">${wo.jobNumber}</td><td>${wo.jobTypeName || "-"}</td><td><span class="status-badge ${statusClass}">${wo.status}</span></td><td>${created}</td><td>${completed}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
         }).join("");
     } else { woBody.innerHTML = '<tr class="empty-row"><td colspan="6">No work orders</td></tr>'; }
     makeSortable("profileWoTable");
@@ -522,91 +522,6 @@ async function openCustomerProfile(id) {
 }
 
 function closeModal() { document.getElementById("customerModal").classList.add("hidden"); }
-
-function toggleLocDetail(idx) {
-    const detail = document.getElementById("locDetail" + idx);
-    const toggle = document.getElementById("locToggle" + idx);
-    if (detail.classList.contains("hidden")) {
-        detail.classList.remove("hidden");
-        toggle.innerText = "▾";
-    } else {
-        detail.classList.add("hidden");
-        toggle.innerText = "▸";
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// WORK ORDER DETAIL
-// ═══════════════════════════════════════════════════════════════
-
-async function openWoDetail(jobNumber) {
-    const res = await api(`/workorders/${jobNumber}`);
-    if (!res || !res.ok) return;
-    const wo = await res.json();
-
-    document.getElementById("woDetailTitle").innerText = `Job #${wo.jobNumber}`;
-    const body = document.getElementById("woDetailBody");
-
-    const statusClass = wo.status === "Completed" ? "completed" : (wo.status === "Canceled" || wo.status === "Cancelled") ? "default" : "open";
-    const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "—";
-    const completed = wo.completedAt ? new Date(wo.completedAt).toLocaleDateString() : "—";
-
-    let html = `
-        <div style="display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
-            <span class="status-badge ${statusClass}">${wo.status}</span>
-            ${wo.jobTypeName ? `<span class="muted">${wo.jobTypeName}</span>` : ""}
-            ${wo.boardColumn ? `<span style="font-size:11px; font-weight:600; padding:3px 10px; border-radius:6px; border:1px solid ${wo.boardColumn.color}; color:${wo.boardColumn.color};">${wo.boardColumn.name}</span>` : ""}
-        </div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-            <div><span class="muted" style="font-size:11px; text-transform:uppercase;">Customer</span><div style="font-weight:600;">${wo.customerName ? `<a href="#" onclick="document.getElementById('woDetailModal').classList.add('hidden'); openCustomerProfile('${wo.customerId}'); return false;" style="color:var(--accent); text-decoration:none;">${wo.customerName}</a>` : "—"}</div></div>
-            <div><span class="muted" style="font-size:11px; text-transform:uppercase;">Total Amount</span><div style="font-weight:600; font-size:18px;">$${Number(wo.totalAmount || 0).toLocaleString()}</div></div>
-            <div><span class="muted" style="font-size:11px; text-transform:uppercase;">Created</span><div>${created}</div></div>
-            <div><span class="muted" style="font-size:11px; text-transform:uppercase;">Completed</span><div>${completed}</div></div>
-        </div>`;
-
-    // Job Costing
-    if (wo.totalLaborCost > 0 || wo.totalMaterialCost > 0 || wo.grossProfit !== 0) {
-        html += `<h3 style="margin-bottom:8px;">Job Costing</h3>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
-            <div style="text-align:center; padding:10px; background:#1e293b; border-radius:8px;"><div class="muted" style="font-size:10px; text-transform:uppercase;">Labor</div><div style="font-weight:600;">$${Number(wo.totalLaborCost).toLocaleString()}</div></div>
-            <div style="text-align:center; padding:10px; background:#1e293b; border-radius:8px;"><div class="muted" style="font-size:10px; text-transform:uppercase;">Material</div><div style="font-weight:600;">$${Number(wo.totalMaterialCost).toLocaleString()}</div></div>
-            <div style="text-align:center; padding:10px; background:#1e293b; border-radius:8px;"><div class="muted" style="font-size:10px; text-transform:uppercase;">Gross Profit</div><div style="font-weight:600; color:${wo.grossProfit >= 0 ? '#4ade80' : '#f87171'};">$${Number(wo.grossProfit).toLocaleString()}</div></div>
-            <div style="text-align:center; padding:10px; background:#1e293b; border-radius:8px;"><div class="muted" style="font-size:10px; text-transform:uppercase;">Margin</div><div style="font-weight:600;">${Number(wo.marginPercent).toFixed(1)}%</div></div>
-        </div>`;
-    }
-
-    // Invoice
-    if (wo.invoice) {
-        const invBal = Number(wo.invoice.balanceRemaining || 0);
-        html += `<h3 style="margin-bottom:8px;">Invoice</h3>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
-            <div><span class="muted" style="font-size:10px; text-transform:uppercase;">Invoice #</span><div style="font-weight:600;">${wo.invoice.invoiceNumber}</div></div>
-            <div><span class="muted" style="font-size:10px; text-transform:uppercase;">Status</span><div>${wo.invoice.status || "—"}</div></div>
-            <div><span class="muted" style="font-size:10px; text-transform:uppercase;">Total</span><div style="font-weight:600;">$${Number(wo.invoice.totalAmount).toLocaleString()}</div></div>
-            <div><span class="muted" style="font-size:10px; text-transform:uppercase;">Balance</span><div style="font-weight:600; ${invBal > 0 ? 'color:#f87171;' : ''}">$${invBal.toFixed(2)}</div></div>
-        </div>`;
-    }
-
-    // Subcontractors
-    if (wo.subcontractorEntries && wo.subcontractorEntries.length > 0) {
-        html += `<h3 style="margin-bottom:8px;">Subcontractors</h3>
-        <table class="data-table" style="margin-bottom:20px;"><thead><tr><th>Name</th><th>Date</th><th>Hours</th><th>Rate</th><th>Cost</th></tr></thead><tbody>` +
-            wo.subcontractorEntries.map(s => `<tr><td>${s.subcontractorName}</td><td>${new Date(s.date).toLocaleDateString()}</td><td>${s.hours}</td><td>$${Number(s.hourlyRate).toFixed(2)}</td><td class="text-right">$${Number(s.cost).toFixed(2)}</td></tr>`).join("") +
-            `</tbody></table>`;
-    }
-
-    // Equipment
-    if (wo.equipment && wo.equipment.length > 0) {
-        html += `<h3 style="margin-bottom:8px;">Equipment on Site</h3>
-        <table class="data-table"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody>` +
-            wo.equipment.map(e => `<tr><td>${e.type}</td><td>${e.brand || "—"}</td><td>${e.modelNumber || "—"}</td><td>${e.serialNumber || "—"}</td></tr>`).join("") +
-            `</tbody></table>`;
-    }
-
-    body.innerHTML = html;
-    document.getElementById("woDetailModal").classList.remove("hidden");
-}
 
 // ═══════════════════════════════════════════════════════════════
 // WORK ORDER BOARD (KANBAN)
@@ -774,9 +689,26 @@ async function openCardModal(card, col) {
     }
 
     document.getElementById("cardModal").classList.remove("hidden");
+
+    // Actions
+    document.getElementById("cardModalActions").innerHTML = `
+        <button class="btn-secondary" style="width:100%;" onclick="removeCardFromBoard()">✕ Remove from Board</button>
+    `;
 }
 
 function closeCardModal() { document.getElementById("cardModal").classList.add("hidden"); currentCardId = null; }
+
+async function removeCardFromBoard() {
+    if (!currentCardId || !confirm("Remove this job from the board?")) return;
+    const res = await api(`/board/cards/${currentCardId}`, { method: "DELETE" });
+    if (res && res.ok) {
+        closeCardModal();
+        await loadBoard();
+        toast("Removed from board.", "success");
+    } else {
+        toast("Failed to remove.", "error");
+    }
+}
 
 async function addCardNote() {
     const text = document.getElementById("cardNoteInput").value.trim();

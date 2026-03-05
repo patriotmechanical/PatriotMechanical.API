@@ -528,6 +528,9 @@ namespace PatriotMechanical.API.Application.Services
             }
 
             await AutoBoardFromAppointmentsAsync(jobAppointments, jobsWithTechAssigned);
+
+            // Remove board cards for completed/canceled jobs
+            await CleanupCompletedBoardCardsAsync();
         }
 
         private async Task AutoBoardFromAppointmentsAsync(Dictionary<long, List<ApptInfo>> jobAppointments, HashSet<long> jobsWithTechAssigned)
@@ -629,6 +632,26 @@ namespace PatriotMechanical.API.Application.Services
             {
                 await _context.SaveChangesAsync();
                 Console.WriteLine($"[AutoBoard] Added {added} cards from appointment sync.");
+            }
+        }
+
+        private async Task CleanupCompletedBoardCardsAsync()
+        {
+            var closedStatuses = new[] { "completed", "canceled", "cancelled" };
+
+            // Find board cards that have a linked WorkOrder with a closed status
+            var staleCards = await _context.BoardCards
+                .Include(c => c.WorkOrder)
+                .Where(c => c.WorkOrder != null
+                    && c.WorkOrder.Status != null
+                    && closedStatuses.Any(s => c.WorkOrder.Status.ToLower().Contains(s)))
+                .ToListAsync();
+
+            if (staleCards.Count > 0)
+            {
+                _context.BoardCards.RemoveRange(staleCards);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"[AutoBoard] Cleaned up {staleCards.Count} board cards for completed/canceled jobs.");
             }
         }
 
