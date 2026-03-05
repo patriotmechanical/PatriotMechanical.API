@@ -26,8 +26,16 @@ namespace PatriotMechanical.API.Controllers
         [HttpPost("sync/invoices")]
         public async Task<IActionResult> SyncInvoices()
         {
-            await _syncEngine.SyncInvoicesAsync();
-            return Ok(new { message = "Invoice sync complete" });
+            try
+            {
+                await _syncEngine.SyncInvoicesAsync();
+                return Ok(new { message = "Invoice sync complete" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Invoice Sync Error] {ex.Message} | {ex.InnerException?.Message} | {ex.StackTrace}");
+                return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
+            }
         }
 
         [HttpPost("sync/jobs")]
