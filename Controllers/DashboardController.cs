@@ -53,11 +53,9 @@ public class DashboardController : ControllerBase
         var totalAr = ar.Sum(x => x.TotalOwed);
         var totalAp = ap.Sum(x => x.TotalInvoiceAmount);
 
+        var closedStatuses = new[] { "completed", "canceled", "cancelled" };
         var openWorkOrders = await _context.WorkOrders
-            .Where(w => w.Status != null
-                && !w.Status.ToLower().Contains("completed")
-                && !w.Status.ToLower().Contains("canceled")
-                && !w.Status.ToLower().Contains("cancelled"))
+            .Where(w => w.Status == null || !closedStatuses.Any(s => w.Status.ToLower().Contains(s)))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
