@@ -26,21 +26,13 @@ namespace PatriotMechanical.API.Controllers
         [HttpPost("sync")]
         public async Task<IActionResult> SyncAll()
         {
-            try
-            {
-                var results = new Dictionary<string, int>();
+            var results = new Dictionary<string, int>();
 
-                results["customerContacts"] = await SyncCustomerContacts();
-                results["locations"] = await SyncLocations();
-                results["locationContacts"] = await SyncLocationContacts();
+            results["customerContacts"] = await SyncCustomerContacts();
+            results["locations"] = await SyncLocations();
+            results["locationContacts"] = await SyncLocationContacts();
 
-                return Ok(new { message = "CRM sync complete", results });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[CRM Sync Error] {ex.Message}");
-                return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
-            }
+            return Ok(new { message = "CRM sync complete", results });
         }
 
         private async Task<int> SyncCustomerContacts()
@@ -52,7 +44,8 @@ namespace PatriotMechanical.API.Controllers
             // Build lookup: ST customer ID -> our customer Guid
             var customerMap = await _context.Customers
                 .Where(c => c.ServiceTitanCustomerId > 0)
-                .ToDictionaryAsync(c => c.ServiceTitanCustomerId, c => c.Id);
+                .GroupBy(c => c.ServiceTitanCustomerId)
+                .ToDictionaryAsync(g => g.Key, g => g.First().Id);
 
             do
             {
@@ -116,7 +109,8 @@ namespace PatriotMechanical.API.Controllers
 
             var customerMap = await _context.Customers
                 .Where(c => c.ServiceTitanCustomerId > 0)
-                .ToDictionaryAsync(c => c.ServiceTitanCustomerId, c => c.Id);
+                .GroupBy(c => c.ServiceTitanCustomerId)
+                .ToDictionaryAsync(g => g.Key, g => g.First().Id);
 
             do
             {
@@ -192,7 +186,9 @@ namespace PatriotMechanical.API.Controllers
             bool hasMore;
 
             var locationMap = await _context.CustomerLocations
-                .ToDictionaryAsync(l => l.ServiceTitanLocationId, l => l.Id);
+                .Where(l => l.ServiceTitanLocationId > 0)
+                .GroupBy(l => l.ServiceTitanLocationId)
+                .ToDictionaryAsync(g => g.Key, g => g.First().Id);
 
             do
             {

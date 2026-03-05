@@ -967,8 +967,8 @@ async function hardRefresh() {
             if (invRes && invRes.ok) {
                 console.log("Invoice sync complete");
             } else if (invRes) {
-                const invErr = await invRes.json().catch(() => ({}));
-                console.error("Invoice sync error:", invErr.error, invErr.inner);
+                try { const invErr = await invRes.json(); console.error("Invoice sync error:", invErr.error, invErr.inner); }
+                catch { const invText = await invRes.text().catch(() => ""); console.error("Invoice sync error (raw):", invRes.status, invText.substring(0, 200)); }
             }
         } catch (invErr) { console.warn("Invoice sync failed:", invErr); }
         btn.innerText = "Refreshing recent changes...";
@@ -988,8 +988,8 @@ async function hardRefresh() {
                 const crmData = await crmRes.json();
                 console.log("CRM sync result:", crmData);
             } else if (crmRes) {
-                const crmErr = await crmRes.json().catch(() => ({}));
-                console.error("CRM sync error:", crmErr.error, crmErr.inner);
+                try { const crmErr = await crmRes.json(); console.error("CRM sync error:", crmErr.error, crmErr.inner); }
+                catch { console.error("CRM sync error (raw):", crmRes.status); }
             }
         } catch (crmErr) {
             console.warn("CRM sync failed (non-fatal):", crmErr);
