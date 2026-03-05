@@ -387,14 +387,34 @@ namespace PatriotMechanical.API.Application.Services
                             ? refProp.GetString() ?? $"INV-{invoiceId}"
                             : $"INV-{invoiceId}";
 
-                    long customerId = inv.GetProperty("customer").GetProperty("id").GetInt64();
+                    long customerId = 0;
+                    if (inv.TryGetProperty("customer", out var custProp) && custProp.ValueKind == JsonValueKind.Object)
+                        customerId = custProp.GetProperty("id").GetInt64();
+                    else if (inv.TryGetProperty("customerId", out var custIdProp) && custIdProp.ValueKind == JsonValueKind.Number)
+                        customerId = custIdProp.GetInt64();
+                    if (customerId == 0) continue;
 
                     long jobId = 0;
                     if (inv.TryGetProperty("job", out var jobProp) && jobProp.ValueKind != JsonValueKind.Null)
                         jobId = jobProp.GetProperty("id").GetInt64();
 
-                    decimal invoiceTotal = decimal.Parse(inv.GetProperty("total").GetString() ?? "0");
-                    decimal balance = decimal.Parse(inv.GetProperty("balance").GetString() ?? "0");
+                    decimal invoiceTotal = 0;
+                    if (inv.TryGetProperty("total", out var totalProp))
+                    {
+                        if (totalProp.ValueKind == JsonValueKind.String)
+                            decimal.TryParse(totalProp.GetString(), out invoiceTotal);
+                        else if (totalProp.ValueKind == JsonValueKind.Number)
+                            invoiceTotal = totalProp.GetDecimal();
+                    }
+
+                    decimal balance = 0;
+                    if (inv.TryGetProperty("balance", out var balProp))
+                    {
+                        if (balProp.ValueKind == JsonValueKind.String)
+                            decimal.TryParse(balProp.GetString(), out balance);
+                        else if (balProp.ValueKind == JsonValueKind.Number)
+                            balance = balProp.GetDecimal();
+                    }
 
                     var customer = await _context.Customers
                         .FirstOrDefaultAsync(c => c.ServiceTitanCustomerId == customerId);
@@ -425,6 +445,8 @@ namespace PatriotMechanical.API.Application.Services
                     {
                         existing.TotalAmount = invoiceTotal;
                         existing.BalanceRemaining = balance;
+                        existing.CustomerId = customer.Id;
+                        existing.WorkOrderId = workOrder?.Id;
                         existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
                     }
                 }
@@ -528,9 +550,6 @@ namespace PatriotMechanical.API.Application.Services
             }
 
             await AutoBoardFromAppointmentsAsync(jobAppointments, jobsWithTechAssigned);
-
-            // Remove board cards for completed/canceled jobs
-            await CleanupCompletedBoardCardsAsync();
         }
 
         private async Task AutoBoardFromAppointmentsAsync(Dictionary<long, List<ApptInfo>> jobAppointments, HashSet<long> jobsWithTechAssigned)
@@ -551,26 +570,87 @@ namespace PatriotMechanical.API.Application.Services
             var existingJobNumbers = await _context.BoardCards
                 .Select(c => c.JobNumber).ToListAsync();
 
-            // All board columns are manual — no auto-population
-            // Cleanup completed/canceled cards only
-        }
+            int added = 0;
 
-        private async Task CleanupCompletedBoardCardsAsync()
-        {
-            var closedStatuses = new[] { "completed", "canceled", "cancelled" };
-
-            var staleCards = await _context.BoardCards
-                .Include(c => c.WorkOrder)
-                .Where(c => c.WorkOrder != null
-                    && c.WorkOrder.Status != null
-                    && closedStatuses.Any(s => c.WorkOrder.Status.ToLower().Contains(s)))
-                .ToListAsync();
-
-            if (staleCards.Count > 0)
+            // ─── PART 1: Appointment-based auto-board (Need to Return) ───
+            foreach (var (stJobId, appointments) in jobAppointments)
             {
-                _context.BoardCards.RemoveRange(staleCards);
+                var wo = await _context.WorkOrders
+                    .Include(w => w.Customer)
+                    .FirstOrDefaultAsync(w => w.ServiceTitanJobId == stJobId);
+                if (wo == null) continue;
+
+                var woStatus = wo.Status?.ToLower() ?? "";
+                if (woStatus.Contains("completed") || woStatus.Contains("cancel")) continue;
+                if (existingJobNumbers.Contains(wo.JobNumber)) continue;
+
+                var custName = wo.Customer?.Name ?? "";
+                if (custName.StartsWith("[DEMO]")) continue;
+
+                bool hasHold = appointments.Any(a =>
+                    a.Active && a.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase));
+                var activeNonUnused = appointments.Where(a => a.Active && !a.Unused).ToList();
+                bool multiVisits = activeNonUnused.Count > 1;
+
+                BoardColumn? target = null;
+                string? note = null;
+
+                if (hasHold && needReturnCol != null)
+                {
+                    target = needReturnCol;
+                    note = "Auto-added: Appointment on Hold in ServiceTitan";
+                }
+                else if (multiVisits && needReturnCol != null)
+                {
+                    target = needReturnCol;
+                    note = $"Auto-added: {activeNonUnused.Count} appointments — return visit requested";
+                }
+
+                if (target == null) continue;
+
+                await AddCardToColumn(target, wo, custName, note, existingJobNumbers);
+                added++;
+            }
+
+            // ─── PART 2: Need to Schedule — jobs with no active tech assignment ───
+            if (waitScheduleCol != null)
+            {
+                // Find active work orders not on the board
+                var openJobs = await _context.WorkOrders
+                    .Include(w => w.Customer)
+                    .Where(w => w.Status != null
+                        && !w.Status.ToLower().Contains("completed")
+                        && !w.Status.ToLower().Contains("cancel")
+                        && w.ServiceTitanJobId > 0)
+                    .ToListAsync();
+
+                foreach (var wo in openJobs)
+                {
+                    if (existingJobNumbers.Contains(wo.JobNumber)) continue;
+
+                    var custName = wo.Customer?.Name ?? "";
+                    if (custName.StartsWith("[DEMO]")) continue;
+
+                    // Skip jobs that have an active tech assignment
+                    if (jobsWithTechAssigned.Contains(wo.ServiceTitanJobId))
+                        continue;
+
+                    // This job has no active tech assignment → needs scheduling
+                    string reason;
+                    if (!jobAppointments.ContainsKey(wo.ServiceTitanJobId))
+                        reason = "Auto-added: No appointment created yet";
+                    else
+                        reason = "Auto-added: Appointment exists but no technician assigned";
+
+                    await AddCardToColumn(waitScheduleCol, wo, custName, reason, existingJobNumbers);
+                    added++;
+                }
+            }
+
+            if (added > 0)
+            {
                 await _context.SaveChangesAsync();
-                Console.WriteLine($"[AutoBoard] Cleaned up {staleCards.Count} board cards for completed/canceled jobs.");
+                Console.WriteLine($"[AutoBoard] Added {added} cards from appointment sync.");
             }
         }
 
