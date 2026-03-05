@@ -23,18 +23,31 @@ public class MigrateController : ControllerBase
         {
             var pending = await _context.Database.GetPendingMigrationsAsync();
             var pendingList = pending.ToList();
-
             if (pendingList.Count == 0)
-            {
                 return Ok(new { message = "No pending migrations." });
-            }
-
             await _context.Database.MigrateAsync();
             return Ok(new { message = $"Applied {pendingList.Count} migration(s).", migrations = pendingList });
         }
         catch (Exception ex)
         {
             return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
+        }
+    }
+
+    [HttpGet("fix-invoices")]
+    public async Task<IActionResult> FixInvoices()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                DROP INDEX IF EXISTS ""IX_Invoices_WorkOrderId"";
+                CREATE INDEX ""IX_Invoices_WorkOrderId"" ON ""Invoices"" (""WorkOrderId"");
+            ");
+            return Ok(new { message = "Dropped unique constraint on Invoices.WorkOrderId. Invoice sync should work now." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
         }
     }
 
