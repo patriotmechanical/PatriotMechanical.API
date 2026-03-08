@@ -17,7 +17,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public long ServiceTitanJobId { get; set; }
         public DateTime? ServiceTitanModifiedOn { get; set; }
         public long ServiceTitanCustomerId { get; set; }
-        public long ServiceTitanLocationId { get; set; }
+        public long ServiceTitanLocationId { get; set; } // location of the job site
         public Guid? TechnicianId { get; set; }
         public Technician? Technician { get; set; }
 
