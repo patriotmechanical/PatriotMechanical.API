@@ -271,4 +271,57 @@ public class MigrateController : ControllerBase
             .ToListAsync();
         return Ok(new { totalInTable = count, upcomingWindow = upcoming });
     }
+
+    /// <summary>
+    /// GET /migrate/debug-assignments — show raw assignment export from ST + what's in AppointmentTechnicians table
+    /// </summary>
+    [HttpGet("debug-assignments")]
+    public async Task<IActionResult> DebugAssignments()
+    {
+        try
+        {
+            // Check what's in the AppointmentTechnicians table
+            int techCount = 0;
+            try { techCount = await _context.AppointmentTechnicians.CountAsync(); } catch { }
+
+            // Fetch raw assignment export from ST (starting from today)
+            var raw = await _stService.ExportAppointmentAssignmentsAsync(DateTime.UtcNow.Date.ToString("yyyy-MM-dd"));
+            var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+
+            // Pull out first 10 data items for inspection
+            var items = new List<object>();
+            if (parsed.TryGetProperty("data", out var data))
+            {
+                foreach (var item in data.EnumerateArray().Take(10))
+                {
+                    long apptId = 0, techId = 0, jobId = 0;
+                    string techName = "";
+                    bool active = true;
+                    item.TryGetProperty("appointmentId", out var aId); if (aId.ValueKind == JsonValueKind.Number) apptId = aId.GetInt64();
+                    item.TryGetProperty("technicianId", out var tId); if (tId.ValueKind == JsonValueKind.Number) techId = tId.GetInt64();
+                    item.TryGetProperty("jobId", out var jId); if (jId.ValueKind == JsonValueKind.Number) jobId = jId.GetInt64();
+                    item.TryGetProperty("technicianName", out var tName); if (tName.ValueKind == JsonValueKind.String) techName = tName.GetString() ?? "";
+                    item.TryGetProperty("active", out var act); if (act.ValueKind == JsonValueKind.False) active = false;
+                    items.Add(new { apptId, techId, jobId, techName, active });
+                }
+            }
+
+            // Get our upcoming appointment ST IDs for comparison
+            var upcomingApptIds = await _context.Appointments
+                .Where(a => a.Start >= DateTime.UtcNow.Date && a.Start < DateTime.UtcNow.Date.AddDays(4))
+                .Select(a => a.ServiceTitanAppointmentId)
+                .ToListAsync();
+
+            return Ok(new {
+                technicianRowsInDb = techCount,
+                upcomingApptIds,
+                sampleAssignments = items,
+                hasMore = parsed.TryGetProperty("hasMore", out var hm) ? hm.GetBoolean() : (bool?)null
+            });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
 }
