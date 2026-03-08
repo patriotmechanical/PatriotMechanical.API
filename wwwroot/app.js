@@ -363,7 +363,8 @@ async function loadDashboard() {
     const dayAfterDate = new Date();
     dayAfterDate.setDate(dayAfterDate.getDate() + 2);
     const dayAfterName = dayAfterDate.toLocaleDateString("en-US", { weekday: "long" });
-    document.getElementById("schedTabDayAfterBtn") && (document.getElementById("schedTabDayAfterBtn").childNodes[0].textContent = dayAfterName + " ");
+    const dayAfterTabEl = document.getElementById("schedTabDayAfter");
+    if (dayAfterTabEl) dayAfterTabEl.childNodes[0].textContent = dayAfterName + " ";
 
     // Update tab counts
     document.getElementById("schedTabTodayCount").innerText    = schedToday.count;
@@ -595,8 +596,6 @@ function initDraggablePanels() {
     // ── OPS STATS ROW (board column chips) ─────────────────────
     renderOpsStats(data);
 
-    // Init draggable panels (safe to call multiple times)
-    initDraggablePanels();
 }
 
 function filterWoTableByColumn(colNameNormalized) {
