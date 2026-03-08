@@ -387,34 +387,14 @@ namespace PatriotMechanical.API.Application.Services
                             ? refProp.GetString() ?? $"INV-{invoiceId}"
                             : $"INV-{invoiceId}";
 
-                    long customerId = 0;
-                    if (inv.TryGetProperty("customer", out var custProp) && custProp.ValueKind == JsonValueKind.Object)
-                        customerId = custProp.GetProperty("id").GetInt64();
-                    else if (inv.TryGetProperty("customerId", out var custIdProp) && custIdProp.ValueKind == JsonValueKind.Number)
-                        customerId = custIdProp.GetInt64();
-                    if (customerId == 0) continue;
+                    long customerId = inv.GetProperty("customer").GetProperty("id").GetInt64();
 
                     long jobId = 0;
                     if (inv.TryGetProperty("job", out var jobProp) && jobProp.ValueKind != JsonValueKind.Null)
                         jobId = jobProp.GetProperty("id").GetInt64();
 
-                    decimal invoiceTotal = 0;
-                    if (inv.TryGetProperty("total", out var totalProp))
-                    {
-                        if (totalProp.ValueKind == JsonValueKind.String)
-                            decimal.TryParse(totalProp.GetString(), out invoiceTotal);
-                        else if (totalProp.ValueKind == JsonValueKind.Number)
-                            invoiceTotal = totalProp.GetDecimal();
-                    }
-
-                    decimal balance = 0;
-                    if (inv.TryGetProperty("balance", out var balProp))
-                    {
-                        if (balProp.ValueKind == JsonValueKind.String)
-                            decimal.TryParse(balProp.GetString(), out balance);
-                        else if (balProp.ValueKind == JsonValueKind.Number)
-                            balance = balProp.GetDecimal();
-                    }
+                    decimal invoiceTotal = decimal.Parse(inv.GetProperty("total").GetString() ?? "0");
+                    decimal balance = decimal.Parse(inv.GetProperty("balance").GetString() ?? "0");
 
                     var customer = await _context.Customers
                         .FirstOrDefaultAsync(c => c.ServiceTitanCustomerId == customerId);
@@ -428,6 +408,18 @@ namespace PatriotMechanical.API.Application.Services
                     var existing = await _context.Invoices
                         .FirstOrDefaultAsync(i => i.ServiceTitanInvoiceId == invoiceId);
 
+                    // Parse invoice date — ST returns "date" field (e.g. "2025-11-15T00:00:00Z")
+                    DateTime invoiceDate = DateTime.MinValue;
+                    if (inv.TryGetProperty("date", out var dateProp) &&
+                        dateProp.ValueKind == JsonValueKind.String &&
+                        DateTime.TryParse(dateProp.GetString(), null,
+                            System.Globalization.DateTimeStyles.AssumeUniversal |
+                            System.Globalization.DateTimeStyles.AdjustToUniversal,
+                            out var parsedDate))
+                    {
+                        invoiceDate = parsedDate;
+                    }
+
                     if (existing == null)
                     {
                         _context.Invoices.Add(new Invoice
@@ -438,6 +430,8 @@ namespace PatriotMechanical.API.Application.Services
                             WorkOrderId = workOrder?.Id,
                             TotalAmount = invoiceTotal,
                             BalanceRemaining = balance,
+                            IssueDate = invoiceDate,
+                            InvoiceDate = invoiceDate,
                             LastSyncedFromServiceTitan = DateTime.UtcNow
                         });
                     }
@@ -445,9 +439,13 @@ namespace PatriotMechanical.API.Application.Services
                     {
                         existing.TotalAmount = invoiceTotal;
                         existing.BalanceRemaining = balance;
-                        existing.CustomerId = customer.Id;
-                        existing.WorkOrderId = workOrder?.Id;
                         existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
+                        // Always update IssueDate if it was missing (MinValue)
+                        if (invoiceDate != DateTime.MinValue && existing.IssueDate == DateTime.MinValue)
+                        {
+                            existing.IssueDate = invoiceDate;
+                            existing.InvoiceDate = invoiceDate;
+                        }
                     }
                 }
 

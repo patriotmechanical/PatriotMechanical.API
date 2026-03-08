@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PatriotMechanical.API.Domain.Entities;
 using PatriotMechanical.API.Infrastructure.Data;
+using PatriotMechanical.API.Application.Services;
+using System.Text.Json;
 
 namespace PatriotMechanical.API.Controllers;
 
@@ -10,47 +12,12 @@ namespace PatriotMechanical.API.Controllers;
 public class MigrateController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ServiceTitanService _stService;
 
-    public MigrateController(AppDbContext context)
+    public MigrateController(AppDbContext context, ServiceTitanService stService)
     {
         _context = context;
-    }
-
-    [HttpGet("apply")]
-    public async Task<IActionResult> ApplyMigrations()
-    {
-        try
-        {
-            var pending = await _context.Database.GetPendingMigrationsAsync();
-            var pendingList = pending.ToList();
-            if (pendingList.Count == 0)
-                return Ok(new { message = "No pending migrations." });
-            await _context.Database.MigrateAsync();
-            return Ok(new { message = $"Applied {pendingList.Count} migration(s).", migrations = pendingList });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
-        }
-    }
-
-    [HttpGet("fix-invoices")]
-    public async Task<IActionResult> FixInvoices()
-    {
-        try
-        {
-            await _context.Database.ExecuteSqlRawAsync(@"
-                DROP INDEX IF EXISTS ""IX_Invoices_WorkOrderId"";
-                CREATE INDEX IF NOT EXISTS ""IX_Invoices_WorkOrderId"" ON ""Invoices"" (""WorkOrderId"");
-                ALTER TABLE ""Invoices"" ALTER COLUMN ""Status"" DROP NOT NULL;
-                ALTER TABLE ""Invoices"" ALTER COLUMN ""IssueDate"" DROP NOT NULL;
-            ");
-            return Ok(new { message = "Fixed invoice constraints." });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = ex.Message });
-        }
+        _stService = stService;
     }
 
     /// <summary>
@@ -136,5 +103,72 @@ public class MigrateController : ControllerBase
             companyName = company.CompanyName,
             usersUpdated = users.Count
         });
+    }
+
+    /// <summary>
+    /// Hit GET /migrate/backfill-invoice-dates ONE TIME to fix IssueDate on invoices 
+    /// that were synced before date parsing was added (they have DateTime.MinValue).
+    /// </summary>
+    [HttpGet("backfill-invoice-dates")]
+    public async Task<IActionResult> BackfillInvoiceDates()
+    {
+        int updated = 0, skipped = 0, failed = 0;
+        int page = 1;
+        bool hasMore;
+
+        do
+        {
+            string raw;
+            try { raw = await _stService.GetInvoicesPageAsync(page); }
+            catch { break; }
+
+            var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+            hasMore = parsed.GetProperty("hasMore").GetBoolean();
+            var invoices = parsed.GetProperty("data");
+
+            foreach (var inv in invoices.EnumerateArray())
+            {
+                try
+                {
+                    var invoiceId = inv.GetProperty("id").GetInt64();
+
+                    // Parse the date field from ST
+                    if (!inv.TryGetProperty("date", out var dateProp) ||
+                        dateProp.ValueKind != JsonValueKind.String ||
+                        !DateTime.TryParse(dateProp.GetString(), null,
+                            System.Globalization.DateTimeStyles.AssumeUniversal |
+                            System.Globalization.DateTimeStyles.AdjustToUniversal,
+                            out var parsedDate))
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    var existing = await _context.Invoices
+                        .FirstOrDefaultAsync(i => i.ServiceTitanInvoiceId == invoiceId);
+
+                    if (existing == null) { skipped++; continue; }
+
+                    // Only update if currently unset
+                    if (existing.IssueDate == DateTime.MinValue || existing.IssueDate.Year < 2000)
+                    {
+                        existing.IssueDate = parsedDate;
+                        existing.InvoiceDate = parsedDate;
+                        updated++;
+                    }
+                    else
+                    {
+                        skipped++;
+                    }
+                }
+                catch { failed++; }
+            }
+
+            await _context.SaveChangesAsync();
+            page++;
+
+        } while (hasMore);
+
+        return Ok(new { updated, skipped, failed, message = "Invoice date backfill complete." });
     }
 }

@@ -30,7 +30,8 @@ public class DashboardController : ControllerBase
             {
                 CustomerName = i.Customer.Name,
                 i.BalanceRemaining,
-                i.IssueDate
+                // Use InvoiceDate as fallback if IssueDate is unset (MinValue)
+                EffectiveDate = i.IssueDate == DateTime.MinValue ? i.InvoiceDate : i.IssueDate
             })
             .ToListAsync();
 
@@ -42,18 +43,20 @@ public class DashboardController : ControllerBase
             {
                 Name = g.Key,
                 TotalOwed = g.Sum(i => i.BalanceRemaining),
-                OldestInvoiceDays = (int)(now - g.Min(i => i.IssueDate)).TotalDays
+                OldestInvoiceDays = g.Any(i => i.EffectiveDate != DateTime.MinValue)
+                    ? (int)(now - g.Where(i => i.EffectiveDate != DateTime.MinValue).Min(i => i.EffectiveDate)).TotalDays
+                    : 0
             })
             .OrderByDescending(x => x.TotalOwed)
             .ToList();
 
-        // AR Aging buckets based on IssueDate
+        // AR Aging buckets based on EffectiveDate (IssueDate with InvoiceDate fallback)
         var arAging = new
         {
-            Bucket0_30   = arRaw.Where(i => (now - i.IssueDate).TotalDays <= 30).Sum(i => i.BalanceRemaining),
-            Bucket31_60  = arRaw.Where(i => (now - i.IssueDate).TotalDays is > 30 and <= 60).Sum(i => i.BalanceRemaining),
-            Bucket61_90  = arRaw.Where(i => (now - i.IssueDate).TotalDays is > 60 and <= 90).Sum(i => i.BalanceRemaining),
-            Bucket90Plus = arRaw.Where(i => (now - i.IssueDate).TotalDays > 90).Sum(i => i.BalanceRemaining),
+            Bucket0_30   = arRaw.Where(i => i.EffectiveDate != DateTime.MinValue && (now - i.EffectiveDate).TotalDays <= 30).Sum(i => i.BalanceRemaining),
+            Bucket31_60  = arRaw.Where(i => i.EffectiveDate != DateTime.MinValue && (now - i.EffectiveDate).TotalDays is > 30 and <= 60).Sum(i => i.BalanceRemaining),
+            Bucket61_90  = arRaw.Where(i => i.EffectiveDate != DateTime.MinValue && (now - i.EffectiveDate).TotalDays is > 60 and <= 90).Sum(i => i.BalanceRemaining),
+            Bucket90Plus = arRaw.Where(i => i.EffectiveDate != DateTime.MinValue && (now - i.EffectiveDate).TotalDays > 90).Sum(i => i.BalanceRemaining),
         };
 
         var ap = await _context.ApBills
