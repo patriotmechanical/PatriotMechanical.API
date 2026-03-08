@@ -419,27 +419,92 @@
                 <!-- PRICING CALCULATOR                                -->
                 <!-- ═══════════════════════════════════════════════════ -->
                 <div id="pricingView" style="display:none;">
-                    <div class="page-header"><h1>Pricing Calculator</h1></div>
-                    <div style="margin-bottom:15px;">
-                        <label>Part Cost: $</label>
-                        <input type="number" id="pricingCost" step="0.01" placeholder="0.00" oninput="calcAutoPrice(); calcCustomPrice();" style="width:120px;" />
-                        <label style="margin-left:15px;"><input type="checkbox" id="ccToggle" onchange="calcAutoPrice(); calcCustomPrice();" /> Include CC Surcharge</label>
+                    <div class="page-header"><h1>Pricing Calculator</h1><p class="page-sub">Enter your cost to see auto-tiered and custom pricing side by side.</p></div>
+
+                    <!-- Cost Input -->
+                    <div class="pricing-cost-bar">
+                        <div class="pricing-cost-field">
+                            <label class="pricing-cost-label">Item Cost ($)</label>
+                            <input type="number" id="pricingCost" class="pricing-cost-input" step="0.01" placeholder="0.00" oninput="calculateAllPricing()" />
+                        </div>
+                        <label class="pricing-cc-label">
+                            <input type="checkbox" id="ccToggle" onchange="calculateAllPricing()" />
+                            Include 2.5% CC Surcharge
+                        </label>
                     </div>
-                    <div class="grid">
-                        <div class="panel">
-                            <h2>Auto-Tiered Markup</h2>
-                            <div id="autoResult"></div>
-                        </div>
-                        <div class="panel">
-                            <h2>Custom Markup</h2>
-                            <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-                                <label>Markup %</label>
-                                <input type="number" id="customMarkupPct" value="50" step="1" oninput="calcCustomPrice()" style="width:80px;" />
-                                <label>Multiplier</label>
-                                <input type="number" id="customMultiplier" value="1.5" step="0.01" oninput="calcCustomFromMultiplier()" style="width:80px;" />
+
+                    <!-- Two panels -->
+                    <div class="pricing-grid">
+
+                        <!-- AUTO-TIERED -->
+                        <div class="pricing-panel">
+                            <div class="pricing-panel-header">
+                                <div class="pricing-panel-title">Auto-Tiered Markup</div>
+                                <div class="pricing-panel-sub">Based on your standard markup tiers</div>
                             </div>
-                            <div id="customResult"></div>
+                            <div class="pricing-rows">
+                                <div class="pricing-row"><span>Cost</span><span id="atCost">—</span></div>
+                                <div class="pricing-row"><span>Multiplier</span><span id="atMultiplier">—</span></div>
+                                <div class="pricing-row"><span>Markup %</span><span id="atMarkupPct">—</span></div>
+                                <div class="pricing-row"><span>Base Price</span><span id="atBase">—</span></div>
+                                <div class="pricing-row"><span>CC Surcharge (2.5%)</span><span id="atCC">—</span></div>
+                                <div class="pricing-row pricing-sell-row"><span>Sell Price</span><span id="atSell">—</span></div>
+                                <div class="pricing-row"><span>Gross Profit</span><span class="pricing-profit" id="atProfit">—</span></div>
+                                <div class="pricing-row"><span>Margin</span><span class="pricing-profit" id="atMargin">—</span></div>
+                            </div>
+                            <!-- Tiers reference -->
+                            <div class="pricing-tiers-ref">
+                                <div class="pricing-tiers-title">Markup Tiers Reference</div>
+                                <table class="pricing-tiers-table">
+                                    <thead><tr><th>Cost Range</th><th>Multiplier</th><th>Markup %</th></tr></thead>
+                                    <tbody>
+                                        <tr><td>Under $5</td><td>8x</td><td>700%</td></tr>
+                                        <tr><td>$5 – $10</td><td>6x</td><td>500%</td></tr>
+                                        <tr><td>$10 – $50</td><td>4x</td><td>300%</td></tr>
+                                        <tr><td>$50 – $100</td><td>2.5x</td><td>150%</td></tr>
+                                        <tr><td>Over $100</td><td>1.75x</td><td>75%</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+
+                        <!-- CUSTOM -->
+                        <div class="pricing-panel">
+                            <div class="pricing-panel-header">
+                                <div class="pricing-panel-title">Custom Markup</div>
+                                <div class="pricing-panel-sub">Enter a percentage or multiplier</div>
+                            </div>
+                            <div class="pricing-custom-inputs">
+                                <div class="pricing-input-group">
+                                    <label>Markup %</label>
+                                    <input type="number" id="customMarkupPct" value="75" step="1" oninput="customFromPct()" />
+                                </div>
+                                <span class="pricing-or">or</span>
+                                <div class="pricing-input-group">
+                                    <label>Multiplier</label>
+                                    <input type="number" id="customMultiplier" value="1.7500" step="0.01" oninput="customFromMult()" />
+                                </div>
+                            </div>
+                            <div class="pricing-presets">
+                                <span class="pricing-presets-label">Quick Presets</span>
+                                <button class="preset-btn active" onclick="setCustomPreset(1.75, 75)">1.75x / 75%</button>
+                                <button class="preset-btn" onclick="setCustomPreset(2, 100)">2x / 100%</button>
+                                <button class="preset-btn" onclick="setCustomPreset(2.5, 150)">2.5x / 150%</button>
+                                <button class="preset-btn" onclick="setCustomPreset(3, 200)">3x / 200%</button>
+                                <button class="preset-btn" onclick="setCustomPreset(4, 300)">4x / 300%</button>
+                            </div>
+                            <div class="pricing-rows">
+                                <div class="pricing-row"><span>Cost</span><span id="cmCost">—</span></div>
+                                <div class="pricing-row"><span>Multiplier</span><span id="cmMultiplier">—</span></div>
+                                <div class="pricing-row"><span>Markup %</span><span id="cmMarkupPct">—</span></div>
+                                <div class="pricing-row"><span>Base Price</span><span id="cmBase">—</span></div>
+                                <div class="pricing-row"><span>CC Surcharge (2.5%)</span><span id="cmCC">—</span></div>
+                                <div class="pricing-row pricing-sell-row"><span>Sell Price</span><span id="cmSell">—</span></div>
+                                <div class="pricing-row"><span>Gross Profit</span><span class="pricing-profit" id="cmProfit">—</span></div>
+                                <div class="pricing-row"><span>Margin</span><span class="pricing-profit" id="cmMargin">—</span></div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
