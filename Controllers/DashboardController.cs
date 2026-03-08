@@ -188,7 +188,7 @@ public class DashboardController : ControllerBase
                 .Select(l => new { l.ServiceTitanLocationId, l.Name, l.Street, l.City })
                 .ToListAsync();
             foreach (var l in locs)
-                locationLookup[l.ServiceTitanLocationId] = (l.Name ?? "", l.Street ?? "", l.City ?? "");
+                locationLookup[l.ServiceTitanLocationId] = (Name: l.Name ?? "", Street: l.Street ?? "", City: l.City ?? "");
         }
 
         // Build appointment items with tech + job + location info
@@ -198,7 +198,7 @@ public class DashboardController : ControllerBase
             var items = dayAppts.Select(a =>
             {
                 var hasLoc = a.ServiceTitanLocationId > 0 && locationLookup.ContainsKey(a.ServiceTitanLocationId);
-                var loc = hasLoc ? locationLookup[a.ServiceTitanLocationId] : ("", "", "");
+                var loc = hasLoc ? locationLookup[a.ServiceTitanLocationId] : (Name: "", Street: "", City: "");
                 return new
                 {
                     JobNumber    = a.WorkOrder?.JobNumber ?? "",
