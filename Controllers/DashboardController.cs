@@ -172,16 +172,37 @@ public class DashboardController : ControllerBase
                 .ThenInclude(w => w == null ? null : w.Customer)
             .ToListAsync();
 
-        // Build appointment items with tech + job info
+        // Build location name lookup: ST location ID → location name + street
+        var locationIds = appts
+            .Where(a => a.ServiceTitanLocationId > 0)
+            .Select(a => a.ServiceTitanLocationId)
+            .Distinct()
+            .ToList();
+
+        var locationLookup = locationIds.Any()
+            ? await _context.CustomerLocations
+                .Where(l => locationIds.Contains(l.ServiceTitanLocationId))
+                .ToDictionaryAsync(l => l.ServiceTitanLocationId, l => new { l.Name, l.Street, l.City })
+            : new Dictionary<long, dynamic>();
+
+        // Build appointment items with tech + job + location info
         object BuildDaySchedule(DateTime dayUtc)
         {
             var dayAppts = appts.Where(a => a.Start.Date == dayUtc).ToList();
-            var items = dayAppts.Select(a => new
+            var items = dayAppts.Select(a =>
             {
-                JobNumber = a.WorkOrder?.JobNumber ?? "",
-                CustomerName = a.WorkOrder?.Customer?.Name ?? "",
-                Start = a.Start,
-                Techs = a.Technicians.Select(t => t.TechnicianName).ToList()
+                var loc = a.ServiceTitanLocationId > 0 && locationLookup.ContainsKey(a.ServiceTitanLocationId)
+                    ? locationLookup[a.ServiceTitanLocationId]
+                    : null;
+                return new
+                {
+                    JobNumber    = a.WorkOrder?.JobNumber ?? "",
+                    CustomerName = a.WorkOrder?.Customer?.Name ?? "",
+                    LocationName = loc?.Name ?? "",
+                    LocationAddr = string.IsNullOrEmpty(loc?.Street) ? "" : $"{loc.Street}{(string.IsNullOrEmpty(loc?.City) ? "" : ", " + loc.City)}",
+                    Start        = a.Start,
+                    Techs        = a.Technicians.Select(t => t.TechnicianName).ToList()
+                };
             }).ToList();
             return new { Count = dayAppts.Count, Items = items };
         }

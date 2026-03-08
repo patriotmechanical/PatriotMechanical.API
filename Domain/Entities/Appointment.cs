@@ -5,6 +5,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public Guid Id { get; set; }
         public long ServiceTitanAppointmentId { get; set; }
         public long ServiceTitanJobId { get; set; }
+        public long ServiceTitanLocationId { get; set; }
 
         public Guid? WorkOrderId { get; set; }
         public WorkOrder? WorkOrder { get; set; }

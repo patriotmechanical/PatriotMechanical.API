@@ -436,6 +436,26 @@ namespace PatriotMechanical.API.Application.Services
             return await response.Content.ReadAsStringAsync();
         }
 
+        public async Task<string> GetAppointmentAssignmentsAsync(IEnumerable<long> appointmentIds)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var ids = string.Join(",", appointmentIds);
+            var url = $"{baseUrl}/dispatch/v2/tenant/{tenantId}/appointment-assignments?appointmentIds={ids}&pageSize=500&active=Any";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
+
         public async Task<string> GetAppointmentsAsync(DateTime startsOnOrAfter, DateTime startsOnOrBefore)
         {
             var token = await GetAccessTokenAsync();

@@ -507,20 +507,23 @@ function renderSchedTab(tab) {
     const rows = [];
     (d.items || []).forEach(appt => {
         const time = appt.start ? new Date(appt.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—";
+        const loc = appt.locationName || appt.locationAddr
+            ? [appt.locationName, appt.locationAddr].filter(Boolean).join(' — ')
+            : "—";
         if (appt.techs && appt.techs.length > 0) {
             appt.techs.forEach(techName => {
-                rows.push({ tech: techName, job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+                rows.push({ tech: techName, job: appt.jobNumber || "—", customer: appt.customerName || "—", location: loc, time });
             });
         } else {
-            rows.push({ tech: "Unassigned", job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+            rows.push({ tech: "Unassigned", job: appt.jobNumber || "—", customer: appt.customerName || "—", location: loc, time });
         }
     });
 
     if (rows.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No appointments scheduled</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No appointments scheduled</td></tr>';
     } else {
         tbody.innerHTML = rows.map(r =>
-            `<tr><td class="bold">${r.tech}</td><td>${r.job}</td><td>${r.customer}</td><td style="color:#64748b">${r.time}</td></tr>`
+            `<tr><td class="bold">${r.tech}</td><td>${r.job}</td><td>${r.customer}</td><td>${r.location}</td><td style="color:#64748b">${r.time}</td></tr>`
         ).join("");
     }
 }

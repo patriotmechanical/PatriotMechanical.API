@@ -726,9 +726,14 @@ namespace PatriotMechanical.API.Application.Services
                 try
                 {
                     var apptId = appt.GetProperty("id").GetInt64();
+
                     long jobId = 0;
                     if (appt.TryGetProperty("jobId", out var jobProp) && jobProp.ValueKind == JsonValueKind.Number)
                         jobId = jobProp.GetInt64();
+
+                    long locationId = 0;
+                    if (appt.TryGetProperty("locationId", out var locProp) && locProp.ValueKind == JsonValueKind.Number)
+                        locationId = locProp.GetInt64();
 
                     DateTime start = DateTime.MinValue, end = DateTime.MinValue;
                     if (appt.TryGetProperty("start", out var startProp) && startProp.ValueKind == JsonValueKind.String)
@@ -746,10 +751,6 @@ namespace PatriotMechanical.API.Application.Services
                     if (appt.TryGetProperty("status", out var statusProp) && statusProp.ValueKind == JsonValueKind.String)
                         status = statusProp.GetString() ?? "Scheduled";
 
-                    int techCount = 0;
-                    if (appt.TryGetProperty("technicianAssignments", out var techsProp) && techsProp.ValueKind == JsonValueKind.Array)
-                        techCount = techsProp.GetArrayLength();
-
                     Guid? workOrderId = null;
                     if (jobId > 0)
                     {
@@ -765,11 +766,11 @@ namespace PatriotMechanical.API.Application.Services
                         Id = Guid.NewGuid(),
                         ServiceTitanAppointmentId = apptId,
                         ServiceTitanJobId = jobId,
+                        ServiceTitanLocationId = locationId,
                         WorkOrderId = workOrderId,
                         Start = start,
                         End = end,
                         Status = status,
-                        TechnicianCount = techCount,
                         LastSyncedAt = DateTime.UtcNow
                     });
                 }
@@ -779,19 +780,25 @@ namespace PatriotMechanical.API.Application.Services
             _context.Appointments.AddRange(newAppts);
             await _context.SaveChangesAsync();
 
-            // ── Step 4: Fetch appointment-assignments for tech names ─
-            // Build a lookup: ST appointment ID → our Appointment row ID
+            // ── Step 4: Fetch tech assignments via list endpoint ────
+            // Uses appointmentIds filter — targeted, no pagination issues
+            if (!newAppts.Any()) return;
+
             var apptLookup = newAppts.ToDictionary(a => a.ServiceTitanAppointmentId, a => a.Id);
+            var stApptIds = newAppts.Select(a => a.ServiceTitanAppointmentId);
 
             string assignRaw;
-            try { assignRaw = await _service.ExportAppointmentAssignmentsAsync(todayUtc.ToString("yyyy-MM-dd")); }
-            catch { return; } // tech names are optional — don't fail the whole sync
+            try { assignRaw = await _service.GetAppointmentAssignmentsAsync(stApptIds); }
+            catch { return; }
 
             JsonElement assignParsed;
             try { assignParsed = JsonSerializer.Deserialize<JsonElement>(assignRaw); }
             catch { return; }
 
             if (!assignParsed.TryGetProperty("data", out var assignments)) return;
+
+            // Also update TechnicianCount on the appointment rows
+            var techCountByAppt = new Dictionary<long, int>();
 
             foreach (var assign in assignments.EnumerateArray())
             {
@@ -815,6 +822,8 @@ namespace PatriotMechanical.API.Application.Services
 
                     if (!active || stApptId == 0 || !apptLookup.ContainsKey(stApptId)) continue;
 
+                    techCountByAppt[stApptId] = techCountByAppt.GetValueOrDefault(stApptId, 0) + 1;
+
                     _context.AppointmentTechnicians.Add(new PatriotMechanical.API.Domain.Entities.AppointmentTechnician
                     {
                         Id = Guid.NewGuid(),
@@ -826,6 +835,13 @@ namespace PatriotMechanical.API.Application.Services
                     });
                 }
                 catch { /* skip malformed */ }
+            }
+
+            // Patch TechnicianCount back onto the appointment rows
+            foreach (var appt in newAppts.Where(a => techCountByAppt.ContainsKey(a.ServiceTitanAppointmentId)))
+            {
+                var tracked = await _context.Appointments.FindAsync(appt.Id);
+                if (tracked != null) tracked.TechnicianCount = techCountByAppt[appt.ServiceTitanAppointmentId];
             }
 
             await _context.SaveChangesAsync();
