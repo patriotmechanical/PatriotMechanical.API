@@ -378,44 +378,6 @@ async function loadDashboard() {
     if (!window._schedActiveTab) window._schedActiveTab = "today";
     renderSchedTab(window._schedActiveTab);
 
-    // ── SCHEDULE TAB HELPERS ───────────────────────────────────
-function renderSchedTab(tab) {
-    window._schedActiveTab = tab;
-    const d = (window._schedData || {})[tab] || { count: 0, items: [] };
-    const tbody = document.getElementById("schedTableBody");
-    if (!tbody) return;
-
-    // Expand items: one row per tech per appointment
-    const rows = [];
-    (d.items || []).forEach(appt => {
-        const time = appt.start ? new Date(appt.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—";
-        if (appt.techs && appt.techs.length > 0) {
-            appt.techs.forEach(techName => {
-                rows.push({ tech: techName, job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
-            });
-        } else {
-            rows.push({ tech: "Unassigned", job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
-        }
-    });
-
-    if (rows.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No appointments scheduled</td></tr>';
-    } else {
-        tbody.innerHTML = rows.map(r =>
-            `<tr><td class="bold">${r.tech}</td><td>${r.job}</td><td>${r.customer}</td><td style="color:#64748b">${r.time}</td></tr>`
-        ).join("");
-    }
-}
-
-function switchSchedTab(tab) {
-    window._schedActiveTab = tab;
-    document.querySelectorAll(".sched-tab").forEach(t => t.classList.remove("active"));
-    const tabMap = { today: "schedTabToday", tomorrow: "schedTabTomorrow", dayafter: "schedTabDayAfterBtn" };
-    const el = document.getElementById(tabMap[tab]);
-    if (el) el.classList.add("active");
-    renderSchedTab(tab);
-}
-
 // ── DRAGGABLE PANELS ────────────────────────────────────────
 function initDraggablePanels() {
     const STORAGE_KEY = "myopsboard_panel_order";
@@ -477,6 +439,43 @@ function initDraggablePanels() {
             grid.insertBefore(dragSrc, panel);
         });
     });
+}
+
+// ── SCHEDULE TAB HELPERS (top-level so onclick= can find them) ──
+function renderSchedTab(tab) {
+    window._schedActiveTab = tab;
+    const d = (window._schedData || {})[tab] || { count: 0, items: [] };
+    const tbody = document.getElementById("schedTableBody");
+    if (!tbody) return;
+
+    const rows = [];
+    (d.items || []).forEach(appt => {
+        const time = appt.start ? new Date(appt.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—";
+        if (appt.techs && appt.techs.length > 0) {
+            appt.techs.forEach(techName => {
+                rows.push({ tech: techName, job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+            });
+        } else {
+            rows.push({ tech: "Unassigned", job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+        }
+    });
+
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No appointments scheduled</td></tr>';
+    } else {
+        tbody.innerHTML = rows.map(r =>
+            `<tr><td class="bold">${r.tech}</td><td>${r.job}</td><td>${r.customer}</td><td style="color:#64748b">${r.time}</td></tr>`
+        ).join("");
+    }
+}
+
+function switchSchedTab(tab) {
+    window._schedActiveTab = tab;
+    document.querySelectorAll(".sched-tab").forEach(t => t.classList.remove("active"));
+    const tabMap = { today: "schedTabToday", tomorrow: "schedTabTomorrow", dayafter: "schedTabDayAfter" };
+    const el = document.getElementById(tabMap[tab]);
+    if (el) el.classList.add("active");
+    renderSchedTab(tab);
 }
 
 // ── SIDEBAR BADGES ─────────────────────────────────────────
