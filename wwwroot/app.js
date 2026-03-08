@@ -238,9 +238,11 @@ async function loadDashboard() {
     const totalApInvoices = data.ap.reduce((sum, v) => sum + Number(v.totalInvoiceAmount || v.totalOwed || 0), 0);
     const net = totalAR - totalApInvoices;
 
-    document.getElementById("totalAR").innerText   = "$" + totalAR.toLocaleString();
-    document.getElementById("totalAP").innerText   = "$" + totalApInvoices.toLocaleString();
-    document.getElementById("netPosition").innerText = "$" + net.toLocaleString();
+    const fmtCurrency = v => "$" + Number(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    document.getElementById("totalAR").innerText    = fmtCurrency(totalAR);
+    document.getElementById("totalAP").innerText    = fmtCurrency(totalApInvoices);
+    document.getElementById("netPosition").innerText  = fmtCurrency(net);
     document.getElementById("netPosition").style.color = net >= 0 ? "#4ade80" : "#f87171";
 
     const openWoCount = data.openWorkOrders ? data.openWorkOrders.length : 0;
@@ -263,12 +265,61 @@ async function loadDashboard() {
         }
         return { count: 0, cards: [], color: "#475569" };
     };
-    const needSchedule  = getCol("schedule");
-    const waitingParts  = getCol("waiting parts");
-    const waitingQuote  = getCol("waiting quote");
-    const needReturn    = getCol("need to return");
+    const needSchedule = getCol("schedule");
 
     document.getElementById("kpiNeedSchedule").innerText = needSchedule.count;
+
+    // ── KPI SUB-LABELS: oldest item age ────────────────────────
+    const now = Date.now();
+
+    // Oldest unpaid AR invoice (based on IssueDate from arAging raw, approximate via oldest AR customer)
+    // We don't have per-invoice dates in AR grouped response, so use arAging to infer:
+    // If bucket90Plus > 0, oldest is 90+ days. Otherwise check buckets.
+    const ag = data.aRaging || data.arAging;
+    if (ag) {
+        const b3 = Number(ag.bucket90Plus ?? ag.Bucket90Plus ?? 0);
+        const b2 = Number(ag.bucket61_90  ?? ag.Bucket61_90  ?? 0);
+        const b1 = Number(ag.bucket31_60  ?? ag.Bucket31_60  ?? 0);
+        let arOldestLabel = "—";
+        if (b3 > 0) arOldestLabel = "oldest 90+ days";
+        else if (b2 > 0) arOldestLabel = "oldest 61–90 days";
+        else if (b1 > 0) arOldestLabel = "oldest 31–60 days";
+        else arOldestLabel = "all current";
+        document.getElementById("kpiArSub").innerText = arOldestLabel;
+    }
+
+    // Oldest AP bill due date
+    if (data.ap && data.ap.length > 0) {
+        const oldestDue = data.ap.reduce((oldest, v) => {
+            if (!v.nextDue) return oldest;
+            const d = new Date(v.nextDue);
+            return (!oldest || d < oldest) ? d : oldest;
+        }, null);
+        if (oldestDue) {
+            const daysAgo = Math.floor((now - oldestDue.getTime()) / 86400000);
+            document.getElementById("kpiApSub").innerText = daysAgo > 0 ? `oldest due ${daysAgo}d ago` : `next due ${Math.abs(daysAgo)}d`;
+        }
+    }
+
+    // Oldest open WO
+    if (data.openWorkOrders && data.openWorkOrders.length > 0) {
+        const oldest = data.openWorkOrders.reduce((max, wo) => {
+            if (!wo.createdAt) return max;
+            const d = Math.floor((now - new Date(wo.createdAt).getTime()) / 86400000);
+            return d > max ? d : max;
+        }, 0);
+        document.getElementById("kpiWoSub").innerText = oldest > 0 ? `oldest ${oldest}d open` : "—";
+    }
+
+    // Oldest overdue PM
+    if (data.overduePms && data.overduePms.length > 0) {
+        const oldest = data.overduePms.reduce((max, pm) => {
+            if (!pm.lastPm) return max;
+            const d = Math.floor((now - new Date(pm.lastPm).getTime()) / 86400000);
+            return d > max ? d : max;
+        }, 0);
+        document.getElementById("kpiPmSub").innerText = oldest > 0 ? `longest ${oldest}d ago` : "never serviced";
+    }
 
     // ── SIDEBAR BADGES ─────────────────────────────────────────
     const badgeWo = document.getElementById("navBadgeWo");
@@ -389,32 +440,67 @@ function filterWoTable() {
 
     woTable.innerHTML = "";
     if (filtered.length === 0) {
-        woTable.innerHTML = '<tr class="empty-row"><td colspan="5">No work orders match this filter</td></tr>';
+        woTable.innerHTML = '<tr class="empty-row"><td colspan="3">No work orders match this filter</td></tr>';
         return;
     }
 
     const now = Date.now();
+
+    // Group by customer
+    const grouped = {};
     filtered.forEach(wo => {
-        const days = wo.createdAt ? Math.floor((now - new Date(wo.createdAt).getTime()) / 86400000) : null;
-        const daysLabel = days !== null ? days + "d" : "—";
-        const daysClass = days === null ? "days-ok" : days > 60 ? "days-bad" : days > 21 ? "days-warn" : "days-ok";
-
-        const status = (wo.status || "").toLowerCase();
-        let pillClass = "pill-scheduled";
-        if (status.includes("inprogress") || status.includes("in progress")) pillClass = "pill-inprogress";
-        else if (status.includes("hold")) pillClass = "pill-hold";
-
-        const amt = Number(wo.totalAmount || 0);
-        const amtStr = amt > 0 ? `$${amt.toLocaleString()}` : "—";
-
-        woTable.innerHTML += `<tr>
-            <td class="bold job-num-link" onclick="openJobDetail && openJobDetail('${wo.id || ""}')">${wo.jobNumber || "—"}</td>
-            <td>${wo.customerName || "—"}</td>
-            <td><span class="status-pill ${pillClass}">${wo.status || "—"}</span></td>
-            <td><span class="${daysClass}">${daysLabel}</span></td>
-            <td class="text-right">${amtStr}</td>
-        </tr>`;
+        const key = wo.customerName || "Unknown";
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(wo);
     });
+
+    // Sort customers by their oldest WO (most stale first)
+    const customers = Object.entries(grouped).sort((a, b) => {
+        const oldestA = Math.max(...a[1].map(w => w.createdAt ? Math.floor((now - new Date(w.createdAt).getTime()) / 86400000) : 0));
+        const oldestB = Math.max(...b[1].map(w => w.createdAt ? Math.floor((now - new Date(w.createdAt).getTime()) / 86400000) : 0));
+        return oldestB - oldestA;
+    });
+
+    customers.forEach(([customerName, wos], idx) => {
+        const oldest = Math.max(...wos.map(w => w.createdAt ? Math.floor((now - new Date(w.createdAt).getTime()) / 86400000) : 0));
+        const oldestClass = oldest > 60 ? "days-bad" : oldest > 21 ? "days-warn" : "days-ok";
+        const groupId = "woGroup_" + idx;
+
+        // Customer summary row
+        woTable.innerHTML += `<tr class="wo-customer-row" onclick="toggleWoGroup('${groupId}')">
+            <td class="bold wo-customer-name">
+                <span class="wo-expand-icon" id="${groupId}_icon">▶</span>
+                ${customerName}
+            </td>
+            <td class="text-right"><span class="wo-count-badge">${wos.length}</span></td>
+            <td class="text-right"><span class="${oldestClass}">${oldest}d</span></td>
+        </tr>`;
+
+        // Expandable child rows (hidden by default)
+        const childRows = wos.map(wo => {
+            const days = wo.createdAt ? Math.floor((now - new Date(wo.createdAt).getTime()) / 86400000) : null;
+            const daysLabel = days !== null ? days + "d" : "—";
+            const daysClass = days === null ? "days-ok" : days > 60 ? "days-bad" : days > 21 ? "days-warn" : "days-ok";
+            const status = (wo.status || "").toLowerCase();
+            let pillClass = "pill-scheduled";
+            if (status.includes("inprogress")) pillClass = "pill-inprogress";
+            else if (status.includes("hold")) pillClass = "pill-hold";
+            return `<tr class="wo-child-row hidden" data-group="${groupId}">
+                <td class="wo-child-job bold job-num-link" onclick="event.stopPropagation(); openJobDetail && openJobDetail('${wo.id || ""}')">#${wo.jobNumber || "—"}</td>
+                <td><span class="status-pill ${pillClass}">${wo.status || "—"}</span></td>
+                <td class="text-right"><span class="${daysClass}">${daysLabel}</span></td>
+            </tr>`;
+        }).join("");
+        woTable.innerHTML += childRows;
+    });
+}
+
+function toggleWoGroup(groupId) {
+    const icon = document.getElementById(groupId + "_icon");
+    const rows = document.querySelectorAll(`[data-group="${groupId}"]`);
+    const isHidden = rows[0]?.classList.contains("hidden");
+    rows.forEach(r => r.classList.toggle("hidden", !isHidden));
+    if (icon) icon.textContent = isHidden ? "▼" : "▶";
 }
 
 function renderOpsStats(data) {
