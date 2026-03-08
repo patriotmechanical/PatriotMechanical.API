@@ -417,7 +417,7 @@ function filterWoTable() {
     });
 }
 
-
+function renderOpsStats(data) {
     const row = document.getElementById("opsStatsRow");
     if (!row) return;
 
