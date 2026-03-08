@@ -378,106 +378,6 @@ async function loadDashboard() {
     if (!window._schedActiveTab) window._schedActiveTab = "today";
     renderSchedTab(window._schedActiveTab);
 
-// ── DRAGGABLE PANELS ────────────────────────────────────────
-function initDraggablePanels() {
-    const STORAGE_KEY = "myopsboard_panel_order";
-    const grid = document.getElementById("dashPanelGrid");
-    if (!grid) return;
-
-    // Restore saved order
-    try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            const order = JSON.parse(saved);
-            order.forEach(panelId => {
-                const el = document.getElementById("panel-" + panelId);
-                if (el) grid.appendChild(el);
-            });
-        }
-    } catch(e) {}
-
-    let dragSrc = null;
-
-    document.querySelectorAll(".draggable-panel").forEach(panel => {
-        // Only start drag from handle
-        const handle = panel.querySelector(".drag-handle");
-        if (handle) {
-            handle.addEventListener("mousedown", () => { panel.setAttribute("draggable", "true"); });
-            document.addEventListener("mouseup", () => { panel.setAttribute("draggable", "false"); });
-        }
-
-        panel.addEventListener("dragstart", e => {
-            dragSrc = panel;
-            panel.classList.add("dragging");
-            e.dataTransfer.effectAllowed = "move";
-        });
-
-        panel.addEventListener("dragend", () => {
-            dragSrc = null;
-            panel.classList.remove("dragging");
-            document.querySelectorAll(".draggable-panel").forEach(p => p.classList.remove("drag-over"));
-            // Save new order
-            try {
-                const order = [...grid.querySelectorAll(".draggable-panel")].map(p => p.dataset.panel);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
-            } catch(e) {}
-        });
-
-        panel.addEventListener("dragover", e => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            if (panel !== dragSrc) panel.classList.add("drag-over");
-        });
-
-        panel.addEventListener("dragleave", () => panel.classList.remove("drag-over"));
-
-        panel.addEventListener("drop", e => {
-            e.preventDefault();
-            panel.classList.remove("drag-over");
-            if (!dragSrc || dragSrc === panel) return;
-            // Insert dragSrc before this panel
-            grid.insertBefore(dragSrc, panel);
-        });
-    });
-}
-
-// ── SCHEDULE TAB HELPERS (top-level so onclick= can find them) ──
-function renderSchedTab(tab) {
-    window._schedActiveTab = tab;
-    const d = (window._schedData || {})[tab] || { count: 0, items: [] };
-    const tbody = document.getElementById("schedTableBody");
-    if (!tbody) return;
-
-    const rows = [];
-    (d.items || []).forEach(appt => {
-        const time = appt.start ? new Date(appt.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—";
-        if (appt.techs && appt.techs.length > 0) {
-            appt.techs.forEach(techName => {
-                rows.push({ tech: techName, job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
-            });
-        } else {
-            rows.push({ tech: "Unassigned", job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
-        }
-    });
-
-    if (rows.length === 0) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No appointments scheduled</td></tr>';
-    } else {
-        tbody.innerHTML = rows.map(r =>
-            `<tr><td class="bold">${r.tech}</td><td>${r.job}</td><td>${r.customer}</td><td style="color:#64748b">${r.time}</td></tr>`
-        ).join("");
-    }
-}
-
-function switchSchedTab(tab) {
-    window._schedActiveTab = tab;
-    document.querySelectorAll(".sched-tab").forEach(t => t.classList.remove("active"));
-    const tabMap = { today: "schedTabToday", tomorrow: "schedTabTomorrow", dayafter: "schedTabDayAfter" };
-    const el = document.getElementById(tabMap[tab]);
-    if (el) el.classList.add("active");
-    renderSchedTab(tab);
-}
-
 // ── SIDEBAR BADGES ─────────────────────────────────────────
     const badgeWo = document.getElementById("navBadgeWo");
     if (badgeWo) {
@@ -595,6 +495,43 @@ function switchSchedTab(tab) {
     // ── OPS STATS ROW (board column chips) ─────────────────────
     renderOpsStats(data);
 
+}
+
+// ── SCHEDULE TAB HELPERS ─────────────────────────────────────
+function renderSchedTab(tab) {
+    window._schedActiveTab = tab;
+    const d = (window._schedData || {})[tab] || { count: 0, items: [] };
+    const tbody = document.getElementById("schedTableBody");
+    if (!tbody) return;
+
+    const rows = [];
+    (d.items || []).forEach(appt => {
+        const time = appt.start ? new Date(appt.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—";
+        if (appt.techs && appt.techs.length > 0) {
+            appt.techs.forEach(techName => {
+                rows.push({ tech: techName, job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+            });
+        } else {
+            rows.push({ tech: "Unassigned", job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+        }
+    });
+
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No appointments scheduled</td></tr>';
+    } else {
+        tbody.innerHTML = rows.map(r =>
+            `<tr><td class="bold">${r.tech}</td><td>${r.job}</td><td>${r.customer}</td><td style="color:#64748b">${r.time}</td></tr>`
+        ).join("");
+    }
+}
+
+function switchSchedTab(tab) {
+    window._schedActiveTab = tab;
+    document.querySelectorAll(".sched-tab").forEach(t => t.classList.remove("active"));
+    const tabMap = { today: "schedTabToday", tomorrow: "schedTabTomorrow", dayafter: "schedTabDayAfter" };
+    const el = document.getElementById(tabMap[tab]);
+    if (el) el.classList.add("active");
+    renderSchedTab(tab);
 }
 
 function filterWoTableByColumn(colNameNormalized) {
