@@ -209,6 +209,36 @@ public class MigrateController : ControllerBase
     }
 
     /// <summary>
+    /// GET /migrate/apply-appointment-technicians — create AppointmentTechnicians table
+    /// </summary>
+    [HttpGet("apply-appointment-technicians")]
+    public async Task<IActionResult> ApplyAppointmentTechnicians()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""AppointmentTechnicians"" (
+                    ""Id""                          uuid    NOT NULL PRIMARY KEY,
+                    ""AppointmentId""               uuid    NOT NULL,
+                    ""ServiceTitanTechnicianId""    bigint  NOT NULL DEFAULT 0,
+                    ""TechnicianName""              text    NOT NULL DEFAULT '',
+                    ""ServiceTitanJobId""           bigint  NOT NULL DEFAULT 0,
+                    ""ServiceTitanAppointmentId""   bigint  NOT NULL DEFAULT 0,
+                    CONSTRAINT ""FK_AppointmentTechnicians_Appointments"" FOREIGN KEY (""AppointmentId"")
+                        REFERENCES ""Appointments""(""Id"") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_AppointmentTechnicians_AppointmentId""
+                    ON ""AppointmentTechnicians""(""AppointmentId"");
+            ");
+            return Ok(new { message = "AppointmentTechnicians table created (or already exists)." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { message = "Error.", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// GET /migrate/sync-appointments — trigger appointment sync manually for testing
     /// </summary>
     [HttpGet("sync-appointments")]

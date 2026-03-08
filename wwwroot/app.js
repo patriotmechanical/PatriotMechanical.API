@@ -354,24 +354,131 @@ async function loadDashboard() {
         revSubEl.innerText = "no invoices this month";
     }
 
-    // ── SCHEDULE STRIP ────────────────────────────────────────
-    const schedToday    = data.scheduledToday    || data.ScheduledToday    || { count: 0, techs: 0 };
-    const schedTomorrow = data.scheduledTomorrow || data.ScheduledTomorrow || { count: 0, techs: 0 };
-    const schedDayAfter = data.scheduledDayAfter || data.ScheduledDayAfter || { count: 0, techs: 0 };
+    // ── SCHEDULE PANEL (tabbed) ────────────────────────────────
+    const schedToday    = data.scheduledToday    || data.ScheduledToday    || { count: 0, items: [] };
+    const schedTomorrow = data.scheduledTomorrow || data.ScheduledTomorrow || { count: 0, items: [] };
+    const schedDayAfter = data.scheduledDayAfter || data.ScheduledDayAfter || { count: 0, items: [] };
 
-    document.getElementById("schedTodayCount").innerHTML    = `${schedToday.count} <span>jobs</span>`;
-    document.getElementById("schedTodayTechs").innerText    = `${schedToday.techs} tech${schedToday.techs !== 1 ? 's' : ''} assigned`;
-    document.getElementById("schedTomorrowCount").innerHTML = `${schedTomorrow.count} <span>jobs</span>`;
-    document.getElementById("schedTomorrowTechs").innerText = `${schedTomorrow.techs} tech${schedTomorrow.techs !== 1 ? 's' : ''} assigned`;
-    document.getElementById("schedDayAfterCount").innerHTML = `${schedDayAfter.count} <span>jobs</span>`;
-    document.getElementById("schedDayAfterTechs").innerText = `${schedDayAfter.techs} tech${schedDayAfter.techs !== 1 ? 's' : ''} assigned`;
-
-    // Set day-after label to actual day name
+    // Set day-after tab label
     const dayAfterDate = new Date();
     dayAfterDate.setDate(dayAfterDate.getDate() + 2);
-    document.getElementById("schedDayAfterLabel").innerText = dayAfterDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayAfterName = dayAfterDate.toLocaleDateString("en-US", { weekday: "long" });
+    document.getElementById("schedTabDayAfterBtn") && (document.getElementById("schedTabDayAfterBtn").childNodes[0].textContent = dayAfterName + " ");
 
-    // ── SIDEBAR BADGES ─────────────────────────────────────────
+    // Update tab counts
+    document.getElementById("schedTabTodayCount").innerText    = schedToday.count;
+    document.getElementById("schedTabTomorrowCount").innerText = schedTomorrow.count;
+    document.getElementById("schedTabDayAfterCount").innerText = schedDayAfter.count;
+
+    // Store schedule data globally for tab switching
+    window._schedData = { today: schedToday, tomorrow: schedTomorrow, dayafter: schedDayAfter };
+
+    // Render active tab (default: today)
+    if (!window._schedActiveTab) window._schedActiveTab = "today";
+    renderSchedTab(window._schedActiveTab);
+
+    // ── SCHEDULE TAB HELPERS ───────────────────────────────────
+function renderSchedTab(tab) {
+    window._schedActiveTab = tab;
+    const d = (window._schedData || {})[tab] || { count: 0, items: [] };
+    const tbody = document.getElementById("schedTableBody");
+    if (!tbody) return;
+
+    // Expand items: one row per tech per appointment
+    const rows = [];
+    (d.items || []).forEach(appt => {
+        const time = appt.start ? new Date(appt.start).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "—";
+        if (appt.techs && appt.techs.length > 0) {
+            appt.techs.forEach(techName => {
+                rows.push({ tech: techName, job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+            });
+        } else {
+            rows.push({ tech: "Unassigned", job: appt.jobNumber || "—", customer: appt.customerName || "—", time });
+        }
+    });
+
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No appointments scheduled</td></tr>';
+    } else {
+        tbody.innerHTML = rows.map(r =>
+            `<tr><td class="bold">${r.tech}</td><td>${r.job}</td><td>${r.customer}</td><td style="color:#64748b">${r.time}</td></tr>`
+        ).join("");
+    }
+}
+
+function switchSchedTab(tab) {
+    window._schedActiveTab = tab;
+    document.querySelectorAll(".sched-tab").forEach(t => t.classList.remove("active"));
+    const tabMap = { today: "schedTabToday", tomorrow: "schedTabTomorrow", dayafter: "schedTabDayAfterBtn" };
+    const el = document.getElementById(tabMap[tab]);
+    if (el) el.classList.add("active");
+    renderSchedTab(tab);
+}
+
+// ── DRAGGABLE PANELS ────────────────────────────────────────
+function initDraggablePanels() {
+    const STORAGE_KEY = "myopsboard_panel_order";
+    const grid = document.getElementById("dashPanelGrid");
+    if (!grid) return;
+
+    // Restore saved order
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const order = JSON.parse(saved);
+            order.forEach(panelId => {
+                const el = document.getElementById("panel-" + panelId);
+                if (el) grid.appendChild(el);
+            });
+        }
+    } catch(e) {}
+
+    let dragSrc = null;
+
+    document.querySelectorAll(".draggable-panel").forEach(panel => {
+        // Only start drag from handle
+        const handle = panel.querySelector(".drag-handle");
+        if (handle) {
+            handle.addEventListener("mousedown", () => { panel.setAttribute("draggable", "true"); });
+            document.addEventListener("mouseup", () => { panel.setAttribute("draggable", "false"); });
+        }
+
+        panel.addEventListener("dragstart", e => {
+            dragSrc = panel;
+            panel.classList.add("dragging");
+            e.dataTransfer.effectAllowed = "move";
+        });
+
+        panel.addEventListener("dragend", () => {
+            dragSrc = null;
+            panel.classList.remove("dragging");
+            document.querySelectorAll(".draggable-panel").forEach(p => p.classList.remove("drag-over"));
+            // Save new order
+            try {
+                const order = [...grid.querySelectorAll(".draggable-panel")].map(p => p.dataset.panel);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
+            } catch(e) {}
+        });
+
+        panel.addEventListener("dragover", e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            if (panel !== dragSrc) panel.classList.add("drag-over");
+        });
+
+        panel.addEventListener("dragleave", () => panel.classList.remove("drag-over"));
+
+        panel.addEventListener("drop", e => {
+            e.preventDefault();
+            panel.classList.remove("drag-over");
+            if (!dragSrc || dragSrc === panel) return;
+            // Insert dragSrc before this panel
+            grid.insertBefore(dragSrc, panel);
+        });
+    });
+}
+
+// ── SIDEBAR BADGES ─────────────────────────────────────────
     const badgeWo = document.getElementById("navBadgeWo");
     if (badgeWo) {
         const cnt = data.openWoCount ?? openWoCount;
@@ -487,6 +594,9 @@ async function loadDashboard() {
 
     // ── OPS STATS ROW (board column chips) ─────────────────────
     renderOpsStats(data);
+
+    // Init draggable panels (safe to call multiple times)
+    initDraggablePanels();
 }
 
 function filterWoTableByColumn(colNameNormalized) {

@@ -699,11 +699,12 @@ namespace PatriotMechanical.API.Application.Services
         public async Task SyncAppointmentsAsync()
         {
             var todayUtc = DateTime.UtcNow.Date;
-            var windowEnd = todayUtc.AddDays(4); // today + 3 more days
+            var windowEnd = todayUtc.AddDays(4);
 
+            // ── Step 1: Fetch appointments from ST ─────────────────
             string raw;
             try { raw = await _service.GetAppointmentsAsync(todayUtc, windowEnd); }
-            catch { return; } // silently skip if ST is down
+            catch { return; }
 
             JsonElement parsed;
             try { parsed = JsonSerializer.Deserialize<JsonElement>(raw); }
@@ -711,13 +712,15 @@ namespace PatriotMechanical.API.Application.Services
 
             if (!parsed.TryGetProperty("data", out var appts)) return;
 
-            // Delete stale appointments in this window and re-insert fresh
+            // ── Step 2: Delete stale window data and re-insert ─────
             var staleAppts = await _context.Appointments
                 .Where(a => a.Start >= todayUtc && a.Start < windowEnd)
                 .ToListAsync();
             _context.Appointments.RemoveRange(staleAppts);
             await _context.SaveChangesAsync();
 
+            // ── Step 3: Insert fresh appointment rows ──────────────
+            var newAppts = new List<PatriotMechanical.API.Domain.Entities.Appointment>();
             foreach (var appt in appts.EnumerateArray())
             {
                 try
@@ -743,12 +746,10 @@ namespace PatriotMechanical.API.Application.Services
                     if (appt.TryGetProperty("status", out var statusProp) && statusProp.ValueKind == JsonValueKind.String)
                         status = statusProp.GetString() ?? "Scheduled";
 
-                    // Count technician assignments
                     int techCount = 0;
                     if (appt.TryGetProperty("technicianAssignments", out var techsProp) && techsProp.ValueKind == JsonValueKind.Array)
                         techCount = techsProp.GetArrayLength();
 
-                    // Link to WorkOrder if we have it
                     Guid? workOrderId = null;
                     if (jobId > 0)
                     {
@@ -759,7 +760,7 @@ namespace PatriotMechanical.API.Application.Services
                         workOrderId = wo?.Id;
                     }
 
-                    _context.Appointments.Add(new PatriotMechanical.API.Domain.Entities.Appointment
+                    newAppts.Add(new PatriotMechanical.API.Domain.Entities.Appointment
                     {
                         Id = Guid.NewGuid(),
                         ServiceTitanAppointmentId = apptId,
@@ -770,6 +771,58 @@ namespace PatriotMechanical.API.Application.Services
                         Status = status,
                         TechnicianCount = techCount,
                         LastSyncedAt = DateTime.UtcNow
+                    });
+                }
+                catch { /* skip malformed */ }
+            }
+
+            _context.Appointments.AddRange(newAppts);
+            await _context.SaveChangesAsync();
+
+            // ── Step 4: Fetch appointment-assignments for tech names ─
+            // Build a lookup: ST appointment ID → our Appointment row ID
+            var apptLookup = newAppts.ToDictionary(a => a.ServiceTitanAppointmentId, a => a.Id);
+
+            string assignRaw;
+            try { assignRaw = await _service.ExportAppointmentAssignmentsAsync(todayUtc.ToString("yyyy-MM-dd")); }
+            catch { return; } // tech names are optional — don't fail the whole sync
+
+            JsonElement assignParsed;
+            try { assignParsed = JsonSerializer.Deserialize<JsonElement>(assignRaw); }
+            catch { return; }
+
+            if (!assignParsed.TryGetProperty("data", out var assignments)) return;
+
+            foreach (var assign in assignments.EnumerateArray())
+            {
+                try
+                {
+                    long stApptId = 0, stTechId = 0, stJobId = 0;
+                    if (assign.TryGetProperty("appointmentId", out var aIdProp) && aIdProp.ValueKind == JsonValueKind.Number)
+                        stApptId = aIdProp.GetInt64();
+                    if (assign.TryGetProperty("technicianId", out var tIdProp) && tIdProp.ValueKind == JsonValueKind.Number)
+                        stTechId = tIdProp.GetInt64();
+                    if (assign.TryGetProperty("jobId", out var jIdProp) && jIdProp.ValueKind == JsonValueKind.Number)
+                        stJobId = jIdProp.GetInt64();
+
+                    string techName = "";
+                    if (assign.TryGetProperty("technicianName", out var tNameProp) && tNameProp.ValueKind == JsonValueKind.String)
+                        techName = tNameProp.GetString() ?? "";
+
+                    bool active = true;
+                    if (assign.TryGetProperty("active", out var activeProp) && activeProp.ValueKind == JsonValueKind.False)
+                        active = false;
+
+                    if (!active || stApptId == 0 || !apptLookup.ContainsKey(stApptId)) continue;
+
+                    _context.AppointmentTechnicians.Add(new PatriotMechanical.API.Domain.Entities.AppointmentTechnician
+                    {
+                        Id = Guid.NewGuid(),
+                        AppointmentId = apptLookup[stApptId],
+                        ServiceTitanTechnicianId = stTechId,
+                        TechnicianName = techName,
+                        ServiceTitanJobId = stJobId,
+                        ServiceTitanAppointmentId = stApptId
                     });
                 }
                 catch { /* skip malformed */ }

@@ -44,6 +44,7 @@ namespace PatriotMechanical.API.Infrastructure.Data
 
         // Appointments
         public DbSet<Appointment> Appointments { get; set; }
+        public DbSet<AppointmentTechnician> AppointmentTechnicians { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -85,6 +86,12 @@ namespace PatriotMechanical.API.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(w => w.CustomerId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AppointmentTechnician>()
+                .HasOne(t => t.Appointment)
+                .WithMany(a => a.Technicians)
+                .HasForeignKey(t => t.AppointmentId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             base.OnModelCreating(modelBuilder);
         }

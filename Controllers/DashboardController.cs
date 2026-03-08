@@ -167,20 +167,28 @@ public class DashboardController : ControllerBase
         var appts = await _context.Appointments
             .Where(a => a.Start >= todayUtc && a.Start < windowEnd)
             .Where(a => a.Status != "Canceled" && a.Status != "Cancelled")
+            .Include(a => a.Technicians)
+            .Include(a => a.WorkOrder)
+                .ThenInclude(w => w == null ? null : w.Customer)
             .ToListAsync();
 
-        var schedToday = new {
-            Count = appts.Count(a => a.Start.Date == todayUtc),
-            Techs = appts.Where(a => a.Start.Date == todayUtc).Sum(a => a.TechnicianCount)
-        };
-        var schedTomorrow = new {
-            Count = appts.Count(a => a.Start.Date == tomorrowUtc),
-            Techs = appts.Where(a => a.Start.Date == tomorrowUtc).Sum(a => a.TechnicianCount)
-        };
-        var schedDayAfter = new {
-            Count = appts.Count(a => a.Start.Date == dayAfterUtc),
-            Techs = appts.Where(a => a.Start.Date == dayAfterUtc).Sum(a => a.TechnicianCount)
-        };
+        // Build appointment items with tech + job info
+        object BuildDaySchedule(DateTime dayUtc)
+        {
+            var dayAppts = appts.Where(a => a.Start.Date == dayUtc).ToList();
+            var items = dayAppts.Select(a => new
+            {
+                JobNumber = a.WorkOrder?.JobNumber ?? "",
+                CustomerName = a.WorkOrder?.Customer?.Name ?? "",
+                Start = a.Start,
+                Techs = a.Technicians.Select(t => t.TechnicianName).ToList()
+            }).ToList();
+            return new { Count = dayAppts.Count, Items = items };
+        }
+
+        var schedToday    = BuildDaySchedule(todayUtc);
+        var schedTomorrow = BuildDaySchedule(tomorrowUtc);
+        var schedDayAfter = BuildDaySchedule(dayAfterUtc);
 
         return Ok(new
         {

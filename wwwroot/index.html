@@ -161,30 +161,30 @@
                         </div>
                     </div>
 
-                    <!-- Schedule Strip -->
-                    <div class="schedule-strip" id="scheduleStrip">
-                        <div class="sched-day" id="schedToday">
-                            <div class="sched-label">Today</div>
-                            <div class="sched-count" id="schedTodayCount">—</div>
-                            <div class="sched-sub" id="schedTodayTechs">— techs</div>
+                    <!-- Schedule Panel (full-width, tabbed) -->
+                    <div class="panel dash-panel draggable-panel" id="panel-schedule" draggable="true" data-panel="schedule">
+                        <div class="drag-handle" title="Drag to reorder">⠿</div>
+                        <div class="dash-panel-header">
+                            <div class="sched-tabs">
+                                <button class="sched-tab active" id="schedTabToday" onclick="switchSchedTab('today')">Today <span class="sched-tab-count" id="schedTabTodayCount">0</span></button>
+                                <button class="sched-tab" id="schedTabTomorrow" onclick="switchSchedTab('tomorrow')">Tomorrow <span class="sched-tab-count" id="schedTabTomorrowCount">0</span></button>
+                                <button class="sched-tab" id="schedTabDayAfter" onclick="switchSchedTab('dayafter')" id="schedTabDayAfterBtn">— <span class="sched-tab-count" id="schedTabDayAfterCount">0</span></button>
+                            </div>
                         </div>
-                        <div class="sched-day" id="schedTomorrow">
-                            <div class="sched-label">Tomorrow</div>
-                            <div class="sched-count" id="schedTomorrowCount">—</div>
-                            <div class="sched-sub" id="schedTomorrowTechs">— techs</div>
-                        </div>
-                        <div class="sched-day" id="schedDayAfter">
-                            <div class="sched-label" id="schedDayAfterLabel">Day After</div>
-                            <div class="sched-count" id="schedDayAfterCount">—</div>
-                            <div class="sched-sub" id="schedDayAfterTechs">— techs</div>
+                        <div id="schedBody">
+                            <table class="data-table">
+                                <thead><tr><th>Technician</th><th>Job #</th><th>Customer</th><th>Time</th></tr></thead>
+                                <tbody id="schedTableBody"></tbody>
+                            </table>
                         </div>
                     </div>
 
-                    <!-- Main 3-col grid -->
-                    <div class="dash-main-grid">
+                    <!-- Draggable main grid -->
+                    <div class="dash-main-grid" id="dashPanelGrid">
 
-                        <!-- LEFT: Active Work Orders -->
-                        <div class="panel dash-panel">
+                        <!-- Active Work Orders -->
+                        <div class="panel dash-panel draggable-panel" id="panel-wo" draggable="true" data-panel="wo">
+                            <div class="drag-handle" title="Drag to reorder">⠿</div>
                             <div class="dash-panel-header">
                                 <h2>Active Work Orders <span class="panel-count" id="woCount">0</span></h2>
                                 <div style="display:flex;gap:8px;align-items:center;">
@@ -203,62 +203,58 @@
                             </table>
                         </div>
 
-                        <!-- CENTER: AR Aging + AP -->
-                        <div style="display:flex;flex-direction:column;gap:16px;">
-
-                            <!-- AR Aging Panel -->
-                            <div class="panel dash-panel">
-                                <div class="dash-panel-header">
-                                    <h2>AR Aging</h2>
-                                    <span class="panel-total-label" id="arAgingTotal">$0 outstanding</span>
-                                </div>
-                                <div class="ar-aging-bars" id="arAgingBars">
-                                    <div class="aging-row"><span class="aging-label">0–30d</span><div class="aging-track"><div class="aging-fill aging-green" id="agingBar0" style="width:0%"></div></div><span class="aging-amount" id="agingAmt0">$0</span></div>
-                                    <div class="aging-row"><span class="aging-label">31–60d</span><div class="aging-track"><div class="aging-fill aging-amber" id="agingBar1" style="width:0%"></div></div><span class="aging-amount" id="agingAmt1">$0</span></div>
-                                    <div class="aging-row"><span class="aging-label">61–90d</span><div class="aging-track"><div class="aging-fill aging-orange" id="agingBar2" style="width:0%"></div></div><span class="aging-amount" id="agingAmt2">$0</span></div>
-                                    <div class="aging-row"><span class="aging-label">90+d</span><div class="aging-track"><div class="aging-fill aging-red" id="agingBar3" style="width:0%"></div></div><span class="aging-amount aging-red-text" id="agingAmt3">$0</span></div>
-                                </div>
-                                <table class="data-table" id="dashArTable">
-                                    <thead><tr><th>Customer</th><th class="text-right">Amount Owed</th></tr></thead>
-                                    <tbody id="arTableBody"></tbody>
-                                </table>
+                        <!-- AR Aging -->
+                        <div class="panel dash-panel draggable-panel" id="panel-ar" draggable="true" data-panel="ar">
+                            <div class="drag-handle" title="Drag to reorder">⠿</div>
+                            <div class="dash-panel-header">
+                                <h2>AR Aging</h2>
+                                <span class="panel-total-label" id="arAgingTotal">$0 outstanding</span>
                             </div>
-
-                            <!-- AP Panel -->
-                            <div class="panel dash-panel">
-                                <div class="dash-panel-header">
-                                    <h2>Accounts Payable</h2>
-                                    <a class="dash-link" onclick="showView('apView', document.querySelector('.nav-link[onclick*=apView]'))">View All →</a>
-                                </div>
-                                <table class="data-table" id="dashApTable">
-                                    <thead><tr><th>Vendor</th><th class="text-right">Total Owed</th><th>Next Due</th></tr></thead>
-                                    <tbody id="apTableBody2"></tbody>
-                                </table>
+                            <div class="ar-aging-bars" id="arAgingBars">
+                                <div class="aging-row"><span class="aging-label">0–30d</span><div class="aging-track"><div class="aging-fill aging-green" id="agingBar0" style="width:0%"></div></div><span class="aging-amount" id="agingAmt0">$0</span></div>
+                                <div class="aging-row"><span class="aging-label">31–60d</span><div class="aging-track"><div class="aging-fill aging-amber" id="agingBar1" style="width:0%"></div></div><span class="aging-amount" id="agingAmt1">$0</span></div>
+                                <div class="aging-row"><span class="aging-label">61–90d</span><div class="aging-track"><div class="aging-fill aging-orange" id="agingBar2" style="width:0%"></div></div><span class="aging-amount" id="agingAmt2">$0</span></div>
+                                <div class="aging-row"><span class="aging-label">90+d</span><div class="aging-track"><div class="aging-fill aging-red" id="agingBar3" style="width:0%"></div></div><span class="aging-amount aging-red-text" id="agingAmt3">$0</span></div>
                             </div>
+                            <table class="data-table" id="dashArTable">
+                                <thead><tr><th>Customer</th><th class="text-right">Amount Owed</th></tr></thead>
+                                <tbody id="arTableBody"></tbody>
+                            </table>
                         </div>
 
-                        <!-- RIGHT: WO Board Status + Overdue PMs -->
-                        <div style="display:flex;flex-direction:column;gap:16px;">
-
-                            <!-- WO Board Column Status -->
-                            <div class="panel dash-panel">
-                                <div class="dash-panel-header">
-                                    <h2>WO Board Status</h2>
-                                    <a class="dash-link" onclick="showView('boardView', document.querySelector('.nav-link[onclick*=boardView]'))">Open →</a>
-                                </div>
-                                <div class="board-col-list" id="boardColList"></div>
+                        <!-- Accounts Payable -->
+                        <div class="panel dash-panel draggable-panel" id="panel-ap" draggable="true" data-panel="ap">
+                            <div class="drag-handle" title="Drag to reorder">⠿</div>
+                            <div class="dash-panel-header">
+                                <h2>Accounts Payable</h2>
+                                <a class="dash-link" onclick="showView('apView', document.querySelector('.nav-link[onclick*=apView]'))">View All →</a>
                             </div>
-
-                            <!-- Overdue PMs -->
-                            <div class="panel dash-panel">
-                                <div class="dash-panel-header">
-                                    <h2>Overdue PMs <span class="panel-count" id="pmCount">0</span></h2>
-                                    <a class="dash-link" onclick="showView('pmView', document.querySelector('.nav-link[onclick*=pmView]'))">PM Tracker →</a>
-                                </div>
-                                <div class="pm-alert-list" id="pmAlertList"></div>
-                            </div>
-
+                            <table class="data-table" id="dashApTable">
+                                <thead><tr><th>Vendor</th><th class="text-right">Total Owed</th><th>Next Due</th></tr></thead>
+                                <tbody id="apTableBody2"></tbody>
+                            </table>
                         </div>
+
+                        <!-- WO Board Status -->
+                        <div class="panel dash-panel draggable-panel" id="panel-board" draggable="true" data-panel="board">
+                            <div class="drag-handle" title="Drag to reorder">⠿</div>
+                            <div class="dash-panel-header">
+                                <h2>WO Board Status</h2>
+                                <a class="dash-link" onclick="showView('boardView', document.querySelector('.nav-link[onclick*=boardView]'))">Open →</a>
+                            </div>
+                            <div class="board-col-list" id="boardColList"></div>
+                        </div>
+
+                        <!-- Overdue PMs -->
+                        <div class="panel dash-panel draggable-panel" id="panel-pm" draggable="true" data-panel="pm">
+                            <div class="drag-handle" title="Drag to reorder">⠿</div>
+                            <div class="dash-panel-header">
+                                <h2>Overdue PMs <span class="panel-count" id="pmCount">0</span></h2>
+                                <a class="dash-link" onclick="showView('pmView', document.querySelector('.nav-link[onclick*=pmView]'))">PM Tracker →</a>
+                            </div>
+                            <div class="pm-alert-list" id="pmAlertList"></div>
+                        </div>
+
                     </div>
                 </div>
 
