@@ -273,6 +273,44 @@ public class MigrateController : ControllerBase
     }
 
     /// <summary>
+    /// GET /migrate/debug-appt-raw — show raw appointments response from ST to inspect technicianAssignments shape
+    /// </summary>
+    [HttpGet("debug-appt-raw")]
+    public async Task<IActionResult> DebugApptRaw()
+    {
+        try
+        {
+            var today = DateTime.UtcNow.Date;
+            var raw = await _stService.GetAppointmentsAsync(today, today.AddDays(4));
+            var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+
+            var items = new List<object>();
+            if (parsed.TryGetProperty("data", out var data))
+            {
+                foreach (var appt in data.EnumerateArray().Take(5))
+                {
+                    long id = 0, jobId = 0;
+                    if (appt.TryGetProperty("id", out var idProp)) id = idProp.GetInt64();
+                    if (appt.TryGetProperty("jobId", out var jProp)) jobId = jProp.GetInt64();
+
+                    // Get raw technicianAssignments as a string so we can see its shape
+                    string techRaw = "none";
+                    if (appt.TryGetProperty("technicianAssignments", out var ta))
+                        techRaw = ta.GetRawText();
+
+                    items.Add(new { id, jobId, technicianAssignments = techRaw });
+                }
+            }
+
+            return Ok(new { count = items.Count, items });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// GET /migrate/debug-assignments — show raw assignment export from ST + what's in AppointmentTechnicians table
     /// </summary>
     [HttpGet("debug-assignments")]
