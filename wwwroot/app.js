@@ -233,57 +233,191 @@ async function loadDashboard() {
     if (!res || !res.ok) return;
     const data = await res.json();
 
-    document.getElementById("totalAR").innerText = "$" + Number(data.totalAR || 0).toLocaleString();
-
-    // Total AP = sum of all total invoice amounts (fall back to totalOwed if totalInvoiceAmount not set)
+    // ── KPI STRIP ──────────────────────────────────────────────
+    const totalAR = Number(data.totalAR || 0);
     const totalApInvoices = data.ap.reduce((sum, v) => sum + Number(v.totalInvoiceAmount || v.totalOwed || 0), 0);
-    document.getElementById("totalAP").innerText = "$" + totalApInvoices.toLocaleString();
+    const net = totalAR - totalApInvoices;
 
-    const net = Number(data.totalAR || 0) - totalApInvoices;
-    const netEl = document.getElementById("netPosition");
-    netEl.innerText = "$" + net.toLocaleString();
-    netEl.style.color = net >= 0 ? "#4ade80" : "#f87171";
+    document.getElementById("totalAR").innerText   = "$" + totalAR.toLocaleString();
+    document.getElementById("totalAP").innerText   = "$" + totalApInvoices.toLocaleString();
+    document.getElementById("netPosition").innerText = "$" + net.toLocaleString();
+    document.getElementById("netPosition").style.color = net >= 0 ? "#4ade80" : "#f87171";
 
-    // AR table
+    const openWoCount = data.openWorkOrders ? data.openWorkOrders.length : 0;
+    document.getElementById("kpiOpenWo").innerText = openWoCount;
+
+    const overduePmCount = data.overduePms ? data.overduePms.length : 0;
+    document.getElementById("kpiOverduePm").innerText = overduePmCount;
+
+    // Need to Schedule from board columns
+    const columnMap = {};
+    if (data.boardColumns) {
+        data.boardColumns.forEach(col => {
+            columnMap[col.name.toLowerCase()] = { count: col.cards.length, cards: col.cards, color: col.color };
+        });
+    }
+    const getCol = (name) => {
+        const key = name.toLowerCase();
+        for (const [k, v] of Object.entries(columnMap)) {
+            if (k.includes(key) || key.includes(k)) return v;
+        }
+        return { count: 0, cards: [], color: "#475569" };
+    };
+    const needSchedule  = getCol("schedule");
+    const waitingParts  = getCol("waiting parts");
+    const waitingQuote  = getCol("waiting quote");
+    const needReturn    = getCol("need to return");
+
+    document.getElementById("kpiNeedSchedule").innerText = needSchedule.count;
+
+    // ── SIDEBAR BADGES ─────────────────────────────────────────
+    const badgeWo = document.getElementById("navBadgeWo");
+    if (badgeWo) {
+        const cnt = data.openWoCount ?? openWoCount;
+        badgeWo.style.display = cnt > 0 ? "inline" : "none";
+        badgeWo.innerText = cnt;
+    }
+    const badgePm = document.getElementById("navBadgePm");
+    if (badgePm) {
+        const cnt = data.overduePmCount ?? overduePmCount;
+        badgePm.style.display = cnt > 0 ? "inline" : "none";
+        badgePm.innerText = cnt;
+    }
+
+    // ── AR TABLE ───────────────────────────────────────────────
     const arTable = document.getElementById("arTableBody");
     arTable.innerHTML = "";
-    data.ar.forEach(c => { arTable.innerHTML += `<tr><td class="bold">${c.name}</td><td class="text-right">$${Number(c.totalOwed).toLocaleString()}</td></tr>`; });
+    data.ar.forEach(c => {
+        arTable.innerHTML += `<tr><td class="bold">${c.name}</td><td class="text-right">$${Number(c.totalOwed).toLocaleString()}</td></tr>`;
+    });
     if (data.ar.length === 0) arTable.innerHTML = '<tr class="empty-row"><td colspan="2">No outstanding receivables</td></tr>';
     makeSortable("dashArTable");
 
-    // AP table
+    // ── AR AGING BARS ──────────────────────────────────────────
+    if (data.aRaging || data.arAging) {
+        const ag = data.aRaging || data.arAging;
+        const b0 = Number(ag.bucket0_30   ?? ag.Bucket0_30   ?? 0);
+        const b1 = Number(ag.bucket31_60  ?? ag.Bucket31_60  ?? 0);
+        const b2 = Number(ag.bucket61_90  ?? ag.Bucket61_90  ?? 0);
+        const b3 = Number(ag.bucket90Plus ?? ag.Bucket90Plus ?? 0);
+        const total = b0 + b1 + b2 + b3;
+
+        const fmtK = v => v >= 1000 ? "$" + (v/1000).toFixed(1) + "k" : "$" + Math.round(v).toLocaleString();
+        const pct = (v, t) => t > 0 ? Math.max(2, Math.round((v / t) * 100)) : 0;
+
+        document.getElementById("arAgingTotal").innerText = "$" + Math.round(total).toLocaleString() + " outstanding";
+        document.getElementById("agingBar0").style.width = pct(b0, total) + "%";
+        document.getElementById("agingBar1").style.width = pct(b1, total) + "%";
+        document.getElementById("agingBar2").style.width = pct(b2, total) + "%";
+        document.getElementById("agingBar3").style.width = pct(b3, total) + "%";
+        document.getElementById("agingAmt0").innerText = fmtK(b0);
+        document.getElementById("agingAmt1").innerText = fmtK(b1);
+        document.getElementById("agingAmt2").innerText = fmtK(b2);
+        document.getElementById("agingAmt3").innerText = fmtK(b3);
+    }
+
+    // ── AP TABLE ───────────────────────────────────────────────
     const apTable = document.getElementById("apTableBody2");
     apTable.innerHTML = "";
     data.ap.forEach(v => {
         const due = v.nextDue ? new Date(v.nextDue).toLocaleDateString() : "-";
-        const owedNow = Number(v.totalOwed || 0);
         const totalInv = Number(v.totalInvoiceAmount || v.totalOwed || 0);
         apTable.innerHTML += `<tr>
             <td class="bold">${v.name}</td>
-            <td class="text-right">$${owedNow.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-            <td class="text-right">$${totalInv.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+            <td class="text-right">$${totalInv.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
             <td>${due}</td>
         </tr>`;
     });
-    if (data.ap.length === 0) apTable.innerHTML = '<tr class="empty-row"><td colspan="4">No outstanding payables</td></tr>';
+    if (data.ap.length === 0) apTable.innerHTML = '<tr class="empty-row"><td colspan="3">No outstanding payables</td></tr>';
     makeSortable("dashApTable");
 
-    // Open Work Orders
-    const woTable = document.getElementById("openWoBody");
-    woTable.innerHTML = "";
-    if (data.openWorkOrders && data.openWorkOrders.length > 0) {
-        data.openWorkOrders.forEach(wo => {
-            const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "-";
-            woTable.innerHTML += `<tr><td class="bold">${wo.jobNumber}</td><td>${wo.customerName}</td><td><span class="status-badge open">${wo.status}</span></td><td>${created}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
-        });
-    } else { woTable.innerHTML = '<tr class="empty-row"><td colspan="5">No open work orders</td></tr>'; }
+    // ── OPEN WORK ORDERS (with Days Open + filter) ─────────────
+    window._dashWoData = data.openWorkOrders || [];
+    document.getElementById("woCount").innerText = openWoCount;
+    filterWoTable();
     makeSortable("dashWoTable");
 
-    // Ops Stats Row
+    // ── BOARD COLUMN STATUS (right panel) ──────────────────────
+    const colList = document.getElementById("boardColList");
+    if (colList && data.boardColumns && data.boardColumns.length > 0) {
+        const maxCards = Math.max(...data.boardColumns.map(c => c.cards.length), 1);
+        colList.innerHTML = data.boardColumns.map(col => {
+            const pct = Math.max(4, Math.round((col.cards.length / maxCards) * 100));
+            const color = col.color || "#475569";
+            return `<div class="board-col-row">
+                <div class="board-col-dot" style="background:${color};"></div>
+                <div class="board-col-name">${col.name}</div>
+                <div class="board-col-bar-wrap"><div class="board-col-bar-fill" style="width:${pct}%;background:${color};"></div></div>
+                <div class="board-col-count">${col.cards.length}</div>
+            </div>`;
+        }).join("");
+    } else if (colList) {
+        colList.innerHTML = '<div style="padding:16px;color:#475569;font-size:12px;">No board columns yet</div>';
+    }
+
+    // ── OVERDUE PMs (alert list in right panel) ─────────────────
+    document.getElementById("pmCount").innerText = overduePmCount;
+    const pmList = document.getElementById("pmAlertList");
+    if (pmList && data.overduePms && data.overduePms.length > 0) {
+        pmList.innerHTML = data.overduePms.slice(0, 8).map(pm => {
+            const days = pm.lastPm ? Math.floor((Date.now() - new Date(pm.lastPm).getTime()) / 86400000) : null;
+            const isOverdue = days === null || days > 180;
+            const dotClass = isOverdue ? "pm-dot-red" : "pm-dot-amber";
+            const daysLabel = days !== null ? days + "d ago" : "Never";
+            const custClick = pm.customerId ? `onclick="openCustomerProfile('${pm.customerId}')"` : "";
+            return `<div class="pm-alert-item" ${custClick}>
+                <div class="pm-dot ${dotClass}"></div>
+                <div class="pm-alert-name">${pm.customerName || "—"}</div>
+                <div class="pm-alert-days">${daysLabel}</div>
+            </div>`;
+        }).join("");
+    } else if (pmList) {
+        pmList.innerHTML = '<div style="padding:16px;color:#475569;font-size:12px;">No overdue PMs 🎉</div>';
+    }
+
+    // ── OPS STATS ROW (board column chips) ─────────────────────
     renderOpsStats(data);
 }
 
-function renderOpsStats(data) {
+function filterWoTable() {
+    const filter = (document.getElementById("woStatusFilter")?.value || "").toLowerCase();
+    const woTable = document.getElementById("openWoBody");
+    if (!woTable) return;
+
+    const data = window._dashWoData || [];
+    const filtered = filter ? data.filter(wo => (wo.status || "").toLowerCase().includes(filter)) : data;
+
+    woTable.innerHTML = "";
+    if (filtered.length === 0) {
+        woTable.innerHTML = '<tr class="empty-row"><td colspan="5">No work orders match this filter</td></tr>';
+        return;
+    }
+
+    const now = Date.now();
+    filtered.forEach(wo => {
+        const days = wo.createdAt ? Math.floor((now - new Date(wo.createdAt).getTime()) / 86400000) : null;
+        const daysLabel = days !== null ? days + "d" : "—";
+        const daysClass = days === null ? "days-ok" : days > 60 ? "days-bad" : days > 21 ? "days-warn" : "days-ok";
+
+        const status = (wo.status || "").toLowerCase();
+        let pillClass = "pill-scheduled";
+        if (status.includes("inprogress") || status.includes("in progress")) pillClass = "pill-inprogress";
+        else if (status.includes("hold")) pillClass = "pill-hold";
+
+        const amt = Number(wo.totalAmount || 0);
+        const amtStr = amt > 0 ? `$${amt.toLocaleString()}` : "—";
+
+        woTable.innerHTML += `<tr>
+            <td class="bold job-num-link" onclick="openJobDetail && openJobDetail('${wo.id || ""}')">${wo.jobNumber || "—"}</td>
+            <td>${wo.customerName || "—"}</td>
+            <td><span class="status-pill ${pillClass}">${wo.status || "—"}</span></td>
+            <td><span class="${daysClass}">${daysLabel}</span></td>
+            <td class="text-right">${amtStr}</td>
+        </tr>`;
+    });
+}
+
+
     const row = document.getElementById("opsStatsRow");
     if (!row) return;
 
@@ -439,16 +573,6 @@ async function openCustomerProfile(id) {
                         <span class="muted" style="margin-left:8px;">Last PM was ${daysSince} days ago</span>
                     </div>
                     <button class="btn-primary" style="font-size:13px; padding:8px 16px;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${daysSince})">📧 Send PM Reminder</button>
-                </div>`;
-        } else if (daysSince >= 120) {
-            const daysUntilDue = 180 - daysSince;
-            pmSection.innerHTML = `
-                <div style="background:#7c2d1222; border:1px solid #ea580c; border-radius:8px; padding:14px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                    <div>
-                        <span style="color:#fdba74; font-weight:600;">🔔 PM Due Soon</span>
-                        <span class="muted" style="margin-left:8px;">PM will be due in ${daysUntilDue} days</span>
-                    </div>
-                    <button class="btn-primary" style="font-size:13px; padding:8px 16px; background:#ea580c;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\\\'")}', ${daysSince})">📧 Send PM Reminder</button>
                 </div>`;
         } else {
             pmSection.innerHTML = '';
@@ -1077,45 +1201,11 @@ async function sendPmReminder(customerId, customerName, daysSince) {
     const emailContact = (cust.contacts || []).find(c => c.type && c.type.toLowerCase().includes("email"));
     const phoneContact = (cust.contacts || []).find(c => c.type && (c.type.toLowerCase().includes("phone") || c.type.toLowerCase().includes("mobile")));
 
-    // If no customer-level contacts, check location contacts
-    let email = emailContact;
-    let phone = phoneContact;
-    if (!email || !phone) {
-        (cust.locations || []).forEach(loc => {
-            (loc.contacts || []).forEach(lc => {
-                if (!email && lc.type && lc.type.toLowerCase().includes("email")) email = lc;
-                if (!phone && lc.type && (lc.type.toLowerCase().includes("phone") || lc.type.toLowerCase().includes("mobile"))) phone = lc;
-            });
-        });
-    }
-
     const companyName = document.getElementById("sidebarCompanyName").innerText || "MyOpsBoard";
-    const isDueSoon = daysSince >= 120 && daysSince <= 180;
-    const daysUntilDue = 180 - daysSince;
+    const daysText = daysSince > 0 ? `${daysSince} days` : "a while";
 
-    let subject, body, smsText;
-
-    if (isDueSoon) {
-        // ── DUE SOON MESSAGE ──
-        subject = encodeURIComponent(`Your Preventive Maintenance is Coming Due - ${companyName}`);
-        body = encodeURIComponent(
-`Hi ${customerName},
-
-This is a friendly heads-up from ${companyName} that your preventive maintenance will be due in approximately ${daysUntilDue} days.
-
-Regular maintenance helps prevent costly breakdowns, extends equipment life, and keeps your system running efficiently. Scheduling ahead ensures we can find a time that works best for you.
-
-We'd love to get your next PM visit on the calendar. Please reply to this email or give us a call to book a convenient time.
-
-Thank you,
-${companyName}`
-        );
-        smsText = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. Your preventive maintenance will be due in about ${daysUntilDue} days. We'd love to get you on the schedule — give us a call or reply here!`);
-    } else {
-        // ── OVERDUE MESSAGE ──
-        const daysText = daysSince > 0 ? `${daysSince} days` : "a while";
-        subject = encodeURIComponent(`Preventive Maintenance Reminder - ${companyName}`);
-        body = encodeURIComponent(
+    const subject = encodeURIComponent(`Preventive Maintenance Reminder - ${companyName}`);
+    const body = encodeURIComponent(
 `Hi ${customerName},
 
 This is a friendly reminder from ${companyName} that it has been ${daysText} since your last preventive maintenance service.
@@ -1126,17 +1216,16 @@ We'd love to get you scheduled. Please reply to this email or give us a call to 
 
 Thank you,
 ${companyName}`
-        );
-        smsText = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. It's been ${daysText} since your last preventive maintenance. We'd love to get you scheduled — give us a call or reply here!`);
-    }
+    );
 
     // Build options
     let options = [];
-    if (email) {
-        options.push(`<a href="mailto:${email.value}?subject=${subject}&body=${body}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px;">📧 Email ${email.value}</a>`);
+    if (emailContact) {
+        options.push(`<a href="mailto:${emailContact.value}?subject=${subject}&body=${body}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px;">📧 Email ${emailContact.value}</a>`);
     }
-    if (phone) {
-        options.push(`<a href="sms:${phone.value}?body=${smsText}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px; background:#16a34a;">💬 Text ${phone.value}</a>`);
+    if (phoneContact) {
+        const smsBody = encodeURIComponent(`Hi ${customerName}, this is ${companyName}. It's been ${daysText} since your last preventive maintenance. We'd love to get you scheduled — give us a call or reply here!`);
+        options.push(`<a href="sms:${phoneContact.value}?body=${smsBody}" target="_blank" class="btn-primary" style="display:inline-block; text-decoration:none; padding:10px 20px; font-size:13px; border-radius:8px; background:#16a34a;">💬 Text ${phoneContact.value}</a>`);
     }
 
     if (options.length === 0) {

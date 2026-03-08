@@ -22,18 +22,38 @@ public class DashboardController : ControllerBase
     {
         var isDemo = DemoFilter.IsDemo(User);
 
-        var ar = await _context.Invoices
+        var arRaw = await _context.Invoices
             .Where(i => i.BalanceRemaining > 0)
             .Where(i => !isDemo || i.Customer.Name.StartsWith("[DEMO]"))
             .Where(i => isDemo || !i.Customer.Name.StartsWith("[DEMO]"))
-            .GroupBy(i => i.Customer.Name)
+            .Select(i => new
+            {
+                CustomerName = i.Customer.Name,
+                i.BalanceRemaining,
+                i.IssueDate
+            })
+            .ToListAsync();
+
+        var ar = arRaw
+            .GroupBy(i => i.CustomerName)
             .Select(g => new
             {
                 Name = g.Key,
                 TotalOwed = g.Sum(i => i.BalanceRemaining)
             })
             .OrderByDescending(x => x.TotalOwed)
-            .ToListAsync();
+            .ToList();
+
+        var now = DateTime.UtcNow;
+
+        // AR Aging buckets based on IssueDate
+        var arAging = new
+        {
+            Bucket0_30   = arRaw.Where(i => (now - i.IssueDate).TotalDays <= 30).Sum(i => i.BalanceRemaining),
+            Bucket31_60  = arRaw.Where(i => (now - i.IssueDate).TotalDays is > 30 and <= 60).Sum(i => i.BalanceRemaining),
+            Bucket61_90  = arRaw.Where(i => (now - i.IssueDate).TotalDays is > 60 and <= 90).Sum(i => i.BalanceRemaining),
+            Bucket90Plus = arRaw.Where(i => (now - i.IssueDate).TotalDays > 90).Sum(i => i.BalanceRemaining),
+        };
 
         var ap = await _context.ApBills
             .Where(b => !b.IsPaid)
@@ -53,9 +73,11 @@ public class DashboardController : ControllerBase
         var totalAr = ar.Sum(x => x.TotalOwed);
         var totalAp = ap.Sum(x => x.TotalInvoiceAmount);
 
-        var closedStatuses = new[] { "completed", "canceled", "cancelled" };
         var openWorkOrders = await _context.WorkOrders
-            .Where(w => w.Status == null || !closedStatuses.Any(s => w.Status.ToLower().Contains(s)))
+            .Where(w => w.Status != null
+                && (w.Status.ToLower().Contains("inprogress")
+                    || w.Status.ToLower().Contains("scheduled")
+                    || w.Status.ToLower().Contains("hold")))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
@@ -103,8 +125,11 @@ public class DashboardController : ControllerBase
             })
             .ToListAsync();
 
-        var now = DateTime.UtcNow;
         var overduePms = pmCustomers.Where(p => p.LastPm == null || (now - p.LastPm.Value).TotalDays > 180).ToList();
+
+        // Sidebar badge counts
+        var openWoCount    = openWorkOrders.Count;
+        var overduePmCount = overduePms.Count;
 
         return Ok(new
         {
@@ -112,10 +137,13 @@ public class DashboardController : ControllerBase
             TotalAP = totalAp,
             NetPosition = totalAr - totalAp,
             AR = ar,
+            ARaging = arAging,
             AP = ap,
             OpenWorkOrders = openWorkOrders,
             BoardColumns = boardColumns,
-            OverduePms = overduePms
+            OverduePms = overduePms,
+            OpenWoCount    = openWoCount,
+            OverduePmCount = overduePmCount
         });
     }
 }
