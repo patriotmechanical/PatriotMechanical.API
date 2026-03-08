@@ -179,11 +179,17 @@ public class DashboardController : ControllerBase
             .Distinct()
             .ToList();
 
-        var locationLookup = locationIds.Any()
-            ? await _context.CustomerLocations
+        // Load location data into a plain string dict to avoid anonymous type ternary issues
+        var locationLookup = new Dictionary<long, (string Name, string Street, string City)>();
+        if (locationIds.Any())
+        {
+            var locs = await _context.CustomerLocations
                 .Where(l => locationIds.Contains(l.ServiceTitanLocationId))
-                .ToDictionaryAsync(l => l.ServiceTitanLocationId, l => new { l.Name, l.Street, l.City })
-            : new Dictionary<long, dynamic>();
+                .Select(l => new { l.ServiceTitanLocationId, l.Name, l.Street, l.City })
+                .ToListAsync();
+            foreach (var l in locs)
+                locationLookup[l.ServiceTitanLocationId] = (l.Name ?? "", l.Street ?? "", l.City ?? "");
+        }
 
         // Build appointment items with tech + job + location info
         object BuildDaySchedule(DateTime dayUtc)
@@ -191,15 +197,14 @@ public class DashboardController : ControllerBase
             var dayAppts = appts.Where(a => a.Start.Date == dayUtc).ToList();
             var items = dayAppts.Select(a =>
             {
-                var loc = a.ServiceTitanLocationId > 0 && locationLookup.ContainsKey(a.ServiceTitanLocationId)
-                    ? locationLookup[a.ServiceTitanLocationId]
-                    : null;
+                var hasLoc = a.ServiceTitanLocationId > 0 && locationLookup.ContainsKey(a.ServiceTitanLocationId);
+                var loc = hasLoc ? locationLookup[a.ServiceTitanLocationId] : ("", "", "");
                 return new
                 {
                     JobNumber    = a.WorkOrder?.JobNumber ?? "",
                     CustomerName = a.WorkOrder?.Customer?.Name ?? "",
-                    LocationName = loc?.Name ?? "",
-                    LocationAddr = string.IsNullOrEmpty(loc?.Street) ? "" : $"{loc.Street}{(string.IsNullOrEmpty(loc?.City) ? "" : ", " + loc.City)}",
+                    LocationName = loc.Name,
+                    LocationAddr = string.IsNullOrEmpty(loc.Street) ? "" : $"{loc.Street}{(string.IsNullOrEmpty(loc.City) ? "" : ", " + loc.City)}",
                     Start        = a.Start,
                     Techs        = a.Technicians.Select(t => t.TechnicianName).ToList()
                 };
