@@ -232,6 +232,7 @@ async function loadDashboard() {
     const res = await api("/dashboard");
     if (!res || !res.ok) return;
     const data = await res.json();
+    const now = Date.now();
 
     // ── KPI STRIP ──────────────────────────────────────────────
     const totalAR = Number(data.totalAR || 0);
@@ -282,7 +283,6 @@ async function loadDashboard() {
     }
 
     // ── KPI SUB-LABELS: oldest item age ────────────────────────
-    const now = Date.now();
 
     // Oldest unpaid AR invoice (based on IssueDate from arAging raw, approximate via oldest AR customer)
     // We don't have per-invoice dates in AR grouped response, so use arAging to infer:
