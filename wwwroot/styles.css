@@ -1220,7 +1220,11 @@ td {
     gap: 10px;
     padding: 8px 16px;
     border-bottom: 1px solid #1e293b;
+    cursor: pointer;
+    transition: background 0.12s;
 }
+.board-col-row:hover { background: #0f172a; }
+.board-col-row.active { background: #1a2744; }
 .board-col-row:last-child { border-bottom: none; }
 .board-col-dot {
     width: 8px; height: 8px;
@@ -1289,6 +1293,28 @@ td {
     font-weight: 600;
 }
 .job-num-link:hover { text-decoration: underline; }
+
+/* AP overdue badge */
+.overdue-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: monospace;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+/* AR table row age coloring */
+tr.ar-row-warn td { background: rgba(245, 158, 11, 0.06); }
+tr.ar-row-bad  td { background: rgba(239, 68, 68, 0.07); }
+tr.ar-row-warn td.bold { color: #fbbf24; }
+tr.ar-row-bad  td.bold { color: #f87171; }
 
 .kpi-clickable {
     cursor: pointer;

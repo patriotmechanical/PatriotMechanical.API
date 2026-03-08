@@ -34,17 +34,18 @@ public class DashboardController : ControllerBase
             })
             .ToListAsync();
 
+        var now = DateTime.UtcNow;
+
         var ar = arRaw
             .GroupBy(i => i.CustomerName)
             .Select(g => new
             {
                 Name = g.Key,
-                TotalOwed = g.Sum(i => i.BalanceRemaining)
+                TotalOwed = g.Sum(i => i.BalanceRemaining),
+                OldestInvoiceDays = (int)(now - g.Min(i => i.IssueDate)).TotalDays
             })
             .OrderByDescending(x => x.TotalOwed)
             .ToList();
-
-        var now = DateTime.UtcNow;
 
         // AR Aging buckets based on IssueDate
         var arAging = new
@@ -103,7 +104,7 @@ public class DashboardController : ControllerBase
                 Cards = c.Cards
                     .Where(card => !isDemo || card.CustomerName.StartsWith("[DEMO]"))
                     .Where(card => isDemo || !card.CustomerName.StartsWith("[DEMO]"))
-                    .Select(card => new { card.JobNumber, card.CustomerName })
+                    .Select(card => new { card.JobNumber, card.CustomerName, card.AddedAt })
                     .ToList()
             })
             .ToListAsync();

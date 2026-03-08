@@ -269,6 +269,18 @@ async function loadDashboard() {
 
     document.getElementById("kpiNeedSchedule").innerText = needSchedule.count;
 
+    // Need to Schedule sub-label: oldest card age
+    if (needSchedule.cards && needSchedule.cards.length > 0) {
+        const oldestSched = needSchedule.cards.reduce((max, card) => {
+            if (!card.addedAt) return max;
+            const d = Math.floor((now - new Date(card.addedAt).getTime()) / 86400000);
+            return d > max ? d : max;
+        }, 0);
+        document.getElementById("kpiSchedSub").innerText = oldestSched > 0 ? `oldest ${oldestSched}d waiting` : "unbooked jobs";
+    } else {
+        document.getElementById("kpiSchedSub").innerText = "unbooked jobs";
+    }
+
     // ── KPI SUB-LABELS: oldest item age ────────────────────────
     const now = Date.now();
 
@@ -339,7 +351,10 @@ async function loadDashboard() {
     const arTable = document.getElementById("arTableBody");
     arTable.innerHTML = "";
     data.ar.forEach(c => {
-        arTable.innerHTML += `<tr><td class="bold">${c.name}</td><td class="text-right">$${Number(c.totalOwed).toLocaleString()}</td></tr>`;
+        const days = c.oldestInvoiceDays ?? c.OldestInvoiceDays ?? 0;
+        const rowClass = days > 90 ? "ar-row-bad" : days > 30 ? "ar-row-warn" : "";
+        const ageLabel = days > 0 ? `<span class="${days > 90 ? 'days-bad' : days > 30 ? 'days-warn' : 'days-ok'}" style="font-size:10px;margin-left:6px;">${days}d</span>` : "";
+        arTable.innerHTML += `<tr class="${rowClass}"><td class="bold">${c.name}${ageLabel}</td><td class="text-right">$${Number(c.totalOwed).toLocaleString()}</td></tr>`;
     });
     if (data.ar.length === 0) arTable.innerHTML = '<tr class="empty-row"><td colspan="2">No outstanding receivables</td></tr>';
     makeSortable("dashArTable");
@@ -370,13 +385,17 @@ async function loadDashboard() {
     // ── AP TABLE ───────────────────────────────────────────────
     const apTable = document.getElementById("apTableBody2");
     apTable.innerHTML = "";
+    const todayMs = Date.now();
     data.ap.forEach(v => {
-        const due = v.nextDue ? new Date(v.nextDue).toLocaleDateString() : "-";
+        const dueDate = v.nextDue ? new Date(v.nextDue) : null;
+        const due = dueDate ? dueDate.toLocaleDateString() : "-";
+        const isOverdue = dueDate && dueDate.getTime() < todayMs;
+        const overdueBadge = isOverdue ? `<span class="overdue-badge">OVERDUE</span>` : "";
         const totalInv = Number(v.totalInvoiceAmount || v.totalOwed || 0);
         apTable.innerHTML += `<tr>
             <td class="bold">${v.name}</td>
             <td class="text-right">$${totalInv.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-            <td>${due}</td>
+            <td>${due}${overdueBadge}</td>
         </tr>`;
     });
     if (data.ap.length === 0) apTable.innerHTML = '<tr class="empty-row"><td colspan="3">No outstanding payables</td></tr>';
@@ -395,7 +414,8 @@ async function loadDashboard() {
         colList.innerHTML = data.boardColumns.map(col => {
             const pct = Math.max(4, Math.round((col.cards.length / maxCards) * 100));
             const color = col.color || "#475569";
-            return `<div class="board-col-row">
+            const filterVal = col.name.toLowerCase().replace(/\s+/g, "");
+            return `<div class="board-col-row" onclick="filterWoTableByColumn('${filterVal}')" title="Filter WOs by ${col.name}">
                 <div class="board-col-dot" style="background:${color};"></div>
                 <div class="board-col-name">${col.name}</div>
                 <div class="board-col-bar-wrap"><div class="board-col-bar-fill" style="width:${pct}%;background:${color};"></div></div>
@@ -430,17 +450,47 @@ async function loadDashboard() {
     renderOpsStats(data);
 }
 
+function filterWoTableByColumn(colNameNormalized) {
+    // Toggle: if already filtering by this column, clear it; otherwise set it
+    const select = document.getElementById("woStatusFilter");
+    const current = (select?.value || "").toLowerCase().replace(/\s+/g, "");
+    if (current === colNameNormalized) {
+        if (select) select.value = "";
+        // Clear active state on all board col rows
+        document.querySelectorAll(".board-col-row").forEach(r => r.classList.remove("active"));
+    } else {
+        // Try to find a matching status option in the dropdown
+        if (select) {
+            const options = Array.from(select.options);
+            const match = options.find(o => o.value.toLowerCase().replace(/\s+/g, "") === colNameNormalized || colNameNormalized.includes(o.value.toLowerCase().replace(/\s+/g, "")) || o.value.toLowerCase().replace(/\s+/g, "").includes(colNameNormalized));
+            select.value = match ? match.value : "";
+        }
+        // Highlight the clicked row
+        document.querySelectorAll(".board-col-row").forEach(r => {
+            const name = r.querySelector(".board-col-name")?.textContent?.toLowerCase().replace(/\s+/g, "") || "";
+            r.classList.toggle("active", name === colNameNormalized);
+        });
+    }
+    filterWoTable();
+    // Scroll the WO table into view
+    const woPanel = document.getElementById("dashWoTable");
+    if (woPanel) woPanel.closest(".panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
 function filterWoTable() {
     const filter = (document.getElementById("woStatusFilter")?.value || "").toLowerCase();
     const woTable = document.getElementById("openWoBody");
     if (!woTable) return;
+
+    // When using the dropdown directly, clear board-col-row active highlights
+    document.querySelectorAll(".board-col-row").forEach(r => r.classList.remove("active"));
 
     const data = window._dashWoData || [];
     const filtered = filter ? data.filter(wo => (wo.status || "").toLowerCase().includes(filter)) : data;
 
     woTable.innerHTML = "";
     if (filtered.length === 0) {
-        woTable.innerHTML = '<tr class="empty-row"><td colspan="3">No work orders match this filter</td></tr>';
+        woTable.innerHTML = '<tr class="empty-row"><td colspan="4">No work orders match this filter</td></tr>';
         return;
     }
 
@@ -465,6 +515,8 @@ function filterWoTable() {
         const oldest = Math.max(...wos.map(w => w.createdAt ? Math.floor((now - new Date(w.createdAt).getTime()) / 86400000) : 0));
         const oldestClass = oldest > 60 ? "days-bad" : oldest > 21 ? "days-warn" : "days-ok";
         const groupId = "woGroup_" + idx;
+        const totalAmt = wos.reduce((sum, w) => sum + Number(w.totalAmount || 0), 0);
+        const amtLabel = totalAmt > 0 ? "$" + totalAmt.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : "—";
 
         // Customer summary row
         woTable.innerHTML += `<tr class="wo-customer-row" onclick="toggleWoGroup('${groupId}')">
@@ -473,6 +525,7 @@ function filterWoTable() {
                 ${customerName}
             </td>
             <td class="text-right"><span class="wo-count-badge">${wos.length}</span></td>
+            <td class="text-right" style="font-family:monospace;font-size:12px;color:#94a3b8;">${amtLabel}</td>
             <td class="text-right"><span class="${oldestClass}">${oldest}d</span></td>
         </tr>`;
 
@@ -485,9 +538,11 @@ function filterWoTable() {
             let pillClass = "pill-scheduled";
             if (status.includes("inprogress")) pillClass = "pill-inprogress";
             else if (status.includes("hold")) pillClass = "pill-hold";
+            const woAmt = Number(wo.totalAmount || 0) > 0 ? "$" + Number(wo.totalAmount).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : "—";
             return `<tr class="wo-child-row hidden" data-group="${groupId}">
                 <td class="wo-child-job bold job-num-link" onclick="event.stopPropagation(); openJobDetail && openJobDetail('${wo.id || ""}')">#${wo.jobNumber || "—"}</td>
                 <td><span class="status-pill ${pillClass}">${wo.status || "—"}</span></td>
+                <td class="text-right" style="font-family:monospace;font-size:12px;color:#94a3b8;">${woAmt}</td>
                 <td class="text-right"><span class="${daysClass}">${daysLabel}</span></td>
             </tr>`;
         }).join("");
