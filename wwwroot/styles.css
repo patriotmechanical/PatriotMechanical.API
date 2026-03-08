@@ -1289,3 +1289,12 @@ td {
     font-weight: 600;
 }
 .job-num-link:hover { text-decoration: underline; }
+
+.kpi-clickable {
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.kpi-clickable:hover {
+    background: #253147;
+    border-color: #475569;
+}

@@ -418,19 +418,14 @@ function filterWoTable() {
 }
 
 function renderOpsStats(data) {
-    const row = document.getElementById("opsStatsRow");
-    if (!row) return;
-
     const openWoCount = data.openWorkOrders ? data.openWorkOrders.length : 0;
 
-    // Map board columns to stat categories
     const columnMap = {};
     if (data.boardColumns) {
         data.boardColumns.forEach(col => {
             columnMap[col.name.toLowerCase()] = { count: col.cards.length, cards: col.cards, color: col.color };
         });
     }
-
     const getCol = (name) => {
         const key = name.toLowerCase();
         for (const [k, v] of Object.entries(columnMap)) {
@@ -442,28 +437,18 @@ function renderOpsStats(data) {
     const needSchedule = getCol("schedule");
     const waitingParts = getCol("waiting parts");
     const waitingQuote = getCol("waiting quote");
-    const needReturn = getCol("need to return");
+    const needReturn   = getCol("need to return");
     const overduePmCount = data.overduePms ? data.overduePms.length : 0;
 
-    const stats = [
-        { label: "Open WOs", count: openWoCount, color: "#2563eb", items: data.openWorkOrders, type: "wo" },
+    // Store for use by openOpsDrilldown — indices 0,1,2 match the KPI card onclicks
+    window._opsStats = [
+        { label: "Open WOs",        count: openWoCount,       color: "#2563eb", items: data.openWorkOrders, type: "wo" },
         { label: "Need to Schedule", count: needSchedule.count, color: needSchedule.color || "#2563eb", items: needSchedule.cards, type: "board" },
-        { label: "Overdue PMs", count: overduePmCount, color: "#dc2626", items: data.overduePms, type: "pm" },
-        { label: "Waiting Quote", count: waitingQuote.count, color: waitingQuote.color || "#9333ea", items: waitingQuote.cards, type: "board" },
-        { label: "Waiting Parts", count: waitingParts.count, color: waitingParts.color || "#d97706", items: waitingParts.cards, type: "board" },
-        { label: "Need Return", count: needReturn.count, color: needReturn.color || "#dc2626", items: needReturn.cards, type: "board" },
+        { label: "Overdue PMs",     count: overduePmCount,    color: "#dc2626", items: data.overduePms,    type: "pm" },
+        { label: "Waiting Quote",   count: waitingQuote.count, color: waitingQuote.color || "#9333ea", items: waitingQuote.cards, type: "board" },
+        { label: "Waiting Parts",   count: waitingParts.count, color: waitingParts.color || "#d97706", items: waitingParts.cards, type: "board" },
+        { label: "Need Return",     count: needReturn.count,   color: needReturn.color || "#dc2626",   items: needReturn.cards,   type: "board" },
     ];
-
-    row.innerHTML = stats.map((s, i) => {
-        const zeroClass = s.count === 0 ? " zero" : "";
-        const onclick = s.count > 0 ? `onclick="openOpsDrilldown(${i})"` : "";
-        return `<div class="ops-stat-card" style="--stat-color:${s.color};">
-            <h4>${s.label}</h4>
-            <div class="stat-number${zeroClass}" ${onclick}>${s.count}</div>
-        </div>`;
-    }).join("");
-
-    window._opsStats = stats;
 }
 
 function openOpsDrilldown(idx) {

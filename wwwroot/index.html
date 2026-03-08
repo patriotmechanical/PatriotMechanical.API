@@ -139,25 +139,22 @@
                             <div class="kpi-value" id="totalAP">$0</div>
                             <div class="kpi-sub" id="kpiApSub">—</div>
                         </div>
-                        <div class="kpi-card kpi-red">
+                        <div class="kpi-card kpi-red kpi-clickable" onclick="openOpsDrilldown(0)" title="Click to see all open WOs">
                             <div class="kpi-label">Open WOs</div>
                             <div class="kpi-value" id="kpiOpenWo">0</div>
                             <div class="kpi-sub" id="kpiWoSub">—</div>
                         </div>
-                        <div class="kpi-card kpi-amber">
+                        <div class="kpi-card kpi-amber kpi-clickable" onclick="openOpsDrilldown(1)" title="Click to see unscheduled jobs">
                             <div class="kpi-label">Need to Schedule</div>
                             <div class="kpi-value" id="kpiNeedSchedule">0</div>
                             <div class="kpi-sub" id="kpiSchedSub">unbooked jobs</div>
                         </div>
-                        <div class="kpi-card kpi-purple">
+                        <div class="kpi-card kpi-purple kpi-clickable" onclick="openOpsDrilldown(2)" title="Click to see overdue PM customers">
                             <div class="kpi-label">Overdue PMs</div>
                             <div class="kpi-value" id="kpiOverduePm">0</div>
                             <div class="kpi-sub" id="kpiPmSub">180+ days</div>
                         </div>
                     </div>
-
-                    <!-- Ops Stats (board columns) -->
-                    <div class="ops-stats" id="opsStatsRow"></div>
 
                     <!-- Main 3-col grid -->
                     <div class="dash-main-grid">
