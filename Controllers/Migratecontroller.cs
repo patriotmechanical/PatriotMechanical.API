@@ -171,4 +171,38 @@ public class MigrateController : ControllerBase
 
         return Ok(new { updated, skipped, failed, message = "Invoice date backfill complete." });
     }
+
+    /// <summary>
+    /// Hit GET /migrate/apply-appointments ONE TIME to create the Appointments table.
+    /// </summary>
+    [HttpGet("apply-appointments")]
+    public async Task<IActionResult> ApplyAppointments()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""Appointments"" (
+                    ""Id""                          uuid            NOT NULL PRIMARY KEY,
+                    ""ServiceTitanAppointmentId""   bigint          NOT NULL,
+                    ""ServiceTitanJobId""           bigint          NOT NULL DEFAULT 0,
+                    ""WorkOrderId""                 uuid            NULL,
+                    ""Start""                       timestamptz     NOT NULL,
+                    ""End""                         timestamptz     NOT NULL DEFAULT '0001-01-01',
+                    ""Status""                      text            NOT NULL DEFAULT 'Scheduled',
+                    ""TechnicianCount""             int             NOT NULL DEFAULT 0,
+                    ""LastSyncedAt""                timestamptz     NOT NULL DEFAULT now(),
+                    CONSTRAINT ""FK_Appointments_WorkOrders"" FOREIGN KEY (""WorkOrderId"")
+                        REFERENCES ""WorkOrders""(""Id"") ON DELETE SET NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_Appointments_Start"" ON ""Appointments""(""Start"");
+                CREATE INDEX IF NOT EXISTS ""IX_Appointments_ServiceTitanAppointmentId"" ON ""Appointments""(""ServiceTitanAppointmentId"");
+            ");
+
+            return Ok(new { message = "Appointments table created (or already exists)." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { message = "Error creating table.", error = ex.Message });
+        }
+    }
 }

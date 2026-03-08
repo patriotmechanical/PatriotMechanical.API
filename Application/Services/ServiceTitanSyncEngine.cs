@@ -692,5 +692,90 @@ namespace PatriotMechanical.API.Application.Services
             public bool Unused { get; set; }
             public bool HasTechnician { get; set; }
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // APPOINTMENTS SYNC — today + next 3 days
+        // ═══════════════════════════════════════════════════════════════
+        public async Task SyncAppointmentsAsync()
+        {
+            var todayUtc = DateTime.UtcNow.Date;
+            var windowEnd = todayUtc.AddDays(4); // today + 3 more days
+
+            string raw;
+            try { raw = await _service.GetAppointmentsAsync(todayUtc, windowEnd); }
+            catch { return; } // silently skip if ST is down
+
+            JsonElement parsed;
+            try { parsed = JsonSerializer.Deserialize<JsonElement>(raw); }
+            catch { return; }
+
+            if (!parsed.TryGetProperty("data", out var appts)) return;
+
+            // Delete stale appointments in this window and re-insert fresh
+            var staleAppts = await _context.Appointments
+                .Where(a => a.Start >= todayUtc && a.Start < windowEnd)
+                .ToListAsync();
+            _context.Appointments.RemoveRange(staleAppts);
+            await _context.SaveChangesAsync();
+
+            foreach (var appt in appts.EnumerateArray())
+            {
+                try
+                {
+                    var apptId = appt.GetProperty("id").GetInt64();
+                    long jobId = 0;
+                    if (appt.TryGetProperty("jobId", out var jobProp) && jobProp.ValueKind == JsonValueKind.Number)
+                        jobId = jobProp.GetInt64();
+
+                    DateTime start = DateTime.MinValue, end = DateTime.MinValue;
+                    if (appt.TryGetProperty("start", out var startProp) && startProp.ValueKind == JsonValueKind.String)
+                        DateTime.TryParse(startProp.GetString(), null,
+                            System.Globalization.DateTimeStyles.AssumeUniversal |
+                            System.Globalization.DateTimeStyles.AdjustToUniversal, out start);
+                    if (appt.TryGetProperty("end", out var endProp) && endProp.ValueKind == JsonValueKind.String)
+                        DateTime.TryParse(endProp.GetString(), null,
+                            System.Globalization.DateTimeStyles.AssumeUniversal |
+                            System.Globalization.DateTimeStyles.AdjustToUniversal, out end);
+
+                    if (start == DateTime.MinValue) continue;
+
+                    string status = "Scheduled";
+                    if (appt.TryGetProperty("status", out var statusProp) && statusProp.ValueKind == JsonValueKind.String)
+                        status = statusProp.GetString() ?? "Scheduled";
+
+                    // Count technician assignments
+                    int techCount = 0;
+                    if (appt.TryGetProperty("technicianAssignments", out var techsProp) && techsProp.ValueKind == JsonValueKind.Array)
+                        techCount = techsProp.GetArrayLength();
+
+                    // Link to WorkOrder if we have it
+                    Guid? workOrderId = null;
+                    if (jobId > 0)
+                    {
+                        var wo = await _context.WorkOrders
+                            .Where(w => w.ServiceTitanJobId == jobId)
+                            .Select(w => new { w.Id })
+                            .FirstOrDefaultAsync();
+                        workOrderId = wo?.Id;
+                    }
+
+                    _context.Appointments.Add(new PatriotMechanical.API.Domain.Entities.Appointment
+                    {
+                        Id = Guid.NewGuid(),
+                        ServiceTitanAppointmentId = apptId,
+                        ServiceTitanJobId = jobId,
+                        WorkOrderId = workOrderId,
+                        Start = start,
+                        End = end,
+                        Status = status,
+                        TechnicianCount = techCount,
+                        LastSyncedAt = DateTime.UtcNow
+                    });
+                }
+                catch { /* skip malformed */ }
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

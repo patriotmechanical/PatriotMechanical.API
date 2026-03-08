@@ -158,6 +158,30 @@ public class DashboardController : ControllerBase
             .Where(i => i.EffectiveDate >= lastMonthStart && i.EffectiveDate < lastMonthEnd)
             .Sum(i => i.TotalAmount);
 
+        // ── SCHEDULE STRIP ────────────────────────────────────────
+        var todayUtc    = now.Date;
+        var tomorrowUtc = todayUtc.AddDays(1);
+        var dayAfterUtc = todayUtc.AddDays(2);
+        var windowEnd   = todayUtc.AddDays(3);
+
+        var appts = await _context.Appointments
+            .Where(a => a.Start >= todayUtc && a.Start < windowEnd)
+            .Where(a => a.Status != "Canceled" && a.Status != "Cancelled")
+            .ToListAsync();
+
+        var schedToday = new {
+            Count = appts.Count(a => a.Start.Date == todayUtc),
+            Techs = appts.Where(a => a.Start.Date == todayUtc).Sum(a => a.TechnicianCount)
+        };
+        var schedTomorrow = new {
+            Count = appts.Count(a => a.Start.Date == tomorrowUtc),
+            Techs = appts.Where(a => a.Start.Date == tomorrowUtc).Sum(a => a.TechnicianCount)
+        };
+        var schedDayAfter = new {
+            Count = appts.Count(a => a.Start.Date == dayAfterUtc),
+            Techs = appts.Where(a => a.Start.Date == dayAfterUtc).Sum(a => a.TechnicianCount)
+        };
+
         return Ok(new
         {
             TotalAR = totalAr,
@@ -172,7 +196,10 @@ public class DashboardController : ControllerBase
             OpenWoCount       = openWoCount,
             OverduePmCount    = overduePmCount,
             RevenueThisMonth  = revenueThisMonth,
-            RevenueLastMonth  = revenueLastMonth
+            RevenueLastMonth  = revenueLastMonth,
+            ScheduledToday    = schedToday,
+            ScheduledTomorrow = schedTomorrow,
+            ScheduledDayAfter = schedDayAfter
         });
     }
 }

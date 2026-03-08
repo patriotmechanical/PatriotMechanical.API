@@ -354,6 +354,23 @@ async function loadDashboard() {
         revSubEl.innerText = "no invoices this month";
     }
 
+    // ── SCHEDULE STRIP ────────────────────────────────────────
+    const schedToday    = data.scheduledToday    || data.ScheduledToday    || { count: 0, techs: 0 };
+    const schedTomorrow = data.scheduledTomorrow || data.ScheduledTomorrow || { count: 0, techs: 0 };
+    const schedDayAfter = data.scheduledDayAfter || data.ScheduledDayAfter || { count: 0, techs: 0 };
+
+    document.getElementById("schedTodayCount").innerHTML    = `${schedToday.count} <span>jobs</span>`;
+    document.getElementById("schedTodayTechs").innerText    = `${schedToday.techs} tech${schedToday.techs !== 1 ? 's' : ''} assigned`;
+    document.getElementById("schedTomorrowCount").innerHTML = `${schedTomorrow.count} <span>jobs</span>`;
+    document.getElementById("schedTomorrowTechs").innerText = `${schedTomorrow.techs} tech${schedTomorrow.techs !== 1 ? 's' : ''} assigned`;
+    document.getElementById("schedDayAfterCount").innerHTML = `${schedDayAfter.count} <span>jobs</span>`;
+    document.getElementById("schedDayAfterTechs").innerText = `${schedDayAfter.techs} tech${schedDayAfter.techs !== 1 ? 's' : ''} assigned`;
+
+    // Set day-after label to actual day name
+    const dayAfterDate = new Date();
+    dayAfterDate.setDate(dayAfterDate.getDate() + 2);
+    document.getElementById("schedDayAfterLabel").innerText = dayAfterDate.toLocaleDateString("en-US", { weekday: "long" });
+
     // ── SIDEBAR BADGES ─────────────────────────────────────────
     const badgeWo = document.getElementById("navBadgeWo");
     if (badgeWo) {

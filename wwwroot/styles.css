@@ -2064,3 +2064,45 @@ tr.ar-row-bad  td.bold { color: #f87171; }
     padding-top: 8px;
     margin-top: 4px;
 }
+
+/* ── SCHEDULE STRIP ───────────────────────────────────────── */
+.schedule-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.sched-day {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-top: 3px solid #14b8a6;
+    border-radius: 10px;
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.sched-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+.sched-count {
+    font-size: 28px;
+    font-weight: 800;
+    color: #f1f5f9;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.sched-count span {
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-left: 6px;
+}
+.sched-sub {
+    font-size: 11px;
+    color: #64748b;
+}

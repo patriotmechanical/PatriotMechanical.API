@@ -42,6 +42,9 @@ namespace PatriotMechanical.API.Infrastructure.Data
         // Todos
         public DbSet<TodoItem> TodoItems { get; set; }
 
+        // Appointments
+        public DbSet<Appointment> Appointments { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()
@@ -81,12 +84,6 @@ namespace PatriotMechanical.API.Infrastructure.Data
                 .HasOne(w => w.Customer)
                 .WithMany()
                 .HasForeignKey(w => w.CustomerId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            modelBuilder.Entity<Invoice>()
-                .HasOne(i => i.WorkOrder)
-                .WithMany(w => w.Invoices)
-                .HasForeignKey(i => i.WorkOrderId)
                 .OnDelete(DeleteBehavior.SetNull);
 
             base.OnModelCreating(modelBuilder);

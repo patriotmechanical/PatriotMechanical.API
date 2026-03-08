@@ -31,6 +31,7 @@ namespace PatriotMechanical.API.Application.Services
 
                         await engine.SyncCustomersAsync(fullSync: false);
                         await engine.SyncJobsAsync(fullSync: false);
+                        await engine.SyncAppointmentsAsync();
                     }
                 }
                 catch (Exception ex)
