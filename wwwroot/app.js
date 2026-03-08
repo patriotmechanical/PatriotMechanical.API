@@ -333,6 +333,27 @@ async function loadDashboard() {
         document.getElementById("kpiPmSub").innerText = oldest > 0 ? `longest ${oldest}d ago` : "never serviced";
     }
 
+    // ── MONTH REVENUE KPI ──────────────────────────────────────
+    const revThis = Number(data.revenueThisMonth ?? data.RevenueThisMonth ?? 0);
+    const revLast = Number(data.revenueLastMonth ?? data.RevenueLastMonth ?? 0);
+    document.getElementById("kpiMonthRevenue").innerText = fmtCurrency(revThis);
+
+    // Sub-label: MoM delta
+    const revSubEl = document.getElementById("kpiRevSub");
+    if (revLast > 0) {
+        const delta = revThis - revLast;
+        const pct   = Math.round(Math.abs(delta) / revLast * 100);
+        const arrow = delta >= 0 ? "↑" : "↓";
+        const color = delta >= 0 ? "#4ade80" : "#f87171";
+        const lastMonthName = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+            .toLocaleString("default", { month: "short" });
+        revSubEl.innerHTML = `<span style="color:${color}">${arrow} ${pct}% vs ${lastMonthName}</span>`;
+    } else if (revThis > 0) {
+        revSubEl.innerText = "first month on record";
+    } else {
+        revSubEl.innerText = "no invoices this month";
+    }
+
     // ── SIDEBAR BADGES ─────────────────────────────────────────
     const badgeWo = document.getElementById("navBadgeWo");
     if (badgeWo) {

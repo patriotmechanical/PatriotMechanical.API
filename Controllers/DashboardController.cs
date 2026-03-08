@@ -135,6 +135,29 @@ public class DashboardController : ControllerBase
         var openWoCount    = openWorkOrders.Count;
         var overduePmCount = overduePms.Count;
 
+        // ── MONTH REVENUE ──────────────────────────────────────────
+        var thisMonthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var lastMonthStart = thisMonthStart.AddMonths(-1);
+        var lastMonthEnd   = thisMonthStart;
+
+        var allInvoices = await _context.Invoices
+            .Where(i => !isDemo || i.Customer.Name.StartsWith("[DEMO]"))
+            .Where(i => isDemo  || !i.Customer.Name.StartsWith("[DEMO]"))
+            .Select(i => new
+            {
+                EffectiveDate = i.IssueDate == DateTime.MinValue ? i.InvoiceDate : i.IssueDate,
+                i.TotalAmount
+            })
+            .ToListAsync();
+
+        var revenueThisMonth = allInvoices
+            .Where(i => i.EffectiveDate >= thisMonthStart && i.EffectiveDate < now)
+            .Sum(i => i.TotalAmount);
+
+        var revenueLastMonth = allInvoices
+            .Where(i => i.EffectiveDate >= lastMonthStart && i.EffectiveDate < lastMonthEnd)
+            .Sum(i => i.TotalAmount);
+
         return Ok(new
         {
             TotalAR = totalAr,
@@ -146,8 +169,10 @@ public class DashboardController : ControllerBase
             OpenWorkOrders = openWorkOrders,
             BoardColumns = boardColumns,
             OverduePms = overduePms,
-            OpenWoCount    = openWoCount,
-            OverduePmCount = overduePmCount
+            OpenWoCount       = openWoCount,
+            OverduePmCount    = overduePmCount,
+            RevenueThisMonth  = revenueThisMonth,
+            RevenueLastMonth  = revenueLastMonth
         });
     }
 }
