@@ -351,7 +351,8 @@ async function loadDashboard() {
     const arTable = document.getElementById("arTableBody");
     arTable.innerHTML = "";
     data.ar.forEach(c => {
-        const days = c.oldestInvoiceDays ?? c.OldestInvoiceDays ?? 0;
+        const rawDays = c.oldestInvoiceDays ?? c.OldestInvoiceDays ?? 0;
+        const days = rawDays > 3650 ? 0 : rawDays; // ignore DateTime.MinValue garbage data
         const rowClass = days > 90 ? "ar-row-bad" : days > 30 ? "ar-row-warn" : "";
         const ageLabel = days > 0 ? `<span class="${days > 90 ? 'days-bad' : days > 30 ? 'days-warn' : 'days-ok'}" style="font-size:10px;margin-left:6px;">${days}d</span>` : "";
         arTable.innerHTML += `<tr class="${rowClass}"><td class="bold">${c.name}${ageLabel}</td><td class="text-right">$${Number(c.totalOwed).toLocaleString()}</td></tr>`;
