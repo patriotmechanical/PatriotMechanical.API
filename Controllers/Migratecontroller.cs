@@ -13,11 +13,13 @@ public class MigrateController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly ServiceTitanService _stService;
+    private readonly ServiceTitanSyncEngine _syncEngine;
 
-    public MigrateController(AppDbContext context, ServiceTitanService stService)
+    public MigrateController(AppDbContext context, ServiceTitanService stService, ServiceTitanSyncEngine syncEngine)
     {
         _context = context;
         _stService = stService;
+        _syncEngine = syncEngine;
     }
 
     /// <summary>
@@ -204,5 +206,39 @@ public class MigrateController : ControllerBase
         {
             return Ok(new { message = "Error creating table.", error = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// GET /migrate/sync-appointments — trigger appointment sync manually for testing
+    /// </summary>
+    [HttpGet("sync-appointments")]
+    public async Task<IActionResult> SyncAppointments()
+    {
+        try
+        {
+            await _syncEngine.SyncAppointmentsAsync();
+            var count = await _context.Appointments.CountAsync();
+            return Ok(new { message = "Appointment sync complete.", totalInDb = count });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { message = "Sync failed.", error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// GET /migrate/debug-appointments — show what's in the Appointments table
+    /// </summary>
+    [HttpGet("debug-appointments")]
+    public async Task<IActionResult> DebugAppointments()
+    {
+        var now = DateTime.UtcNow;
+        var count = await _context.Appointments.CountAsync();
+        var upcoming = await _context.Appointments
+            .Where(a => a.Start >= now.Date && a.Start < now.Date.AddDays(4))
+            .OrderBy(a => a.Start)
+            .Select(a => new { a.ServiceTitanAppointmentId, a.ServiceTitanJobId, a.Start, a.Status, a.TechnicianCount })
+            .ToListAsync();
+        return Ok(new { totalInTable = count, upcomingWindow = upcoming });
     }
 }
