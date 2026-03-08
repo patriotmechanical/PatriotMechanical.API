@@ -209,6 +209,26 @@ public class MigrateController : ControllerBase
     }
 
     /// <summary>
+    /// GET /migrate/add-wo-location-col — add ServiceTitanLocationId column to WorkOrders table
+    /// </summary>
+    [HttpGet("add-wo-location-col")]
+    public async Task<IActionResult> AddWoLocationCol()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""WorkOrders""
+                ADD COLUMN IF NOT EXISTS ""ServiceTitanLocationId"" bigint NOT NULL DEFAULT 0;
+            ");
+            return Ok(new { message = "WorkOrders.ServiceTitanLocationId column added (or already exists)." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { message = "Error.", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// GET /migrate/add-appt-location-col — add ServiceTitanLocationId column to Appointments table
     /// </summary>
     [HttpGet("add-appt-location-col")]

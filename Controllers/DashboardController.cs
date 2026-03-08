@@ -173,9 +173,10 @@ public class DashboardController : ControllerBase
             .ToListAsync();
 
         // Build location name lookup: ST location ID → location name + street
+        // Get location IDs from WorkOrders (appointments don't carry locationId from ST)
         var locationIds = appts
-            .Where(a => a.ServiceTitanLocationId > 0)
-            .Select(a => a.ServiceTitanLocationId)
+            .Where(a => a.WorkOrder != null && a.WorkOrder.ServiceTitanLocationId > 0)
+            .Select(a => a.WorkOrder!.ServiceTitanLocationId)
             .Distinct()
             .ToList();
 
@@ -197,8 +198,9 @@ public class DashboardController : ControllerBase
             var dayAppts = appts.Where(a => a.Start.Date == dayUtc).ToList();
             var items = dayAppts.Select(a =>
             {
-                var hasLoc = a.ServiceTitanLocationId > 0 && locationLookup.ContainsKey(a.ServiceTitanLocationId);
-                var loc = hasLoc ? locationLookup[a.ServiceTitanLocationId] : (Name: "", Street: "", City: "");
+                var locId = a.WorkOrder?.ServiceTitanLocationId ?? 0;
+                var hasLoc = locId > 0 && locationLookup.ContainsKey(locId);
+                var loc = hasLoc ? locationLookup[locId] : (Name: "", Street: "", City: "");
                 return new
                 {
                     JobNumber    = a.WorkOrder?.JobNumber ?? "",

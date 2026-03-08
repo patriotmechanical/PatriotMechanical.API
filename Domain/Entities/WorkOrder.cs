@@ -17,6 +17,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public long ServiceTitanJobId { get; set; }
         public DateTime? ServiceTitanModifiedOn { get; set; }
         public long ServiceTitanCustomerId { get; set; }
+        public long ServiceTitanLocationId { get; set; }
         public Guid? TechnicianId { get; set; }
         public Technician? Technician { get; set; }
 
@@ -32,7 +33,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public ICollection<WorkOrderLabor> LaborEntries { get; set; } = new List<WorkOrderLabor>();
         public ICollection<WorkOrderMaterial> MaterialEntries { get; set; } = new List<WorkOrderMaterial>();
 
-        public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
+        public Invoice? Invoice { get; set; }
 
         public decimal TotalLaborCost { get; set; }
         public decimal TotalMaterialCost { get; set; }
