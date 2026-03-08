@@ -619,111 +619,172 @@ async function openCustomerProfile(id) {
     if (!res || !res.ok) return;
     const c = await res.json();
 
+    // Reset tabs to default
+    switchProfileTab('locations', document.querySelector('.profile-tab'));
+
+    // ── HEADER ──────────────────────────────────────────────────
     document.getElementById("profileName").innerText = c.name;
+    const locCount = c.locations ? c.locations.length : 0;
+    document.getElementById("profileSubtitle").innerText = locCount > 0 ? `${locCount} location${locCount !== 1 ? "s" : ""}` : "";
 
-    // Balance
+    // ── STAT CARDS ───────────────────────────────────────────────
     const bal = Number(c.balanceOwed || 0);
-    document.getElementById("profileBalance").innerText = "$" + bal.toLocaleString();
-    document.getElementById("profileBalance").className = bal > 0 ? "big-number danger" : "big-number success-text";
+    const balEl = document.getElementById("profileBalance");
+    balEl.innerText = "$" + bal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    balEl.className = "profile-stat-value" + (bal > 0 ? " profile-danger" : " profile-good");
 
-    // Work order count
     document.getElementById("profileWoCount").innerText = c.workOrders ? c.workOrders.length : "0";
 
-    // Last PM + reminder
+    const openWos = c.workOrders ? c.workOrders.filter(w => w.status !== "Completed" && w.status !== "Cancelled" && w.status !== "Canceled").length : 0;
+    document.getElementById("profileOpenWo").innerText = openWos;
+
+    // ── LAST PM ──────────────────────────────────────────────────
     const pmSection = document.getElementById("profilePmSection");
     if (c.lastPm) {
         const pmDate = new Date(c.lastPm.completedAt);
-        const daysSince = Math.floor((Date.now() - pmDate.getTime()) / (1000 * 60 * 60 * 24));
-        document.getElementById("profileLastPm").innerText = pmDate.toLocaleDateString() + ` (${daysSince} days ago)`;
-
+        const daysSince = Math.floor((Date.now() - pmDate.getTime()) / 86400000);
+        document.getElementById("profileLastPm").innerText = pmDate.toLocaleDateString();
         if (daysSince > 180) {
-            pmSection.innerHTML = `
-                <div style="background:#7f1d1d22; border:1px solid #7f1d1d; border-radius:8px; padding:14px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                    <div>
-                        <span style="color:#fca5a5; font-weight:600;">⚠ PM Overdue</span>
-                        <span class="muted" style="margin-left:8px;">Last PM was ${daysSince} days ago</span>
-                    </div>
-                    <button class="btn-primary" style="font-size:13px; padding:8px 16px;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${daysSince})">📧 Send PM Reminder</button>
-                </div>`;
+            pmSection.innerHTML = `<div class="profile-alert profile-alert-danger">
+                <div><span class="profile-alert-title">PM Overdue</span><span class="profile-alert-sub">Last PM was ${daysSince} days ago</span></div>
+                <button class="btn-primary btn-sm-action" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${daysSince})">Send Reminder</button>
+            </div>`;
+        } else if (daysSince > 120) {
+            pmSection.innerHTML = `<div class="profile-alert profile-alert-warn">
+                <div><span class="profile-alert-title">PM Due Soon</span><span class="profile-alert-sub">${daysSince} days since last PM</span></div>
+                <button class="btn-primary btn-sm-action" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', ${daysSince})">Send Reminder</button>
+            </div>`;
         } else {
-            pmSection.innerHTML = '';
+            pmSection.innerHTML = "";
         }
     } else {
-        document.getElementById("profileLastPm").innerText = "None on record";
-        pmSection.innerHTML = `
-            <div style="background:#7f1d1d22; border:1px solid #7f1d1d; border-radius:8px; padding:14px; margin-top:10px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                <div>
-                    <span style="color:#fca5a5; font-weight:600;">⚠ No PM on file</span>
-                    <span class="muted" style="margin-left:8px;">This customer has never had a PM synced</span>
-                </div>
-                <button class="btn-primary" style="font-size:13px; padding:8px 16px;" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', 0)">📧 Send PM Reminder</button>
-            </div>`;
+        document.getElementById("profileLastPm").innerText = "Never";
+        pmSection.innerHTML = `<div class="profile-alert profile-alert-danger">
+            <div><span class="profile-alert-title">No PM on File</span><span class="profile-alert-sub">No maintenance visits recorded</span></div>
+            <button class="btn-primary btn-sm-action" onclick="sendPmReminder('${c.id}', '${c.name.replace(/'/g, "\\'")}', 0)">Send Reminder</button>
+        </div>`;
     }
 
-    // Contacts
+    // ── CONTACTS ─────────────────────────────────────────────────
     const contactsDiv = document.getElementById("profileContacts");
     if (c.contacts && c.contacts.length > 0) {
-        contactsDiv.innerHTML = c.contacts.map(ct => `
-            <div class="contact-item">
-                <span class="contact-badge">${ct.type}</span>
-                <span>${ct.value}</span>
-                ${ct.memo ? `<span class="muted">— ${ct.memo}</span>` : ""}
-            </div>
-        `).join("");
+        contactsDiv.innerHTML = c.contacts.map(ct => {
+            const icon = ct.type === "Phone" ? "📞" : ct.type === "Email" ? "✉" : "📋";
+            return `<div class="profile-contact-row">
+                <span class="profile-contact-badge">${ct.type}</span>
+                <span class="profile-contact-value">${ct.value}</span>
+                ${ct.memo ? `<span class="profile-contact-memo">${ct.memo}</span>` : ""}
+            </div>`;
+        }).join("");
     } else {
-        contactsDiv.innerHTML = '<div class="muted" style="padding:8px 0;">No contacts on file</div>';
+        contactsDiv.innerHTML = '<div class="profile-empty">No contacts on file</div>';
     }
 
-    // Locations
+    // ── LOCATIONS ────────────────────────────────────────────────
     const locsDiv = document.getElementById("profileLocations");
     if (c.locations && c.locations.length > 0) {
-        locsDiv.innerHTML = c.locations.map(l => {
+        locsDiv.innerHTML = '<div class="profile-locations-grid">' + c.locations.map(l => {
             const addr = [l.street, l.unit, l.city, l.state, l.zip].filter(Boolean).join(", ");
             const locContacts = l.contacts && l.contacts.length > 0
-                ? l.contacts.map(lc => `<div class="contact-item" style="padding:4px 0;"><span class="contact-badge">${lc.type}</span><span>${lc.value}</span></div>`).join("")
+                ? l.contacts.map(lc => `<div class="profile-contact-row"><span class="profile-contact-badge">${lc.type}</span><span class="profile-contact-value">${lc.value}</span></div>`).join("")
                 : "";
-            return `<div class="location-card"><div class="loc-name">${l.name || "Service Location"}</div><div class="loc-addr">${addr || "No address"}</div>${locContacts}</div>`;
-        }).join("");
+            return `<div class="profile-location-card">
+                <div class="profile-loc-name">${l.name || "Service Location"}</div>
+                <div class="profile-loc-addr">${addr || "No address on file"}</div>
+                ${locContacts ? `<div class="profile-loc-contacts">${locContacts}</div>` : ""}
+            </div>`;
+        }).join("") + "</div>";
     } else {
-        locsDiv.innerHTML = '<div class="muted" style="padding:8px 0;">No locations on file</div>';
+        locsDiv.innerHTML = '<div class="profile-empty">No locations on file</div>';
     }
 
-    // Work Orders
+    // ── WORK ORDERS ──────────────────────────────────────────────
     const woBody = document.getElementById("profileWoBody");
     if (c.workOrders && c.workOrders.length > 0) {
-        woBody.innerHTML = c.workOrders.map(wo => {
-            const created = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString() : "-";
-            const completed = wo.completedAt ? new Date(wo.completedAt).toLocaleDateString() : "-";
-            const statusClass = wo.status === "Completed" ? "completed" : (wo.status === "Cancelled" || wo.status === "Canceled") ? "default" : "open";
-            return `<tr><td class="bold">${wo.jobNumber}</td><td>${wo.jobTypeName || "-"}</td><td><span class="status-badge ${statusClass}">${wo.status}</span></td><td>${created}</td><td>${completed}</td><td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString()}</td></tr>`;
+        const sorted = [...c.workOrders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        woBody.innerHTML = sorted.map(wo => {
+            const created   = wo.createdAt   ? new Date(wo.createdAt).toLocaleDateString()   : "—";
+            const completed = wo.completedAt ? new Date(wo.completedAt).toLocaleDateString() : "—";
+            const st = (wo.status || "").toLowerCase();
+            let sc = "default";
+            if (st === "completed") sc = "completed";
+            else if (st.includes("inprogress")) sc = "open";
+            else if (st.includes("hold")) sc = "hold";
+            else if (st.includes("scheduled")) sc = "scheduled-badge";
+            const days = !wo.completedAt && wo.createdAt
+                ? Math.floor((Date.now() - new Date(wo.createdAt).getTime()) / 86400000) : null;
+            const daysTag = days !== null ? `<span class="${days > 60 ? "days-bad" : days > 21 ? "days-warn" : "days-ok"}" style="font-size:11px;margin-left:4px;">${days}d</span>` : "";
+            return `<tr>
+                <td class="bold">${wo.jobNumber || "—"}${daysTag}</td>
+                <td>${wo.jobTypeName || "—"}</td>
+                <td><span class="status-badge ${sc}">${wo.status || "—"}</span></td>
+                <td>${created}</td>
+                <td>${completed}</td>
+                <td class="text-right">$${Number(wo.totalAmount || 0).toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+            </tr>`;
         }).join("");
-    } else { woBody.innerHTML = '<tr class="empty-row"><td colspan="6">No work orders</td></tr>'; }
+    } else {
+        woBody.innerHTML = '<tr class="empty-row"><td colspan="6">No work orders on file</td></tr>';
+    }
     makeSortable("profileWoTable");
 
-    // Invoices
+    // ── INVOICES ─────────────────────────────────────────────────
     const invBody = document.getElementById("profileInvBody");
     if (c.invoices && c.invoices.length > 0) {
-        invBody.innerHTML = c.invoices.map(inv => {
+        const sorted = [...c.invoices].sort((a, b) => new Date(b.issueDate || b.dueDate) - new Date(a.issueDate || a.dueDate));
+        invBody.innerHTML = sorted.map(inv => {
             const bal = Number(inv.balanceRemaining || 0);
-            return `<tr><td class="bold">${inv.invoiceNumber}</td><td>${new Date(inv.dueDate).toLocaleDateString()}</td><td class="text-right">$${Number(inv.totalAmount).toFixed(2)}</td><td class="text-right ${bal > 0 ? 'danger' : ''}">$${bal.toFixed(2)}</td><td>${inv.status || "-"}</td></tr>`;
+            const issueDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—");
+            const daysOld = inv.issueDate ? Math.floor((Date.now() - new Date(inv.issueDate).getTime()) / 86400000) : null;
+            let balClass = "";
+            if (bal > 0 && daysOld !== null) {
+                balClass = daysOld > 90 ? "danger" : daysOld > 60 ? "days-warn" : "";
+            }
+            return `<tr>
+                <td class="bold">${inv.invoiceNumber || "—"}</td>
+                <td>${issueDate}</td>
+                <td class="text-right">$${Number(inv.totalAmount || 0).toFixed(2)}</td>
+                <td class="text-right ${balClass}">$${bal.toFixed(2)}</td>
+                <td>${inv.status || "—"}</td>
+            </tr>`;
         }).join("");
-    } else { invBody.innerHTML = '<tr class="empty-row"><td colspan="5">No invoices</td></tr>'; }
+    } else {
+        invBody.innerHTML = '<tr class="empty-row"><td colspan="5">No invoices on file</td></tr>';
+    }
     makeSortable("profileInvTable");
 
-    // Equipment
+    // ── EQUIPMENT ────────────────────────────────────────────────
     const eqDiv = document.getElementById("profileEquipment");
     if (c.equipment && c.equipment.length > 0) {
-        eqDiv.innerHTML = `<table class="data-table" id="profileEqTable"><thead><tr><th>Type</th><th>Brand</th><th>Model</th><th>Serial</th><th>Installed</th><th>Warranty</th></tr></thead><tbody>` +
-            c.equipment.map(e => {
-                const inst = e.installDate ? new Date(e.installDate).toLocaleDateString() : "-";
-                const warr = e.warrantyExpiration ? new Date(e.warrantyExpiration).toLocaleDateString() : "-";
-                const expired = e.warrantyExpiration && new Date(e.warrantyExpiration) < new Date();
-                return `<tr><td>${e.type}</td><td>${e.brand || "-"}</td><td>${e.modelNumber || "-"}</td><td>${e.serialNumber || "-"}</td><td>${inst}</td><td class="${expired ? 'danger' : ''}">${warr}</td></tr>`;
-            }).join("") + `</tbody></table>`;
-        makeSortable("profileEqTable");
-    } else { eqDiv.innerHTML = '<div class="muted" style="padding:8px 0;">No equipment on file</div>'; }
+        eqDiv.innerHTML = '<div class="profile-equipment-grid">' + c.equipment.map(e => {
+            const inst = e.installDate ? new Date(e.installDate).toLocaleDateString() : null;
+            const warr = e.warrantyExpiration ? new Date(e.warrantyExpiration) : null;
+            const expired = warr && warr < new Date();
+            const warrantyLabel = warr ? warr.toLocaleDateString() : "—";
+            return `<div class="profile-equip-card">
+                <div class="profile-equip-type">${e.type || "Unknown"}</div>
+                <div class="profile-equip-brand">${[e.brand, e.modelNumber].filter(Boolean).join(" · ") || "—"}</div>
+                ${e.serialNumber ? `<div class="profile-equip-serial">S/N: ${e.serialNumber}</div>` : ""}
+                <div class="profile-equip-meta">
+                    ${inst ? `<span>Installed ${inst}</span>` : ""}
+                    <span class="${expired ? "danger" : ""}">Warranty: ${warrantyLabel}${expired ? " ⚠" : ""}</span>
+                </div>
+            </div>`;
+        }).join("") + "</div>";
+    } else {
+        eqDiv.innerHTML = '<div class="profile-empty">No equipment on file</div>';
+    }
 
     document.getElementById("customerModal").classList.remove("hidden");
+}
+
+function switchProfileTab(tabName, btn) {
+    const panels = document.querySelectorAll('.profile-tab-panel');
+    panels.forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('active'));
+    const panel = document.getElementById('profileTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+    if (panel) panel.classList.remove('hidden');
+    if (btn) btn.classList.add('active');
 }
 
 function closeModal() { document.getElementById("customerModal").classList.add("hidden"); }

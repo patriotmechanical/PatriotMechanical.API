@@ -547,26 +547,85 @@
 
     <!-- Customer Profile Modal -->
     <div class="modal hidden" id="customerModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="profileName"></h2>
+        <div class="modal-content profile-modal-content">
+            <!-- Header -->
+            <div class="modal-header profile-modal-header">
+                <div>
+                    <h2 id="profileName"></h2>
+                    <div id="profileSubtitle" class="profile-subtitle"></div>
+                </div>
                 <button class="modal-close" onclick="document.getElementById('customerModal').classList.add('hidden')">✕</button>
             </div>
-            <div class="modal-body">
-                <div class="profile-stats">
-                    <div class="stat-box"><h4>Balance Owed</h4><p id="profileBalance">$0</p></div>
-                    <div class="stat-box"><h4>Work Orders</h4><p id="profileWoCount">0</p></div>
-                    <div class="stat-box"><h4>Last PM</h4><p id="profileLastPm">—</p></div>
+
+            <div class="profile-layout">
+                <!-- LEFT SIDEBAR -->
+                <div class="profile-sidebar">
+
+                    <!-- KPI stat cards -->
+                    <div class="profile-stat-grid">
+                        <div class="profile-stat-card profile-stat-ar">
+                            <div class="profile-stat-label">Balance Owed</div>
+                            <div class="profile-stat-value" id="profileBalance">$0</div>
+                        </div>
+                        <div class="profile-stat-card">
+                            <div class="profile-stat-label">Work Orders</div>
+                            <div class="profile-stat-value" id="profileWoCount">0</div>
+                        </div>
+                        <div class="profile-stat-card">
+                            <div class="profile-stat-label">Last PM</div>
+                            <div class="profile-stat-value profile-stat-sm" id="profileLastPm">—</div>
+                        </div>
+                        <div class="profile-stat-card">
+                            <div class="profile-stat-label">Open WOs</div>
+                            <div class="profile-stat-value" id="profileOpenWo">0</div>
+                        </div>
+                    </div>
+
+                    <!-- PM Alert -->
+                    <div id="profilePmSection"></div>
+
+                    <!-- Contacts -->
+                    <div class="profile-section">
+                        <div class="profile-section-title">Contacts</div>
+                        <div id="profileContacts"></div>
+                    </div>
+
                 </div>
-                <div id="profilePmSection"></div>
-                <div id="profileContacts"></div>
-                <div id="profileLocations"></div>
-                <h3>Equipment</h3>
-                <div id="profileEquipment"></div>
-                <h3>Work Orders</h3>
-                <table class="data-table" id="profileWoTable"><thead><tr><th>Job #</th><th>Type</th><th>Status</th><th>Created</th><th>Amount</th></tr></thead><tbody id="profileWoBody"></tbody></table>
-                <h3>Invoices</h3>
-                <table class="data-table" id="profileInvTable"><thead><tr><th>Invoice</th><th>Due</th><th>Total</th><th>Balance</th></tr></thead><tbody id="profileInvBody"></tbody></table>
+
+                <!-- RIGHT MAIN -->
+                <div class="profile-main">
+
+                    <!-- Tabs -->
+                    <div class="profile-tabs">
+                        <button class="profile-tab active" onclick="switchProfileTab('locations', this)">Locations</button>
+                        <button class="profile-tab" onclick="switchProfileTab('workorders', this)">Work Orders</button>
+                        <button class="profile-tab" onclick="switchProfileTab('invoices', this)">Invoices</button>
+                        <button class="profile-tab" onclick="switchProfileTab('equipment', this)">Equipment</button>
+                    </div>
+
+                    <div id="profileTabLocations" class="profile-tab-panel">
+                        <div id="profileLocations"></div>
+                    </div>
+
+                    <div id="profileTabWorkorders" class="profile-tab-panel hidden">
+                        <table class="data-table" id="profileWoTable">
+                            <thead><tr><th>Job #</th><th>Type</th><th>Status</th><th>Created</th><th>Completed</th><th class="text-right">Amount</th></tr></thead>
+                            <tbody id="profileWoBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="profileTabInvoices" class="profile-tab-panel hidden">
+                        <table class="data-table" id="profileInvTable">
+                            <thead><tr><th>Invoice #</th><th>Issue Date</th><th class="text-right">Total</th><th class="text-right">Balance</th><th>Status</th></tr></thead>
+                            <tbody id="profileInvBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div id="profileTabEquipment" class="profile-tab-panel hidden">
+                        <div id="profileEquipment"></div>
+                    </div>
+
+                </div>
             </div>
         </div>
     </div>
