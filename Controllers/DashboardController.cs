@@ -256,7 +256,7 @@ public class DashboardController : ControllerBase
         var daysInMonth   = DateTime.DaysInMonth(now.Year, now.Month);
         var daysElapsed   = now.Day;
 
-        // ── COMPLETED, NO INVOICE ─────────────────────────────────
+        // ── OPEN JOBS WITH VALUE, NO INVOICE ─────────────────────
         // Get all WorkOrder IDs that already have an invoice
         var invoicedWoIds = await _context.Invoices
             .Where(i => i.WorkOrderId != null)
@@ -264,13 +264,16 @@ public class DashboardController : ControllerBase
             .Distinct()
             .ToListAsync();
 
+        var openStatuses = new[] { "open", "inprogress", "scheduled", "hold", "waiting" };
+
         var completedNoInvoice = await _context.WorkOrders
-            .Where(w => w.Status != null && w.Status.ToLower().Contains("complet"))
+            .Where(w => w.Status != null && openStatuses.Any(s => w.Status.ToLower().Contains(s)))
+            .Where(w => w.TotalAmount > 0)
             .Where(w => !invoicedWoIds.Contains(w.Id))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
-            .OrderByDescending(w => w.CompletedAt ?? w.CreatedAt)
+            .OrderByDescending(w => w.TotalAmount)
             .Select(w => new
             {
                 w.Id,
@@ -278,7 +281,7 @@ public class DashboardController : ControllerBase
                 CustomerName = w.Customer.Name,
                 w.Status,
                 w.TotalAmount,
-                CompletedAt = w.CompletedAt ?? w.CreatedAt
+                CompletedAt = w.CreatedAt
             })
             .ToListAsync();
 
