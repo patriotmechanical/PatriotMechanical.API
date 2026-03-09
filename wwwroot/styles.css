@@ -2183,3 +2183,8 @@ tr.ar-row-bad  td.bold { color: #f87171; }
     transition: transform 0.15s;
     user-select: none;
 }
+
+/* ── 4-card full-width KPI strip ── */
+.kpi-strip-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
