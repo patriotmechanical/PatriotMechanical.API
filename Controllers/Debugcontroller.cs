@@ -280,11 +280,14 @@ namespace PatriotMechanical.API.Controllers
                 return Ok(new { step = "appt lookup", result = apptLookupRaw, stJobId = wo.ServiceTitanJobId });
 
             // Step 2: put on hold with "Waiting for materials" (ID 1750) as a test
-            bool holdResult = false;
+            string holdResponseBody = "";
+            int holdStatusCode = 0;
             try
             {
                 var memo = $"Test hold from MyOpsBoard on {DateTime.Now:MM/dd/yyyy}";
-                holdResult = await _service.PutAppointmentOnHoldAsync(stApptId.Value, 1750, memo);
+                var (success, statusCode, responseBody) = await _service.PutAppointmentOnHoldDebugAsync(stApptId.Value, 1750, memo);
+                holdResponseBody = responseBody;
+                holdStatusCode = statusCode;
             }
             catch (Exception ex)
             {
@@ -295,8 +298,9 @@ namespace PatriotMechanical.API.Controllers
                 step = "complete",
                 stJobId = wo.ServiceTitanJobId,
                 stApptId,
-                holdResult,
-                message = holdResult ? "Hold applied successfully ✅" : "Hold call returned failure ❌"
+                holdStatusCode,
+                holdResponseBody,
+                message = holdStatusCode >= 200 && holdStatusCode < 300 ? "Hold applied successfully ✅" : "Hold call returned failure ❌"
             });
         }
     }

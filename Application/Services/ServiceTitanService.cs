@@ -598,6 +598,28 @@ namespace PatriotMechanical.API.Application.Services
             return response.IsSuccessStatusCode;
         }
 
+        // ─── PUT APPOINTMENT ON HOLD (DEBUG VERSION — returns full response) ──
+        public async Task<(bool success, int statusCode, string body)> PutAppointmentOnHoldDebugAsync(long stApptId, long holdReasonId, string memo)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var body = JsonSerializer.Serialize(new { holdReasonId, memo });
+            var request = new HttpRequestMessage(
+                HttpMethod.Put,
+                $"{baseUrl}/jpm/v2/tenant/{tenantId}/appointments/{stApptId}/hold"
+            );
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+            request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            return (response.IsSuccessStatusCode, (int)response.StatusCode, responseBody);
+        }
+
         // ─── REMOVE APPOINTMENT HOLD ──────────────────────────────────
         public async Task<bool> DeleteAppointmentHoldAsync(long stApptId)
         {
