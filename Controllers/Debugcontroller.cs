@@ -251,5 +251,53 @@ namespace PatriotMechanical.API.Controllers
                 completedWithValueNoInvoice
             });
         }
+
+        // GET /debug/test-hold/{jobNumber}
+        // Tests the full hold flow: looks up WO → queries ST for active appt → puts on hold
+        [HttpGet("test-hold/{jobNumber}")]
+        public async Task<IActionResult> TestHold(string jobNumber)
+        {
+            var wo = await _context.WorkOrders.FirstOrDefaultAsync(w => w.JobNumber == jobNumber);
+            if (wo == null) return Ok(new { error = $"WO {jobNumber} not found in DB" });
+
+            if (wo.ServiceTitanJobId == 0) return Ok(new { error = "WO has no ServiceTitanJobId" });
+
+            // Step 1: query ST for active appointment
+            long? stApptId = null;
+            string apptLookupRaw = "";
+            try
+            {
+                // Call the same method MoveCard uses
+                stApptId = await _service.GetActiveAppointmentIdForJobAsync(wo.ServiceTitanJobId);
+                apptLookupRaw = stApptId.HasValue ? $"Found appt ID: {stApptId}" : "No active appointment found";
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { step = "appt lookup", error = ex.Message, stJobId = wo.ServiceTitanJobId });
+            }
+
+            if (stApptId == null)
+                return Ok(new { step = "appt lookup", result = apptLookupRaw, stJobId = wo.ServiceTitanJobId });
+
+            // Step 2: put on hold with "Waiting for materials" (ID 1750) as a test
+            bool holdResult = false;
+            try
+            {
+                var memo = $"Test hold from MyOpsBoard on {DateTime.Now:MM/dd/yyyy}";
+                holdResult = await _service.PutAppointmentOnHoldAsync(stApptId.Value, 1750, memo);
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { step = "put hold", apptId = stApptId, error = ex.Message });
+            }
+
+            return Ok(new {
+                step = "complete",
+                stJobId = wo.ServiceTitanJobId,
+                stApptId,
+                holdResult,
+                message = holdResult ? "Hold applied successfully ✅" : "Hold call returned failure ❌"
+            });
+        }
     }
 }
