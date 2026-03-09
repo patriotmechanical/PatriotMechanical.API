@@ -494,6 +494,47 @@ namespace PatriotMechanical.API.Application.Services
             return await response.Content.ReadAsStringAsync();
         }
 
+        // ─── GET ACTIVE APPOINTMENT FOR A JOB DIRECTLY FROM ST ─────
+        // Used when pushing hold reasons — bypasses our 4-day local sync window.
+        // Returns the ST appointment ID, or null if none found.
+        public async Task<long?> GetActiveAppointmentIdForJobAsync(long stJobId)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            // Query appointments for this job over a 1-year window to catch anything active
+            var from = DateTime.UtcNow.AddYears(-1).ToString("O");
+            var to = DateTime.UtcNow.AddYears(1).ToString("O");
+            var url = $"{baseUrl}/jpm/v2/tenant/{tenantId}/appointments?jobId={stJobId}&startsOnOrAfter={from}&startsOnOrBefore={to}&pageSize=50";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var json = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync());
+            if (!json.TryGetProperty("data", out var data)) return null;
+
+            // Find first active appointment with a schedulable status
+            foreach (var appt in data.EnumerateArray())
+            {
+                var status = appt.TryGetProperty("status", out var sp) ? sp.GetString() ?? "" : "";
+                var active = appt.TryGetProperty("active", out var ap) && ap.GetBoolean();
+
+                if (active && (status == "Scheduled" || status == "Dispatched" || status == "Working"))
+                {
+                    if (appt.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.Number)
+                        return idProp.GetInt64();
+                }
+            }
+
+            return null;
+        }
+
         public async Task<string> GetOpenEstimatesAsync(int page = 1, int pageSize = 200, DateTime? modifiedOnOrAfter = null)
         {
             var token = await GetAccessTokenAsync();

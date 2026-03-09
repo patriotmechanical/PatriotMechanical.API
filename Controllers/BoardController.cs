@@ -250,20 +250,16 @@ namespace PatriotMechanical.API.Controllers
                     if (!ColumnHoldReasonMap.TryGetValue(column.Name.Trim(), out var holdReasonId) || holdReasonId == 0)
                         return;
 
-                    // Find the active/scheduled appointment for this job
+                    // Look up the WO for its ST job ID
                     var wo = await _context.WorkOrders.FirstOrDefaultAsync(w => w.JobNumber == card.JobNumber);
                     if (wo == null || wo.ServiceTitanJobId == 0) return;
 
-                    var appt = await _context.Appointments
-                        .Where(a => a.ServiceTitanJobId == wo.ServiceTitanJobId
-                            && (a.Status == "Scheduled" || a.Status == "Dispatched" || a.Status == "Working"))
-                        .OrderByDescending(a => a.Start)
-                        .FirstOrDefaultAsync();
-
-                    if (appt == null) return;
+                    // Query ST directly for the active appointment — bypasses our 4-day local sync window
+                    var stApptId = await _stService.GetActiveAppointmentIdForJobAsync(wo.ServiceTitanJobId);
+                    if (stApptId == null) return;
 
                     var memo = $"Moved to {column.Name.Trim()} on {DateTime.Now:MM/dd/yyyy}";
-                    await _stService.PutAppointmentOnHoldAsync(appt.ServiceTitanAppointmentId, holdReasonId, memo);
+                    await _stService.PutAppointmentOnHoldAsync(stApptId.Value, holdReasonId, memo);
                 }
                 catch (Exception ex)
                 {
