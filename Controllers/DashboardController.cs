@@ -264,10 +264,13 @@ public class DashboardController : ControllerBase
             .Distinct()
             .ToListAsync();
 
-        var openStatuses = new[] { "open", "inprogress", "scheduled", "hold", "waiting" };
-
         var completedNoInvoice = await _context.WorkOrders
-            .Where(w => w.Status != null && openStatuses.Any(s => w.Status.ToLower().Contains(s)))
+            .Where(w => w.Status != null && (
+                w.Status.ToLower().Contains("open") ||
+                w.Status.ToLower().Contains("inprogress") ||
+                w.Status.ToLower().Contains("scheduled") ||
+                w.Status.ToLower().Contains("hold") ||
+                w.Status.ToLower().Contains("waiting")))
             .Where(w => w.TotalAmount > 0)
             .Where(w => !invoicedWoIds.Contains(w.Id))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
