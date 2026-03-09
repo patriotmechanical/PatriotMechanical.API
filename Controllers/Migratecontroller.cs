@@ -226,6 +226,19 @@ public class MigrateController : ControllerBase
     }
 
     /// <summary>
+    /// GET /migrate/debug-location/{stLocationId} — check if a CustomerLocation exists for a given ST location ID
+    /// </summary>
+    [HttpGet("debug-location/{stLocationId}")]
+    public async Task<IActionResult> DebugLocation(long stLocationId)
+    {
+        var loc = await _context.CustomerLocations
+            .Where(l => l.ServiceTitanLocationId == stLocationId)
+            .Select(l => new { l.ServiceTitanLocationId, l.Name, l.Street, l.City, l.Active })
+            .FirstOrDefaultAsync();
+        return Ok(new { searched = stLocationId, found = loc });
+    }
+
+    /// <summary>
     /// GET /migrate/debug-wo-locations — check ServiceTitanLocationId on WorkOrders for upcoming jobs
     /// </summary>
     [HttpGet("debug-wo-locations")]
