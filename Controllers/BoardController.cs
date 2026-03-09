@@ -28,10 +28,10 @@ namespace PatriotMechanical.API.Controllers
         // Columns NOT listed here (Waiting to Schedule, Quote Sent) → do nothing in ST
         private static readonly Dictionary<string, long> ColumnHoldReasonMap = new(StringComparer.OrdinalIgnoreCase)
         {
-            { "Need to Return",  0 }, // TODO: replace with real ST hold reason ID
-            { "Waiting Parts",   0 }, // TODO: replace with real ST hold reason ID
-            { "Parts on Order",  0 }, // TODO: replace with real ST hold reason ID
-            { "Waiting Quote",   0 }, // TODO: replace with real ST hold reason ID
+            { "Need to Return",  6275 }, // ST: "Need to return"
+            { "Waiting Parts",   1750 }, // ST: "Waiting for materials"
+            { "Parts on Order",  6154 }, // ST: "Order Parts"
+            { "Waiting Quote",   6153 }, // ST: "Needs Quote"
         };
 
         // GET /board — full board with columns and cards

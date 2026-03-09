@@ -674,10 +674,10 @@ namespace PatriotMechanical.API.Application.Services
         // IDs filled in after running GET /servicetitan/hold-reasons
         private static readonly Dictionary<long, string> HoldReasonColumnMap = new()
         {
-            // { 12345L, "Need to Return" },   // TODO: add real IDs
-            // { 12346L, "Waiting Parts" },
-            // { 12347L, "Parts on Order" },
-            // { 12348L, "Waiting Quote" },
+            { 6275L, "Need to Return" },  // ST: "Need to return"
+            { 1750L, "Waiting Parts" },   // ST: "Waiting for materials"
+            { 6154L, "Parts on Order" },  // ST: "Order Parts"
+            { 6153L, "Waiting Quote" },   // ST: "Needs Quote"
         };
 
         private async Task SyncHoldReasonsToBoard()
