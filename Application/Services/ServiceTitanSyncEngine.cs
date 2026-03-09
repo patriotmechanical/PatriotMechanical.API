@@ -663,6 +663,60 @@ namespace PatriotMechanical.API.Application.Services
                 await _context.SaveChangesAsync();
                 Console.WriteLine($"[AutoBoard] Added {added} cards from appointment sync.");
             }
+
+            // ─── REVERSE SYNC: ST hold reason → board column ──────────
+            // For any appointment that ST has on hold with a mapped hold reason,
+            // move the board card to the matching column (if not already there).
+            await SyncHoldReasonsToBoard();
+        }
+
+        // ── Hold reason ID → board column name mapping (mirrors BoardController) ──
+        // IDs filled in after running GET /servicetitan/hold-reasons
+        private static readonly Dictionary<long, string> HoldReasonColumnMap = new()
+        {
+            // { 12345L, "Need to Return" },   // TODO: add real IDs
+            // { 12346L, "Waiting Parts" },
+            // { 12347L, "Parts on Order" },
+            // { 12348L, "Waiting Quote" },
+        };
+
+        private async Task SyncHoldReasonsToBoard()
+        {
+            if (!HoldReasonColumnMap.Any()) return; // not configured yet
+
+            // Find all appointments currently on hold with a mapped reason
+            var holdAppts = await _context.Appointments
+                .Where(a => a.HoldReasonId != null && HoldReasonColumnMap.Keys.Contains(a.HoldReasonId.Value))
+                .ToListAsync();
+
+            if (!holdAppts.Any()) return;
+
+            var boardColumns = await _context.BoardColumns.ToListAsync();
+
+            foreach (var appt in holdAppts)
+            {
+                var columnName = HoldReasonColumnMap[appt.HoldReasonId!.Value];
+                var targetColumn = boardColumns.FirstOrDefault(c =>
+                    c.Name.Equals(columnName, StringComparison.OrdinalIgnoreCase));
+                if (targetColumn == null) continue;
+
+                // Find the board card for this job
+                var wo = await _context.WorkOrders
+                    .FirstOrDefaultAsync(w => w.ServiceTitanJobId == appt.ServiceTitanJobId);
+                if (wo == null) continue;
+
+                var card = await _context.BoardCards
+                    .FirstOrDefaultAsync(c => c.JobNumber == wo.JobNumber);
+                if (card == null) continue;
+
+                // Only move if not already in the target column
+                if (card.BoardColumnId == targetColumn.Id) continue;
+
+                card.BoardColumnId = targetColumn.Id;
+                Console.WriteLine($"[HoldSync] Moved card {wo.JobNumber} to '{columnName}' based on ST hold reason.");
+            }
+
+            await _context.SaveChangesAsync();
         }
 
         private async Task AddCardToColumn(BoardColumn target, WorkOrder wo, string custName,
@@ -775,6 +829,10 @@ namespace PatriotMechanical.API.Application.Services
                     if (appt.TryGetProperty("status", out var statusProp) && statusProp.ValueKind == JsonValueKind.String)
                         status = statusProp.GetString() ?? "Scheduled";
 
+                    long? holdReasonId = null;
+                    if (appt.TryGetProperty("holdReasonId", out var holdProp) && holdProp.ValueKind == JsonValueKind.Number)
+                        holdReasonId = holdProp.GetInt64();
+
                     Guid? workOrderId = null;
                     if (jobId > 0)
                     {
@@ -795,6 +853,7 @@ namespace PatriotMechanical.API.Application.Services
                         Start = start,
                         End = end,
                         Status = status,
+                        HoldReasonId = holdReasonId,
                         LastSyncedAt = DateTime.UtcNow
                     });
                 }

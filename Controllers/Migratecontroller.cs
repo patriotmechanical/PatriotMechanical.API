@@ -640,4 +640,23 @@ public class MigrateController : ControllerBase
             return Ok(new { error = ex.Message });
         }
     }
+
+    // POST /migrate/add-hold-reason-id
+    [HttpPost("add-hold-reason-id")]
+    public async Task<IActionResult> AddHoldReasonId()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE ""Appointments""
+                    ADD COLUMN IF NOT EXISTS ""HoldReasonId"" bigint NULL;
+            ");
+
+            return Ok(new { message = "HoldReasonId column added to Appointments." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
 }

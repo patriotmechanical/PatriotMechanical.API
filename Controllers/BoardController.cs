@@ -22,20 +22,17 @@ namespace PatriotMechanical.API.Controllers
             _stService = stService;
         }
 
-        // ── ST TAG MAPPING ────────────────────────────────────────────
-        // Column name (lowercase) → ST tag type ID
-        // Fill in the real IDs after running GET /servicetitan/tag-types
-        private static readonly Dictionary<string, long> ColumnTagMap = new(StringComparer.OrdinalIgnoreCase)
+        // ── ST HOLD REASON MAPPING ───────────────────────────────────
+        // Board column name → ST job hold reason ID
+        // IDs filled in after running GET /servicetitan/hold-reasons
+        // Columns NOT listed here (Waiting to Schedule, Quote Sent) → do nothing in ST
+        private static readonly Dictionary<string, long> ColumnHoldReasonMap = new(StringComparer.OrdinalIgnoreCase)
         {
-            { "need to return",              0 }, // TODO: replace with real ST tag type ID
-            { "needs quote",                 0 }, // TODO: replace with real ST tag type ID
-            { "order parts",                 0 }, // TODO: replace with real ST tag type ID
-            { "waiting for customer approval", 0 }, // TODO: replace with real ST tag type ID
-            { "waiting for materials",       0 }, // TODO: replace with real ST tag type ID
+            { "Need to Return",  0 }, // TODO: replace with real ST hold reason ID
+            { "Waiting Parts",   0 }, // TODO: replace with real ST hold reason ID
+            { "Parts on Order",  0 }, // TODO: replace with real ST hold reason ID
+            { "Waiting Quote",   0 }, // TODO: replace with real ST hold reason ID
         };
-
-        // All tag IDs we ever set — used to strip old board tags before applying new one
-        private static HashSet<long> AllBoardTagIds => new(ColumnTagMap.Values.Where(v => v != 0));
 
         // GET /board — full board with columns and cards
         [HttpGet]
@@ -241,31 +238,36 @@ namespace PatriotMechanical.API.Controllers
 
             await _context.SaveChangesAsync();
 
-            // ── Push tag to ServiceTitan (fire-and-forget, don't fail the move if ST is down) ──
+            // ── Push hold reason to ServiceTitan (fire-and-forget, don't fail the card move) ──
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    // Get the column name the card was moved to
                     var column = await _context.BoardColumns.FindAsync(req.ColumnId);
                     if (column == null) return;
 
-                    // Look up the WO to get the ST job ID
+                    // If column is not mapped, do nothing in ST
+                    if (!ColumnHoldReasonMap.TryGetValue(column.Name.Trim(), out var holdReasonId) || holdReasonId == 0)
+                        return;
+
+                    // Find the active/scheduled appointment for this job
                     var wo = await _context.WorkOrders.FirstOrDefaultAsync(w => w.JobNumber == card.JobNumber);
                     if (wo == null || wo.ServiceTitanJobId == 0) return;
 
-                    // Resolve tag ID for this column (null if unmapped)
-                    ColumnTagMap.TryGetValue(column.Name.Trim(), out var tagId);
-                    long? newTagId = tagId != 0 ? tagId : null;
+                    var appt = await _context.Appointments
+                        .Where(a => a.ServiceTitanJobId == wo.ServiceTitanJobId
+                            && (a.Status == "Scheduled" || a.Status == "Dispatched" || a.Status == "Working"))
+                        .OrderByDescending(a => a.Start)
+                        .FirstOrDefaultAsync();
 
-                    // Skip if no board tags configured yet (all zeros = not set up)
-                    if (AllBoardTagIds.Count == 0) return;
+                    if (appt == null) return;
 
-                    await _stService.UpdateJobTagsAsync(wo.ServiceTitanJobId, AllBoardTagIds, newTagId);
+                    var memo = $"Moved to {column.Name.Trim()} on {DateTime.Now:MM/dd/yyyy}";
+                    await _stService.PutAppointmentOnHoldAsync(appt.ServiceTitanAppointmentId, holdReasonId, memo);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[ST Tag Sync] Failed for card {id}: {ex.Message}");
+                    Console.WriteLine($"[ST Hold Sync] Failed for card {id}: {ex.Message}");
                 }
             });
 

@@ -14,6 +14,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public DateTime End { get; set; }
         public string Status { get; set; } = "Scheduled";
         public int TechnicianCount { get; set; }
+        public long? HoldReasonId { get; set; }
         public DateTime LastSyncedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<AppointmentTechnician> Technicians { get; set; } = new List<AppointmentTechnician>();

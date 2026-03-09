@@ -44,10 +44,10 @@ namespace PatriotMechanical.API.Controllers
             return Ok(new { message = "Estimates sync complete" });
         }
 
-        [HttpGet("tag-types")]
-        public async Task<IActionResult> GetTagTypes([FromServices] ServiceTitanService stService)
+        [HttpGet("hold-reasons")]
+        public async Task<IActionResult> GetHoldReasons([FromServices] ServiceTitanService stService)
         {
-            var raw = await stService.GetTagTypesAsync();
+            var raw = await stService.GetHoldReasonsAsync();
             return Content(raw, "application/json");
         }
 

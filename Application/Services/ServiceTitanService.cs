@@ -515,8 +515,8 @@ namespace PatriotMechanical.API.Application.Services
             return await response.Content.ReadAsStringAsync();
         }
 
-        // ─── GET TAG TYPES FROM ST SETTINGS API ──────────────────────
-        public async Task<string> GetTagTypesAsync()
+        // ─── GET JOB HOLD REASONS FROM ST ────────────────────────────
+        public async Task<string> GetHoldReasonsAsync()
         {
             var token = await GetAccessTokenAsync();
             var baseUrl = await GetBaseUrl();
@@ -525,7 +525,7 @@ namespace PatriotMechanical.API.Application.Services
 
             var request = new HttpRequestMessage(
                 HttpMethod.Get,
-                $"{baseUrl}/settings/v2/tenant/{tenantId}/tag-types?pageSize=200&active=True"
+                $"{baseUrl}/jpm/v2/tenant/{tenantId}/job-hold-reasons?pageSize=200&active=True"
             );
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             request.Headers.Add("ST-App-Key", appKey);
@@ -535,50 +535,45 @@ namespace PatriotMechanical.API.Application.Services
             return await response.Content.ReadAsStringAsync();
         }
 
-        // ─── UPDATE JOB TAGS IN ST ────────────────────────────────────
-        // Fetches current job tags, removes any known board tags, adds the new one (if any).
-        // knownBoardTagIds: all tag IDs we ever set from MyOpsBoard (so we don't clobber unrelated tags)
-        // newBoardTagId: the tag to set for this column (null = clear board tag, e.g. unmapped column)
-        public async Task<bool> UpdateJobTagsAsync(long stJobId, HashSet<long> knownBoardTagIds, long? newBoardTagId)
+        // ─── PUT APPOINTMENT ON HOLD ──────────────────────────────────
+        // memo: reason text shown in ST (we use the date the card was moved)
+        public async Task<bool> PutAppointmentOnHoldAsync(long stApptId, long holdReasonId, string memo)
         {
             var token = await GetAccessTokenAsync();
             var baseUrl = await GetBaseUrl();
             var tenantId = await GetTenantId();
             var appKey = await GetAppKey();
 
-            // GET current job to read existing tags
-            var getRequest = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/jpm/v2/tenant/{tenantId}/jobs/{stJobId}");
-            getRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            getRequest.Headers.Add("ST-App-Key", appKey);
+            var body = JsonSerializer.Serialize(new { holdReasonId, memo });
+            var request = new HttpRequestMessage(
+                HttpMethod.Put,
+                $"{baseUrl}/jpm/v2/tenant/{tenantId}/appointments/{stApptId}/hold"
+            );
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+            request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
 
-            var getResponse = await _httpClient.SendAsync(getRequest);
-            if (!getResponse.IsSuccessStatusCode) return false;
+            var response = await _httpClient.SendAsync(request);
+            return response.IsSuccessStatusCode;
+        }
 
-            var jobJson = JsonSerializer.Deserialize<JsonElement>(await getResponse.Content.ReadAsStringAsync());
+        // ─── REMOVE APPOINTMENT HOLD ──────────────────────────────────
+        public async Task<bool> DeleteAppointmentHoldAsync(long stApptId)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
 
-            // Start with existing non-board tags, then add the new board tag if set
-            var mergedIds = new List<long>();
-            if (jobJson.TryGetProperty("tagTypeIds", out var existingTagsProp) && existingTagsProp.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var t in existingTagsProp.EnumerateArray())
-                {
-                    var id = t.GetInt64();
-                    if (!knownBoardTagIds.Contains(id)) // keep non-board tags
-                        mergedIds.Add(id);
-                }
-            }
-            if (newBoardTagId.HasValue)
-                mergedIds.Add(newBoardTagId.Value);
+            var request = new HttpRequestMessage(
+                HttpMethod.Delete,
+                $"{baseUrl}/jpm/v2/tenant/{tenantId}/appointments/{stApptId}/hold"
+            );
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
 
-            // PATCH job with updated tag list
-            var patchBody = JsonSerializer.Serialize(new { tagTypeIds = mergedIds });
-            var patchRequest = new HttpRequestMessage(new HttpMethod("PATCH"), $"{baseUrl}/jpm/v2/tenant/{tenantId}/jobs/{stJobId}");
-            patchRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            patchRequest.Headers.Add("ST-App-Key", appKey);
-            patchRequest.Content = new StringContent(patchBody, System.Text.Encoding.UTF8, "application/json");
-
-            var patchResponse = await _httpClient.SendAsync(patchRequest);
-            return patchResponse.IsSuccessStatusCode;
+            var response = await _httpClient.SendAsync(request);
+            return response.IsSuccessStatusCode;
         }
     }
 }
