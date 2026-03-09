@@ -189,5 +189,31 @@ namespace PatriotMechanical.API.Controllers
             var raw = await _service.GetOpenEstimatesAsync(page: 1, pageSize: 10);
             return Ok(JsonSerializer.Deserialize<JsonElement>(raw));
         }
+
+        [HttpGet("wo-status-breakdown")]
+        public async Task<IActionResult> GetWoStatusBreakdown()
+        {
+            var statuses = await _context.WorkOrders
+                .GroupBy(w => w.Status)
+                .Select(g => new { status = g.Key, count = g.Count() })
+                .OrderByDescending(x => x.count)
+                .ToListAsync();
+
+            var invoicedWoIds = await _context.Invoices
+                .Where(i => i.WorkOrderId != null)
+                .Select(i => i.WorkOrderId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            var completedNoInvoice = await _context.WorkOrders
+                .Where(w => w.Status != null && w.Status.ToLower().Contains("complet"))
+                .Where(w => !invoicedWoIds.Contains(w.Id))
+                .Select(w => new { w.JobNumber, w.Status, w.TotalAmount, w.CompletedAt })
+                .OrderByDescending(w => w.CompletedAt)
+                .Take(10)
+                .ToListAsync();
+
+            return Ok(new { statuses, invoicedWoIdCount = invoicedWoIds.Count, completedNoInvoiceCount = completedNoInvoice.Count, completedNoInvoiceSample = completedNoInvoice });
+        }
     }
 }
