@@ -585,7 +585,7 @@ namespace PatriotMechanical.API.Application.Services
             var tenantId = await GetTenantId();
             var appKey = await GetAppKey();
 
-            var body = JsonSerializer.Serialize(new { reasonId = holdReasonId, body = memo });
+            var body = JsonSerializer.Serialize(new { reasonId = holdReasonId, memo, body = memo });
             var request = new HttpRequestMessage(
                 HttpMethod.Put,
                 $"{baseUrl}/jpm/v2/tenant/{tenantId}/appointments/{stApptId}/hold"
@@ -606,7 +606,7 @@ namespace PatriotMechanical.API.Application.Services
             var tenantId = await GetTenantId();
             var appKey = await GetAppKey();
 
-            var body = JsonSerializer.Serialize(new { reasonId = holdReasonId, body = memo });
+            var body = JsonSerializer.Serialize(new { reasonId = holdReasonId, memo, body = memo });
             var request = new HttpRequestMessage(
                 HttpMethod.Put,
                 $"{baseUrl}/jpm/v2/tenant/{tenantId}/appointments/{stApptId}/hold"
