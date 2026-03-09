@@ -725,7 +725,7 @@ function renderOpsStats(data) {
         { label: "Waiting Quote",   count: waitingQuote.count, color: waitingQuote.color || "#9333ea", items: waitingQuote.cards, type: "board" },
         { label: "Waiting Parts",   count: waitingParts.count, color: waitingParts.color || "#d97706", items: waitingParts.cards, type: "board" },
         { label: "Need Return",     count: needReturn.count,   color: needReturn.color || "#dc2626",   items: needReturn.cards,   type: "board" },
-        { label: "No Invoice",       count: noInvoiceCount,     color: "#ea580c", items: data.completedNoInvoice || [], type: "noinvoice" },
+        { label: "No Invoice",       count: data.completedNoInvoiceCount ?? (data.completedNoInvoice ? data.completedNoInvoice.length : 0), color: "#ea580c", items: data.completedNoInvoice || [], type: "noinvoice" },
     ];
 }
 
