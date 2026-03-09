@@ -182,5 +182,12 @@ namespace PatriotMechanical.API.Controllers
                 technicianAssignments = assignParsed
             });
         }
+
+        [HttpGet("raw-estimates")]
+        public async Task<IActionResult> GetRawEstimates([FromQuery] string? status = null)
+        {
+            var raw = await _service.GetOpenEstimatesAsync(page: 1, pageSize: 10);
+            return Ok(JsonSerializer.Deserialize<JsonElement>(raw));
+        }
     }
 }
