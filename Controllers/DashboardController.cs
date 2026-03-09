@@ -256,30 +256,7 @@ public class DashboardController : ControllerBase
         var daysInMonth   = DateTime.DaysInMonth(now.Year, now.Month);
         var daysElapsed   = now.Day;
 
-        // ── OPEN JOBS WITH VALUE, NO INVOICE ─────────────────────
-        var completedNoInvoice = await _context.WorkOrders
-            .Where(w => w.Status != null && (
-                w.Status.ToLower().Contains("open") ||
-                w.Status.ToLower().Contains("inprogress") ||
-                w.Status.ToLower().Contains("scheduled") ||
-                w.Status.ToLower().Contains("hold") ||
-                w.Status.ToLower().Contains("waiting")))
-            .Where(w => w.TotalAmount > 0)
-            .Where(w => !_context.Invoices.Any(i => i.WorkOrderId == w.Id))
-            .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
-            .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
-            .Include(w => w.Customer)
-            .OrderByDescending(w => w.TotalAmount)
-            .Select(w => new
-            {
-                w.Id,
-                w.JobNumber,
-                CustomerName = w.Customer.Name,
-                w.Status,
-                w.TotalAmount,
-                CompletedAt = w.CreatedAt
-            })
-            .ToListAsync();
+
 
         return Ok(new
         {
@@ -294,8 +271,7 @@ public class DashboardController : ControllerBase
             OverduePms = overduePms,
             OpenWoCount             = openWoCount,
             OverduePmCount          = overduePmCount,
-            CompletedNoInvoice      = completedNoInvoice,
-            CompletedNoInvoiceCount = completedNoInvoice.Count,
+
             RevenueThisMonth     = revenueThisMonth,
             RevenueLastMonth     = revenueLastMonth,
             ForecastedRevenue    = forecastedRevenue,
