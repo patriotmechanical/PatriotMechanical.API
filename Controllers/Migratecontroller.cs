@@ -209,6 +209,53 @@ public class MigrateController : ControllerBase
     }
 
     /// <summary>
+    /// GET /migrate/debug-wo-locations — check ServiceTitanLocationId on WorkOrders for upcoming jobs
+    /// </summary>
+    [HttpGet("debug-wo-locations")]
+    public async Task<IActionResult> DebugWoLocations()
+    {
+        var jobIds = new long[] { 59606375, 58979564, 59605991, 59605735, 59605863 };
+        var wos = await _context.WorkOrders
+            .Where(w => jobIds.Contains(w.ServiceTitanJobId))
+            .Select(w => new { w.ServiceTitanJobId, w.JobNumber, w.ServiceTitanLocationId })
+            .ToListAsync();
+        return Ok(wos);
+    }
+
+    /// <summary>
+    /// GET /migrate/fix-duplicate-appointments — remove duplicate appointment rows, keep one per ST appt ID
+    /// </summary>
+    [HttpGet("fix-duplicate-appointments")]
+    public async Task<IActionResult> FixDuplicateAppointments()
+    {
+        try
+        {
+            // Delete all but the most recent row per ServiceTitanAppointmentId
+            await _context.Database.ExecuteSqlRawAsync(@"
+                DELETE FROM ""Appointments""
+                WHERE ""Id"" NOT IN (
+                    SELECT DISTINCT ON (""ServiceTitanAppointmentId"") ""Id""
+                    FROM ""Appointments""
+                    ORDER BY ""ServiceTitanAppointmentId"", ""LastSyncedAt"" DESC
+                );
+            ");
+
+            // Add unique constraint to prevent future duplicates
+            await _context.Database.ExecuteSqlRawAsync(@"
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Appointments_ServiceTitanAppointmentId""
+                ON ""Appointments"" (""ServiceTitanAppointmentId"");
+            ");
+
+            var remaining = await _context.Appointments.CountAsync();
+            return Ok(new { message = "Duplicates removed, unique index added.", remainingRows = remaining });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { message = "Error.", error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// GET /migrate/add-wo-location-col — add ServiceTitanLocationId column to WorkOrders table
     /// </summary>
     [HttpGet("add-wo-location-col")]

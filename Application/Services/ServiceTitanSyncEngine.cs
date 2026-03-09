@@ -718,12 +718,23 @@ namespace PatriotMechanical.API.Application.Services
 
             if (!parsed.TryGetProperty("data", out var appts)) return;
 
-            // ── Step 2: Delete stale window data and re-insert ─────
-            var staleAppts = await _context.Appointments
-                .Where(a => a.Start >= todayUtc && a.Start < windowEnd)
-                .ToListAsync();
-            _context.Appointments.RemoveRange(staleAppts);
-            await _context.SaveChangesAsync();
+            // ── Step 2: Collect ST appt IDs from response ──────────
+            var incomingApptIds = new List<long>();
+            foreach (var appt in appts.EnumerateArray())
+            {
+                if (appt.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.Number)
+                    incomingApptIds.Add(idProp.GetInt64());
+            }
+
+            // Delete existing rows for these specific ST appt IDs (avoids duplicates)
+            if (incomingApptIds.Any())
+            {
+                var staleAppts = await _context.Appointments
+                    .Where(a => incomingApptIds.Contains(a.ServiceTitanAppointmentId))
+                    .ToListAsync();
+                _context.Appointments.RemoveRange(staleAppts);
+                await _context.SaveChangesAsync();
+            }
 
             // ── Step 3: Insert fresh appointment rows ──────────────
             var newAppts = new List<PatriotMechanical.API.Domain.Entities.Appointment>();
