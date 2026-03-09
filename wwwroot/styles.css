@@ -1184,14 +1184,14 @@ td {
 }
 .aging-track {
     flex: 1;
-    height: 6px;
+    height: 10px;
     background: #0f172a;
-    border-radius: 3px;
+    border-radius: 5px;
     overflow: hidden;
 }
 .aging-fill {
     height: 100%;
-    border-radius: 3px;
+    border-radius: 5px;
     transition: width 0.5s ease;
 }
 .aging-green  { background: #22c55e; }
@@ -1202,9 +1202,14 @@ td {
     font-family: monospace;
     font-size: 11px;
     color: #e2e8f0;
-    width: 86px;
+    width: 110px;
     text-align: right;
     flex-shrink: 0;
+}
+.aging-pct {
+    font-size: 9px;
+    color: #475569;
+    margin-left: 4px;
 }
 .aging-red-text { color: #ef4444; }
 
@@ -1329,6 +1334,60 @@ tr.ar-row-bad  td.bold { color: #f87171; }
 /* KANBAN BOARD                                                    */
 /* ═══════════════════════════════════════════════════════════════ */
 
+.board-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.board-search-input {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 13px;
+    padding: 8px 14px;
+    width: 300px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.board-search-input:focus {
+    border-color: var(--accent, #dc2626);
+}
+.board-search-input::placeholder {
+    color: #475569;
+}
+.board-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #94a3b8;
+    cursor: pointer;
+    user-select: none;
+}
+.board-filter-toggle input[type="checkbox"] {
+    accent-color: #ef4444;
+}
+
+.board-summary-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #94a3b8;
+}
+.board-summary-value {
+    font-weight: 700;
+    color: #4ade80;
+    font-family: monospace;
+}
+
 .kanban-board {
     display: flex;
     gap: 14px;
@@ -1349,6 +1408,13 @@ tr.ar-row-bad  td.bold { color: #f87171; }
     flex-direction: column;
     overflow: hidden;
 }
+.kanban-column-empty {
+    min-width: 120px;
+    width: 120px;
+}
+.kanban-column-empty .kanban-col-body {
+    min-height: 60px;
+}
 
 .kanban-col-header {
     padding: 12px 14px;
@@ -1367,6 +1433,17 @@ tr.ar-row-bad  td.bold { color: #f87171; }
     color: #e2e8f0;
 }
 
+.kanban-col-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.kanban-col-total {
+    font-size: 11px;
+    font-weight: 700;
+    color: #4ade80;
+    font-family: monospace;
+}
 .kanban-col-count {
     font-size: 11px;
     font-weight: 700;
@@ -1419,6 +1496,14 @@ tr.ar-row-bad  td.bold { color: #f87171; }
 .card-customer {
     font-size: 12px;
     color: #94a3b8;
+    margin-top: 2px;
+}
+
+.card-amount {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4ade80;
+    font-family: monospace;
     margin-top: 2px;
 }
 
@@ -2137,6 +2222,11 @@ tr.ar-row-bad  td.bold { color: #f87171; }
 }
 .sched-tab.active .sched-tab-count { background: #14b8a630; color: #14b8a6; }
 
+#schedBody {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
 /* ── DRAGGABLE PANELS ────────────────────────────────────── */
 .draggable-panel {
     position: relative;
@@ -2430,6 +2520,14 @@ th.sort-desc .sort-arrow::after {
 /* ── Risk Flags ─────────────────────────────────────────────── */
 .kanban-card-risk {
     border-left: 3px solid #ef4444;
+}
+.kanban-card-warning {
+    border-left: 3px solid #f59e0b;
+    background: rgba(245, 158, 11, 0.04);
+}
+.kanban-card-critical {
+    border-left: 3px solid #ef4444;
+    background: rgba(239, 68, 68, 0.06);
 }
 
 .card-risk-chips {

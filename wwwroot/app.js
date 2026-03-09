@@ -248,6 +248,23 @@ async function loadDashboard() {
     document.getElementById("netPosition").innerText  = fmtCurrency(net);
     document.getElementById("netPosition").style.color = net >= 0 ? "#4ade80" : "#f87171";
 
+    // Net Position sub-label: AR coverage ratio
+    const netSubEl = document.getElementById("kpiNetSub");
+    if (netSubEl) {
+        if (totalApInvoices > 0) {
+            const ratio = (totalAR / totalApInvoices).toFixed(1);
+            if (net >= 0) {
+                netSubEl.innerHTML = `<span style="color:#4ade80">AR covers AP ${ratio}x</span>`;
+            } else {
+                netSubEl.innerHTML = `<span style="color:#f87171">AP exceeds AR</span>`;
+            }
+        } else if (totalAR > 0) {
+            netSubEl.innerHTML = `<span style="color:#4ade80">no payables due</span>`;
+        } else {
+            netSubEl.innerText = "no data";
+        }
+    }
+
     const openWoCount = data.openWorkOrders ? data.openWorkOrders.length : 0;
     document.getElementById("kpiOpenWo").innerText = openWoCount;
 
@@ -411,6 +428,14 @@ async function loadDashboard() {
     if (!window._schedActiveTab) window._schedActiveTab = "today";
     renderSchedTab(window._schedActiveTab);
 
+    // Auto-collapse schedule panel if no appointments today
+    const schedBodyEl = document.getElementById("schedBody");
+    if (schedBodyEl && schedToday.count === 0) {
+        schedBodyEl.style.display = "none";
+    } else if (schedBodyEl) {
+        schedBodyEl.style.display = "";
+    }
+
 // ── SIDEBAR BADGES ─────────────────────────────────────────
     const badgeWo = document.getElementById("navBadgeWo");
     if (badgeWo) {
@@ -460,10 +485,11 @@ async function loadDashboard() {
         document.getElementById("agingBar1").style.width = pct(b1, total) + "%";
         document.getElementById("agingBar2").style.width = pct(b2, total) + "%";
         document.getElementById("agingBar3").style.width = pct(b3, total) + "%";
-        document.getElementById("agingAmt0").innerText = fmtK(b0);
-        document.getElementById("agingAmt1").innerText = fmtK(b1);
-        document.getElementById("agingAmt2").innerText = fmtK(b2);
-        document.getElementById("agingAmt3").innerText = fmtK(b3);
+        const pctLabel = (v, t) => t > 0 ? Math.round((v / t) * 100) + "%" : "";
+        document.getElementById("agingAmt0").innerHTML = `${fmtK(b0)} <span class="aging-pct">${pctLabel(b0, total)}</span>`;
+        document.getElementById("agingAmt1").innerHTML = `${fmtK(b1)} <span class="aging-pct">${pctLabel(b1, total)}</span>`;
+        document.getElementById("agingAmt2").innerHTML = `${fmtK(b2)} <span class="aging-pct">${pctLabel(b2, total)}</span>`;
+        document.getElementById("agingAmt3").innerHTML = `${fmtK(b3)} <span class="aging-pct">${pctLabel(b3, total)}</span>`;
     }
 
     // ── AP TABLE ───────────────────────────────────────────────
@@ -1049,10 +1075,16 @@ function renderBoard() {
     boardData.forEach(col => {
         const colEl = document.createElement("div");
         colEl.className = "kanban-column";
+        if (col.cards.length === 0) colEl.classList.add("kanban-column-empty");
+        const colTotal = col.cards.reduce((sum, card) => sum + Number(card.woTotal || 0), 0);
+        const colTotalLabel = colTotal > 0 ? `$${(colTotal/1000).toFixed(1)}k` : "";
         colEl.innerHTML = `
             <div class="kanban-col-header" style="--col-color:${col.color}; border-bottom-color:${col.color};">
                 <span class="kanban-col-title">${col.name}</span>
-                <span class="kanban-col-count">${col.cards.length}</span>
+                <div class="kanban-col-header-right">
+                    ${colTotalLabel ? `<span class="kanban-col-total">${colTotalLabel}</span>` : ""}
+                    <span class="kanban-col-count">${col.cards.length}</span>
+                </div>
             </div>
             <div class="kanban-col-body" data-column-id="${col.id}"></div>
         `;
@@ -1075,11 +1107,17 @@ function renderBoard() {
             const added = new Date(card.addedAt).toLocaleDateString();
             const risks = computeRiskFlags(card);
 
-            if (risks.length > 0) cardEl.classList.add("kanban-card-risk");
+            if (risks.length > 0) {
+                cardEl.classList.add("kanban-card-risk");
+                const addedDays = card.addedAt ? (Date.now() - new Date(card.addedAt).getTime()) / 86400000 : 0;
+                if (addedDays >= 14) cardEl.classList.add("kanban-card-critical");
+                else if (addedDays >= 7) cardEl.classList.add("kanban-card-warning");
+            }
 
             cardEl.innerHTML = `
                 <div class="card-job">#${card.jobNumber}</div>
                 <div class="card-customer">${card.customerName || "Unknown"}</div>
+                ${card.woTotal > 0 ? `<div class="card-amount">$${Number(card.woTotal).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0})}</div>` : ""}
                 <div class="card-date">Added ${added}</div>
                 ${risks.length > 0 ? `<div class="card-risk-chips">${risks.map(r => `<span class="card-risk-chip chip-${r.level}">${r.label}</span>`).join("")}</div>` : ""}
                 ${noteCount > 0 ? `<span class="card-note-indicator">📝 ${noteCount}</span>` : ""}
@@ -1100,6 +1138,43 @@ function renderBoard() {
         });
 
         board.appendChild(colEl);
+    });
+
+    // Grand totals summary bar
+    const totalCards = boardData.reduce((sum, col) => sum + col.cards.length, 0);
+    const totalValue = boardData.reduce((sum, col) => sum + col.cards.reduce((s, c) => s + Number(c.woTotal || 0), 0), 0);
+    let summaryEl = document.getElementById("boardSummaryBar");
+    if (!summaryEl) {
+        summaryEl = document.createElement("div");
+        summaryEl.id = "boardSummaryBar";
+        summaryEl.className = "board-summary-bar";
+        board.parentNode.insertBefore(summaryEl, board);
+    }
+    summaryEl.innerHTML = `
+        <span>${totalCards} cards on board</span>
+        <span class="board-summary-value">$${totalValue.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:0})} total value</span>
+    `;
+}
+
+function filterBoardCards() {
+    const query = (document.getElementById("boardSearchInput")?.value || "").toLowerCase().trim();
+    const riskOnly = document.getElementById("boardRiskFilter")?.checked || false;
+
+    document.querySelectorAll(".kanban-card").forEach(cardEl => {
+        const text = cardEl.textContent.toLowerCase();
+        const matchText = !query || text.includes(query);
+        const matchRisk = !riskOnly || cardEl.classList.contains("kanban-card-risk");
+        cardEl.style.display = (matchText && matchRisk) ? "" : "none";
+    });
+
+    // Update visible count badges per column
+    document.querySelectorAll(".kanban-column").forEach(colEl => {
+        const visibleCards = colEl.querySelectorAll(".kanban-card:not([style*='display: none'])").length;
+        const totalCards = colEl.querySelectorAll(".kanban-card").length;
+        const countBadge = colEl.querySelector(".kanban-col-count");
+        if (countBadge) {
+            countBadge.textContent = query || riskOnly ? `${visibleCards}/${totalCards}` : totalCards;
+        }
     });
 }
 
