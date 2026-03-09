@@ -305,6 +305,11 @@ namespace PatriotMechanical.API.Application.Services
                         createdAt = DateTime.SpecifyKind(parsedCreated, DateTimeKind.Utc);
                     }
 
+                    // locationId
+                    long locationId = 0;
+                    if (job.TryGetProperty("locationId", out var locIdProp) && locIdProp.ValueKind == JsonValueKind.Number)
+                        locationId = locIdProp.GetInt64();
+
                     // Match to our customer
                     var customer = await _context.Customers
                         .FirstOrDefaultAsync(c => c.ServiceTitanCustomerId == customerId);
@@ -327,6 +332,7 @@ namespace PatriotMechanical.API.Application.Services
                             TotalAmount = total ?? 0m,
                             TotalRevenueCalculated = total ?? 0m,
                             CustomerId = customer.Id,
+                            ServiceTitanLocationId = locationId,
                             JobTypeName = jobTypeName,
                             CompletedAt = completedAt,
                             CreatedAt = createdAt ?? DateTime.UtcNow
@@ -340,6 +346,7 @@ namespace PatriotMechanical.API.Application.Services
                         existing.ServiceTitanModifiedOn = modifiedOn;
                         existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
                         existing.JobTypeName = jobTypeName;
+                        if (locationId > 0) existing.ServiceTitanLocationId = locationId;
 
                         // Only overwrite total if the list endpoint actually returned it
                         if (total.HasValue)
