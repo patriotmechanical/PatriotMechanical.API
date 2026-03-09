@@ -213,7 +213,43 @@ namespace PatriotMechanical.API.Controllers
                 .Take(10)
                 .ToListAsync();
 
-            return Ok(new { statuses, invoicedWoIdCount = invoicedWoIds.Count, completedNoInvoiceCount = completedNoInvoice.Count, completedNoInvoiceSample = completedNoInvoice });
+            // Also check: completed WOs with TotalAmount > 0 and no invoice
+            var completedWithValueNoInvoice = await _context.WorkOrders
+                .Where(w => w.Status != null && w.Status.ToLower().Contains("complet"))
+                .Where(w => w.TotalAmount > 0)
+                .Where(w => !invoicedWoIds.Contains(w.Id))
+                .Select(w => new { w.JobNumber, w.TotalAmount, w.CompletedAt })
+                .OrderByDescending(w => w.CompletedAt)
+                .Take(10)
+                .ToListAsync();
+
+            // Check invoices with null WorkOrderId  
+            var invoicesWithNullWo = await _context.Invoices
+                .Where(i => i.WorkOrderId == null)
+                .CountAsync();
+
+            var invoicesWithWo = await _context.Invoices
+                .Where(i => i.WorkOrderId != null)
+                .CountAsync();
+
+            // Sample of invoices to see ServiceTitanJobId linkage
+            var invoiceSample = await _context.Invoices
+                .Where(i => i.WorkOrderId == null)
+                .Select(i => new { i.InvoiceNumber, i.WorkOrderId, i.TotalAmount, i.IssueDate })
+                .Take(5)
+                .ToListAsync();
+
+            return Ok(new { 
+                statuses, 
+                invoicedWoIdCount = invoicedWoIds.Count, 
+                invoicesWithNullWo,
+                invoicesWithWo,
+                invoiceSample,
+                completedNoInvoiceCount = completedNoInvoice.Count, 
+                completedNoInvoiceSample = completedNoInvoice,
+                completedWithValueNoInvoiceCount = completedWithValueNoInvoice.Count,
+                completedWithValueNoInvoice
+            });
         }
     }
 }
