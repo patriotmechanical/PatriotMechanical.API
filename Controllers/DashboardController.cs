@@ -160,7 +160,11 @@ public class DashboardController : ControllerBase
 
         // ── SCHEDULE STRIP ────────────────────────────────────────
         // Use Central time for day bucketing so Today/Tomorrow match local business days
-        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        // Railway runs Linux (IANA IDs); fall back gracefully if neither works
+        TimeZoneInfo centralZone;
+        try { centralZone = TimeZoneInfo.FindSystemTimeZoneById("America/Chicago"); }
+        catch { try { centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time"); }
+                catch { centralZone = TimeZoneInfo.Utc; } }
         var nowCentral  = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, centralZone);
         var todayLocal    = nowCentral.Date;
         var tomorrowLocal = todayLocal.AddDays(1);
@@ -213,7 +217,6 @@ public class DashboardController : ControllerBase
                     JobNumber    = a.WorkOrder?.JobNumber ?? "",
                     CustomerName = a.WorkOrder?.Customer?.Name ?? "",
                     LocationName = loc.Name,
-                    LocationAddr = string.IsNullOrEmpty(loc.Street) ? "" : $"{loc.Street}{(string.IsNullOrEmpty(loc.City) ? "" : ", " + loc.City)}",
                     Start        = a.Start,
                     Techs        = a.Technicians.Select(t => t.TechnicianName).ToList()
                 };

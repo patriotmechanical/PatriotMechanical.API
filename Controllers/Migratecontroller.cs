@@ -239,6 +239,47 @@ public class MigrateController : ControllerBase
     }
 
     /// <summary>
+    /// GET /migrate/backfill-wo-locations — fetch locationId from ST for all WorkOrders that have ServiceTitanLocationId=0
+    /// </summary>
+    [HttpGet("backfill-wo-locations")]
+    public async Task<IActionResult> BackfillWoLocations()
+    {
+        try
+        {
+            var wos = await _context.WorkOrders
+                .Where(w => w.ServiceTitanLocationId == 0 && w.ServiceTitanJobId > 0)
+                .ToListAsync();
+
+            int updated = 0;
+            foreach (var wo in wos)
+            {
+                try
+                {
+                    var raw = await _stService.GetJobRawAsync(wo.ServiceTitanJobId);
+                    var parsed = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(raw);
+                    if (parsed.TryGetProperty("locationId", out var locProp) && locProp.ValueKind == System.Text.Json.JsonValueKind.Number)
+                    {
+                        var locId = locProp.GetInt64();
+                        if (locId > 0)
+                        {
+                            wo.ServiceTitanLocationId = locId;
+                            updated++;
+                        }
+                    }
+                }
+                catch { /* skip individual failures */ }
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { total = wos.Count, updated, message = $"Backfilled {updated} of {wos.Count} WorkOrders." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// GET /migrate/debug-wo-locations — check ServiceTitanLocationId on WorkOrders for upcoming jobs
     /// </summary>
     [HttpGet("debug-wo-locations")]
