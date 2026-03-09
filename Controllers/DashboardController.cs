@@ -257,13 +257,6 @@ public class DashboardController : ControllerBase
         var daysElapsed   = now.Day;
 
         // ── OPEN JOBS WITH VALUE, NO INVOICE ─────────────────────
-        // Get all WorkOrder IDs that already have an invoice
-        var invoicedWoIds = await _context.Invoices
-            .Where(i => i.WorkOrderId != null)
-            .Select(i => i.WorkOrderId!.Value)
-            .Distinct()
-            .ToListAsync();
-
         var completedNoInvoice = await _context.WorkOrders
             .Where(w => w.Status != null && (
                 w.Status.ToLower().Contains("open") ||
@@ -272,7 +265,7 @@ public class DashboardController : ControllerBase
                 w.Status.ToLower().Contains("hold") ||
                 w.Status.ToLower().Contains("waiting")))
             .Where(w => w.TotalAmount > 0)
-            .Where(w => !invoicedWoIds.Contains(w.Id))
+            .Where(w => !_context.Invoices.Any(i => i.WorkOrderId == w.Id))
             .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
             .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
             .Include(w => w.Customer)
