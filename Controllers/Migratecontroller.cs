@@ -583,4 +583,23 @@ public class MigrateController : ControllerBase
             return Ok(new { error = ex.Message });
         }
     }
+
+    [HttpPost("reset-estimates-sync")]
+    public async Task<IActionResult> ResetEstimatesSync()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                DELETE FROM ""ServiceTitanSyncStates"" WHERE ""EntityName"" = 'Estimates';
+                TRUNCATE TABLE ""EstimateFollowUpNotes"";
+                TRUNCATE TABLE ""EstimateFollowUps"";
+                TRUNCATE TABLE ""Estimates"";
+            ");
+            return Ok(new { message = "Estimates sync state reset. Run sync again to do a full pull." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
 }
