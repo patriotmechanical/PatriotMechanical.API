@@ -45,6 +45,13 @@ namespace PatriotMechanical.API.Controllers
             return Ok(new { message = "Full job sync complete" });
         }
 
+        [HttpPost("sync/estimates")]
+        public async Task<IActionResult> SyncEstimates()
+        {
+            await _syncEngine.SyncEstimatesAsync();
+            return Ok(new { message = "Estimates sync complete" });
+        }
+
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshRecent()
         {
