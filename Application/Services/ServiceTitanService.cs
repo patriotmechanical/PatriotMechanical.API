@@ -501,7 +501,7 @@ namespace PatriotMechanical.API.Application.Services
             var tenantId = await GetTenantId();
             var appKey = await GetAppKey();
 
-            var url = $"{baseUrl}/sales/v2/tenant/{tenantId}/estimates?pageSize={pageSize}&page={page}&active=Any&includeTotal=true";
+            var url = $"{baseUrl}/sales/v2/tenant/{tenantId}/estimates?pageSize={pageSize}&page={page}&active=Any&status=0&includeTotal=true";
             if (modifiedOnOrAfter.HasValue)
                 url += $"&modifiedOnOrAfter={modifiedOnOrAfter.Value:O}";
 
