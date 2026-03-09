@@ -26,16 +26,8 @@ namespace PatriotMechanical.API.Controllers
         [HttpPost("sync/invoices")]
         public async Task<IActionResult> SyncInvoices()
         {
-            try
-            {
-                await _syncEngine.SyncInvoicesAsync();
-                return Ok(new { message = "Invoice sync complete" });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Invoice Sync Error] {ex.Message} | {ex.InnerException?.Message} | {ex.StackTrace}");
-                return StatusCode(500, new { error = ex.Message, inner = ex.InnerException?.Message });
-            }
+            await _syncEngine.SyncInvoicesAsync();
+            return Ok(new { message = "Invoice sync complete" });
         }
 
         [HttpPost("sync/jobs")]
@@ -50,6 +42,13 @@ namespace PatriotMechanical.API.Controllers
         {
             await _syncEngine.SyncEstimatesAsync();
             return Ok(new { message = "Estimates sync complete" });
+        }
+
+        [HttpGet("tag-types")]
+        public async Task<IActionResult> GetTagTypes([FromServices] ServiceTitanService stService)
+        {
+            var raw = await stService.GetTagTypesAsync();
+            return Content(raw, "application/json");
         }
 
         [HttpPost("refresh")]

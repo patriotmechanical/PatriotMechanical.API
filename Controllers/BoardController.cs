@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using PatriotMechanical.API.Application.Services;
 using PatriotMechanical.API.Domain.Entities;
 using PatriotMechanical.API.Infrastructure.Data;
 using System.Security.Claims;
@@ -13,11 +14,28 @@ namespace PatriotMechanical.API.Controllers
     public class BoardController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly ServiceTitanService _stService;
 
-        public BoardController(AppDbContext context)
+        public BoardController(AppDbContext context, ServiceTitanService stService)
         {
             _context = context;
+            _stService = stService;
         }
+
+        // ── ST TAG MAPPING ────────────────────────────────────────────
+        // Column name (lowercase) → ST tag type ID
+        // Fill in the real IDs after running GET /servicetitan/tag-types
+        private static readonly Dictionary<string, long> ColumnTagMap = new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "need to return",              0 }, // TODO: replace with real ST tag type ID
+            { "needs quote",                 0 }, // TODO: replace with real ST tag type ID
+            { "order parts",                 0 }, // TODO: replace with real ST tag type ID
+            { "waiting for customer approval", 0 }, // TODO: replace with real ST tag type ID
+            { "waiting for materials",       0 }, // TODO: replace with real ST tag type ID
+        };
+
+        // All tag IDs we ever set — used to strip old board tags before applying new one
+        private static HashSet<long> AllBoardTagIds => new(ColumnTagMap.Values.Where(v => v != 0));
 
         // GET /board — full board with columns and cards
         [HttpGet]
@@ -222,6 +240,35 @@ namespace PatriotMechanical.API.Controllers
             card.SortOrder = req.SortOrder;
 
             await _context.SaveChangesAsync();
+
+            // ── Push tag to ServiceTitan (fire-and-forget, don't fail the move if ST is down) ──
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // Get the column name the card was moved to
+                    var column = await _context.BoardColumns.FindAsync(req.ColumnId);
+                    if (column == null) return;
+
+                    // Look up the WO to get the ST job ID
+                    var wo = await _context.WorkOrders.FirstOrDefaultAsync(w => w.JobNumber == card.JobNumber);
+                    if (wo == null || wo.ServiceTitanJobId == 0) return;
+
+                    // Resolve tag ID for this column (null if unmapped)
+                    ColumnTagMap.TryGetValue(column.Name.Trim(), out var tagId);
+                    long? newTagId = tagId != 0 ? tagId : null;
+
+                    // Skip if no board tags configured yet (all zeros = not set up)
+                    if (AllBoardTagIds.Count == 0) return;
+
+                    await _stService.UpdateJobTagsAsync(wo.ServiceTitanJobId, AllBoardTagIds, newTagId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ST Tag Sync] Failed for card {id}: {ex.Message}");
+                }
+            });
+
             return Ok(new { message = "Card moved." });
         }
 
