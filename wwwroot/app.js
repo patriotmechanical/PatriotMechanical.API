@@ -749,7 +749,7 @@ function openOpsDrilldown(idx) {
             const lastPm = item.lastPm ? new Date(item.lastPm).toLocaleDateString() : "Never";
             const days = item.lastPm ? Math.floor((Date.now() - new Date(item.lastPm).getTime()) / 86400000) : "—";
             html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
-
+        }
     });
 
     html += "</tbody></table>";
