@@ -2246,7 +2246,7 @@ async function syncEstimates() {
     const btn = document.querySelector('#estimatesView .btn-refresh');
     if (btn) { btn.innerText = '↻ Syncing...'; btn.disabled = true; }
     try {
-        await api('/estimates/sync', { method:'POST' });
+        await api('/servicetitan/sync/estimates', { method:'POST' });
         await loadEstimates();
     } finally {
         if (btn) { btn.innerText = '↻ Sync Estimates'; btn.disabled = false; }
