@@ -1,116 +1,67 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using PatriotMechanical.API.Infrastructure.Data;
+using PatriotMechanical.API.Application.Services;
 
 namespace PatriotMechanical.API.Controllers
 {
     [Authorize]
     [ApiController]
-    [Route("search")]
-    public class SearchController : ControllerBase
+    [Route("servicetitan")]
+    public class ServiceTitanController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly ServiceTitanSyncEngine _syncEngine;
 
-        public SearchController(AppDbContext context)
+        public ServiceTitanController(ServiceTitanSyncEngine syncEngine)
         {
-            _context = context;
+            _syncEngine = syncEngine;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> Search([FromQuery] string q)
+        [HttpPost("sync/customers")]
+        public async Task<IActionResult> SyncCustomers()
         {
-            if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
-                return Ok(new { results = Array.Empty<object>() });
+            await _syncEngine.SyncCustomersAsync(fullSync: true);
+            return Ok(new { message = "Full customer sync complete" });
+        }
 
-            var term = q.Trim().ToLower();
-            var isDemo = DemoFilter.IsDemo(User);
-            var results = new List<object>();
+        [HttpPost("sync/invoices")]
+        public async Task<IActionResult> SyncInvoices()
+        {
+            await _syncEngine.SyncInvoicesAsync();
+            return Ok(new { message = "Invoice sync complete" });
+        }
 
-            // Customers
-            var customers = await _context.Customers
-                .Where(c => !isDemo || c.Name.StartsWith("[DEMO]"))
-                .Where(c => isDemo || !c.Name.StartsWith("[DEMO]"))
-                .Where(c => c.Name.ToLower().Contains(term))
-                .Take(5)
-                .Select(c => new { c.Id, c.Name })
-                .ToListAsync();
+        [HttpPost("sync/jobs")]
+        public async Task<IActionResult> SyncJobs()
+        {
+            await _syncEngine.SyncJobsAsync(fullSync: true);
+            return Ok(new { message = "Full job sync complete" });
+        }
 
-            foreach (var c in customers)
-                results.Add(new { type = "customer", id = c.Id, title = c.Name, subtitle = "Customer" });
+        [HttpPost("sync/estimates")]
+        public async Task<IActionResult> SyncEstimates()
+        {
+            await _syncEngine.SyncEstimatesAsync();
+            return Ok(new { message = "Estimates sync complete" });
+        }
 
-            // Work Orders (by job number or customer name)
-            var workOrders = await _context.WorkOrders
-                .Include(w => w.Customer)
-                .Where(w => !isDemo || (w.Customer != null && w.Customer.Name.StartsWith("[DEMO]")))
-                .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
-                .Where(w => (w.JobNumber != null && w.JobNumber.ToLower().Contains(term))
-                         || (w.Customer != null && w.Customer.Name.ToLower().Contains(term)))
-                .Take(5)
-                .Select(w => new { w.Id, w.JobNumber, CustomerName = w.Customer != null ? w.Customer.Name : "Unknown", w.Status })
-                .ToListAsync();
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshRecent()
+        {
+            var updated = await _syncEngine.RefreshRecentJobsAsync(lookbackHours: 72);
 
-            foreach (var w in workOrders)
-                results.Add(new { type = "workorder", id = w.Id, title = "Job #" + w.JobNumber, subtitle = w.CustomerName + " — " + w.Status });
+            string apptMessage = "";
+            try
+            {
+                await _syncEngine.SyncAppointmentsAndAutoBoardAsync();
+                apptMessage = "Appointment sync complete.";
+            }
+            catch (Exception ex)
+            {
+                apptMessage = $"Appointment sync skipped: {ex.Message}";
+                Console.WriteLine($"[Appointment Sync] {apptMessage}");
+            }
 
-            // Equipment (by serial, model, brand, or customer)
-            var equipment = await _context.Equipment
-                .Include(e => e.Customer)
-                .Where(e => !isDemo || (e.Customer != null && e.Customer.Name.StartsWith("[DEMO]")))
-                .Where(e => isDemo || e.Customer == null || !e.Customer.Name.StartsWith("[DEMO]"))
-                .Where(e => (e.SerialNumber != null && e.SerialNumber.ToLower().Contains(term))
-                         || (e.ModelNumber != null && e.ModelNumber.ToLower().Contains(term))
-                         || (e.Brand != null && e.Brand.ToLower().Contains(term))
-                         || (e.Type != null && e.Type.ToLower().Contains(term)))
-                .Take(5)
-                .Select(e => new { e.Id, e.Type, e.Brand, e.SerialNumber, CustomerName = e.Customer != null ? e.Customer.Name : "" })
-                .ToListAsync();
-
-            foreach (var e in equipment)
-                results.Add(new { type = "equipment", id = e.Id, title = (e.Brand + " " + e.Type).Trim(), subtitle = "S/N: " + (e.SerialNumber ?? "—") + " — " + e.CustomerName });
-
-            // Vendors
-            var vendors = await _context.Vendors
-                .Where(v => !isDemo || v.Name.StartsWith("[DEMO]"))
-                .Where(v => isDemo || !v.Name.StartsWith("[DEMO]"))
-                .Where(v => v.Name.ToLower().Contains(term))
-                .Take(5)
-                .Select(v => new { v.Id, v.Name })
-                .ToListAsync();
-
-            foreach (var v in vendors)
-                results.Add(new { type = "vendor", id = v.Id, title = v.Name, subtitle = "Vendor" });
-
-            // Warranty Claims (by part name, RMA, customer, or job number)
-            var warranties = await _context.WarrantyClaims
-                .Where(w => !isDemo || w.IsDemo)
-                .Where(w => isDemo || !w.IsDemo)
-                .Where(w => (w.PartName.ToLower().Contains(term))
-                         || (w.RmaNumber != null && w.RmaNumber.ToLower().Contains(term))
-                         || (w.CustomerName != null && w.CustomerName.ToLower().Contains(term))
-                         || (w.JobNumber != null && w.JobNumber.ToLower().Contains(term)))
-                .Take(5)
-                .Select(w => new { w.Id, w.PartName, w.CustomerName, w.Status })
-                .ToListAsync();
-
-            foreach (var w in warranties)
-                results.Add(new { type = "warranty", id = w.Id, title = w.PartName, subtitle = "Warranty — " + w.Status + (w.CustomerName != null ? " — " + w.CustomerName : "") });
-
-            // Subcontractors
-            var subs = await _context.Subcontractors
-                .Where(s => !isDemo || s.Name.StartsWith("[DEMO]"))
-                .Where(s => isDemo || !s.Name.StartsWith("[DEMO]"))
-                .Where(s => s.Name.ToLower().Contains(term)
-                         || (s.Company != null && s.Company.ToLower().Contains(term))
-                         || (s.Trade != null && s.Trade.ToLower().Contains(term)))
-                .Take(5)
-                .Select(s => new { s.Id, s.Name, s.Company, s.Trade })
-                .ToListAsync();
-
-            foreach (var s in subs)
-                results.Add(new { type = "subcontractor", id = s.Id, title = s.Name, subtitle = (s.Trade ?? "") + " — " + (s.Company ?? "") });
-
-            return Ok(new { results });
+            return Ok(new { message = $"Refreshed {updated} jobs. {apptMessage}" });
         }
     }
 }
