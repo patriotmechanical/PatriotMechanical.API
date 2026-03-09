@@ -1000,6 +1000,37 @@ let boardData = [];
 let currentCardId = null;
 let draggedCardId = null;
 
+// ═══════════════════════════════════════════════════════════════
+// RISK FLAG ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+function computeRiskFlags(card) {
+    const flags = [];
+    const now = Date.now();
+
+    // Flag 1: Open 7+ days with no recent note activity
+    const addedDays = card.addedAt ? (now - new Date(card.addedAt).getTime()) / 86400000 : 0;
+    const lastNoteDays = card.woLastNote ? (now - new Date(card.woLastNote).getTime()) / 86400000 : addedDays;
+    if (addedDays >= 7 && lastNoteDays >= 7) {
+        flags.push({ label: `${Math.floor(addedDays)}d open`, level: addedDays >= 14 ? "red" : "amber" });
+    }
+
+    // Flag 2: No invoice on job with value
+    if (card.woTotal > 0 && !card.woHasInvoice) {
+        flags.push({ label: "No invoice", level: "red" });
+    }
+
+    // Flag 3: Materials added but job not closed
+    const openStatuses = ["open", "inprogress", "scheduled", "hold", "waiting"];
+    const statusLower = (card.woStatus || "").toLowerCase();
+    const isOpen = openStatuses.some(s => statusLower.includes(s));
+    if (card.woHasMaterials && isOpen) {
+        flags.push({ label: "Materials open", level: "amber" });
+    }
+
+    return flags;
+}
+
 async function loadBoard() {
     const res = await api("/board");
     if (!res || !res.ok) return;
@@ -1039,11 +1070,15 @@ function renderBoard() {
 
             const noteCount = card.notes ? card.notes.length : 0;
             const added = new Date(card.addedAt).toLocaleDateString();
+            const risks = computeRiskFlags(card);
+
+            if (risks.length > 0) cardEl.classList.add("kanban-card-risk");
 
             cardEl.innerHTML = `
                 <div class="card-job">#${card.jobNumber}</div>
                 <div class="card-customer">${card.customerName || "Unknown"}</div>
                 <div class="card-date">Added ${added}</div>
+                ${risks.length > 0 ? `<div class="card-risk-chips">${risks.map(r => `<span class="card-risk-chip chip-${r.level}">${r.label}</span>`).join("")}</div>` : ""}
                 ${noteCount > 0 ? `<span class="card-note-indicator">📝 ${noteCount}</span>` : ""}
             `;
 
@@ -1143,6 +1178,33 @@ async function openCardModal(card, col) {
     document.getElementById("cardModalAdded").innerText = new Date(card.addedAt).toLocaleString();
     document.getElementById("cardModalColumn").innerText = col.name;
     document.getElementById("cardNoteInput").value = "";
+
+    // ── RISK FLAGS SECTION ───────────────────────────────────────
+    const risks = computeRiskFlags(card);
+    const riskSection = document.getElementById("cardRiskSection");
+    if (riskSection) {
+        if (risks.length > 0) {
+            const addedDays = card.addedAt ? Math.floor((Date.now() - new Date(card.addedAt).getTime()) / 86400000) : 0;
+            riskSection.innerHTML = `
+                <div class="card-risk-section">
+                    <div class="card-risk-header">⚠ Risk Flags</div>
+                    ${risks.map(r => {
+                        let detail = r.label;
+                        if (r.label.includes("open")) detail = `This job has been on the board for ${addedDays} days with no recent activity.`;
+                        if (r.label === "No invoice") detail = `Job total is $${Number(card.woTotal || 0).toLocaleString()} but no invoice has been created.`;
+                        if (r.label === "Materials open") detail = `Materials have been added but the job is still open (${card.woStatus || "unknown status"}).`;
+                        return `<div class="card-risk-flag flag-${r.level}">
+                            <span class="flag-dot"></span>
+                            <div><strong>${r.label}</strong><br><span class="flag-detail">${detail}</span></div>
+                        </div>`;
+                    }).join("")}
+                </div>`;
+            riskSection.classList.remove("hidden");
+        } else {
+            riskSection.innerHTML = "";
+            riskSection.classList.add("hidden");
+        }
+    }
 
     // Render notes
     const notesList = document.getElementById("cardNotesList");

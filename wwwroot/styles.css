@@ -2426,3 +2426,69 @@ th.sort-desc .sort-arrow::after {
     gap: 8px;
 }
 .profile-ar-alert-banner.hidden { display: none; }
+
+/* ── Risk Flags ─────────────────────────────────────────────── */
+.kanban-card-risk {
+    border-left: 3px solid #ef4444;
+}
+
+.card-risk-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.card-risk-chip {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+.card-risk-chip.chip-red    { background: rgba(239,68,68,0.2);  color: #fca5a5; }
+.card-risk-chip.chip-amber  { background: rgba(217,119,6,0.2);  color: #fcd34d; }
+
+/* Risk section in card modal */
+.card-risk-section {
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+
+.card-risk-header {
+    font-size: 12px;
+    font-weight: 700;
+    color: #fca5a5;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.card-risk-flag {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+    color: #cbd5e1;
+}
+.card-risk-flag:first-of-type { border-top: none; padding-top: 0; }
+
+.flag-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+.flag-red .flag-dot   { background: #ef4444; }
+.flag-amber .flag-dot { background: #f59e0b; }
+
+.flag-detail {
+    font-size: 12px;
+    color: #64748b;
+}

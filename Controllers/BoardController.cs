@@ -31,6 +31,12 @@ namespace PatriotMechanical.API.Controllers
                                      .Where(card => isDemo || !card.CustomerName.StartsWith("[DEMO]"))
                                      .OrderBy(card => card.SortOrder))
                     .ThenInclude(card => card.Notes.OrderByDescending(n => n.CreatedAt))
+                .Include(c => c.Cards)
+                    .ThenInclude(card => card.WorkOrder)
+                        .ThenInclude(wo => wo!.MaterialEntries)
+                .Include(c => c.Cards)
+                    .ThenInclude(card => card.WorkOrder)
+                        .ThenInclude(wo => wo!.Invoice)
                 .ToListAsync();
 
             // Seed defaults if empty
@@ -87,7 +93,14 @@ namespace PatriotMechanical.API.Controllers
                         n.Text,
                         n.Author,
                         n.CreatedAt
-                    })
+                    }),
+                    // WO risk data
+                    WoCreatedAt = card.WorkOrder != null ? card.WorkOrder.CreatedAt : (DateTime?)null,
+                    WoStatus = card.WorkOrder != null ? card.WorkOrder.Status : null,
+                    WoTotal = card.WorkOrder != null ? card.WorkOrder.TotalAmount : 0m,
+                    WoHasMaterials = card.WorkOrder != null && card.WorkOrder.MaterialEntries.Any(),
+                    WoHasInvoice = card.WorkOrder != null && card.WorkOrder.Invoice != null,
+                    WoLastNote = card.Notes.Any() ? card.Notes.Max(n => n.CreatedAt) : (DateTime?)null
                 })
             }));
         }
