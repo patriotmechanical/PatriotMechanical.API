@@ -520,4 +520,67 @@ public class MigrateController : ControllerBase
             return Ok(new { error = ex.Message });
         }
     }
+
+    [HttpPost("add-estimates-tables")]
+    public async Task<IActionResult> AddEstimatesTables()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS ""Estimates"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""ServiceTitanEstimateId"" bigint NOT NULL,
+                    ""ServiceTitanJobId"" bigint NOT NULL DEFAULT 0,
+                    ""ServiceTitanCustomerId"" bigint NOT NULL DEFAULT 0,
+                    ""JobNumber"" text NOT NULL DEFAULT \'\',
+                    ""EstimateName"" text NOT NULL DEFAULT \'\',
+                    ""Status"" text NOT NULL DEFAULT \'\',
+                    ""ReviewStatus"" text NOT NULL DEFAULT \'\',
+                    ""Summary"" text NOT NULL DEFAULT \'\',
+                    ""BusinessUnitName"" text NOT NULL DEFAULT \'\',
+                    ""Subtotal"" numeric NOT NULL DEFAULT 0,
+                    ""Tax"" numeric NOT NULL DEFAULT 0,
+                    ""CreatedOn"" timestamp with time zone,
+                    ""ModifiedOn"" timestamp with time zone,
+                    ""SoldOn"" timestamp with time zone,
+                    ""IsActive"" boolean NOT NULL DEFAULT true,
+                    ""LastSyncedFromServiceTitan"" timestamp with time zone NOT NULL DEFAULT now(),
+                    ""CustomerId"" uuid REFERENCES ""Customers""(""Id"") ON DELETE SET NULL
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Estimates_ServiceTitanEstimateId""
+                    ON ""Estimates""(""ServiceTitanEstimateId"");
+
+                CREATE TABLE IF NOT EXISTS ""EstimateFollowUps"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""EstimateId"" uuid NOT NULL REFERENCES ""Estimates""(""Id"") ON DELETE CASCADE,
+                    ""FollowUpDate"" timestamp with time zone,
+                    ""AssignedTo"" text NOT NULL DEFAULT \'\',
+                    ""Outcome"" text NOT NULL DEFAULT \'Pending\',
+                    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                    ""UpdatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_EstimateFollowUps_EstimateId""
+                    ON ""EstimateFollowUps""(""EstimateId"");
+
+                CREATE TABLE IF NOT EXISTS ""EstimateFollowUpNotes"" (
+                    ""Id"" uuid NOT NULL PRIMARY KEY,
+                    ""FollowUpId"" uuid NOT NULL REFERENCES ""EstimateFollowUps""(""Id"") ON DELETE CASCADE,
+                    ""Text"" text NOT NULL DEFAULT \'\',
+                    ""Author"" text NOT NULL DEFAULT \'\',
+                    ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT now()
+                );
+
+                CREATE INDEX IF NOT EXISTS ""IX_EstimateFollowUpNotes_FollowUpId""
+                    ON ""EstimateFollowUpNotes""(""FollowUpId"");
+            ");
+
+            return Ok(new { message = "Estimates tables created successfully." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
 }

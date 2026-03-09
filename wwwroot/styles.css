@@ -2188,3 +2188,104 @@ tr.ar-row-bad  td.bold { color: #f87171; }
 .kpi-strip-4 {
     grid-template-columns: repeat(4, 1fr);
 }
+
+/* ── 5-card full-width KPI strip ── */
+.kpi-strip-5 {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+/* ── ESTIMATES PAGE ── */
+.est-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+.est-tab {
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid #334155;
+    background: #1e293b;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s;
+}
+.est-tab:hover { border-color: #6366f1; color: #e2e8f0; }
+.est-tab.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+
+.est-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.est-kpi-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+}
+.est-kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 10px 10px 0 0;
+    background: #6366f1;
+}
+
+/* Outcome badges */
+.outcome-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.outcome-pending { background: #1e3a5f; color: #93c5fd; }
+.outcome-won     { background: #14532d; color: #86efac; }
+.outcome-lost    { background: #450a0a; color: #fca5a5; }
+
+/* Follow-up date colors */
+.followup-overdue { color: #f87171; font-weight: 600; }
+.followup-today   { color: #fbbf24; font-weight: 600; }
+.followup-future  { color: #94a3b8; }
+
+/* Drawer note entries */
+.drawer-note {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+.drawer-note-text { font-size: 13px; color: #e2e8f0; flex: 1; }
+.drawer-note-meta { font-size: 11px; color: #64748b; white-space: nowrap; }
+
+.kpi-indigo::before { background: #6366f1; }
+
+/* Forecast progress bar inside KPI card */
+.kpi-forecast-bar-wrap {
+    height: 4px;
+    background: #1e3a5f;
+    border-radius: 2px;
+    margin: 6px 0 4px;
+    overflow: hidden;
+}
+.kpi-forecast-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.6s ease;
+}

@@ -870,5 +870,151 @@ namespace PatriotMechanical.API.Application.Services
 
             await _context.SaveChangesAsync();
         }
+         // ═══════════════════════════════════════════════════════════════
+        // ESTIMATES (list endpoint, status=Open)
+        // ═══════════════════════════════════════════════════════════════
+
+        public async Task SyncEstimatesAsync()
+        {
+            try
+            {
+                // Pull last sync time to do incremental updates
+                var syncState = await _context.ServiceTitanSyncStates
+                    .FirstOrDefaultAsync(s => s.EntityName == "Estimates");
+
+                DateTime? modifiedSince = syncState?.LastSynced;
+
+                int page = 1;
+                bool hasMore = true;
+
+                while (hasMore)
+                {
+                    var raw = await _service.GetOpenEstimatesAsync(page: page, pageSize: 200, modifiedOnOrAfter: modifiedSince);
+                    var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+
+                    if (!parsed.TryGetProperty("data", out var data)) break;
+
+                    hasMore = parsed.TryGetProperty("hasMore", out var hm) && hm.GetBoolean();
+                    page++;
+
+                    // Build a customer lookup: ST customer ID -> our Guid
+                    var stCustomerIds = new List<long>();
+                    foreach (var est in data.EnumerateArray())
+                    {
+                        if (est.TryGetProperty("customerId", out var cid) && cid.ValueKind == JsonValueKind.Number)
+                            stCustomerIds.Add(cid.GetInt64());
+                    }
+                    var customerMap = await _context.Customers
+                        .Where(c => stCustomerIds.Contains(c.ServiceTitanCustomerId))
+                        .ToDictionaryAsync(c => c.ServiceTitanCustomerId, c => c.Id);
+
+                    foreach (var est in data.EnumerateArray())
+                    {
+                        try
+                        {
+                            var stEstId  = est.GetProperty("id").GetInt64();
+                            var jobId    = est.TryGetProperty("jobId", out var ji) && ji.ValueKind == JsonValueKind.Number ? ji.GetInt64() : 0L;
+                            var custId   = est.TryGetProperty("customerId", out var ci) && ci.ValueKind == JsonValueKind.Number ? ci.GetInt64() : 0L;
+                            var jobNum   = est.TryGetProperty("jobNumber", out var jn) ? jn.GetString() ?? "" : "";
+                            var name     = est.TryGetProperty("name", out var nm) ? nm.GetString() ?? "" : "";
+                            var summary  = est.TryGetProperty("summary", out var sm) ? sm.GetString() ?? "" : "";
+                            var buName   = est.TryGetProperty("businessUnitName", out var bu) ? bu.GetString() ?? "" : "";
+                            var subtotal = est.TryGetProperty("subtotal", out var sub) && sub.ValueKind == JsonValueKind.Number ? sub.GetDecimal() : 0m;
+                            var tax      = est.TryGetProperty("tax", out var tx) && tx.ValueKind == JsonValueKind.Number ? tx.GetDecimal() : 0m;
+                            var active   = !est.TryGetProperty("active", out var ac) || ac.GetBoolean();
+
+                            var statusName = "";
+                            if (est.TryGetProperty("status", out var statusProp) && statusProp.ValueKind == JsonValueKind.Object)
+                                statusProp.TryGetProperty("name", out var sn); // handled below
+                            if (est.TryGetProperty("status", out var sp) && sp.ValueKind == JsonValueKind.Object && sp.TryGetProperty("name", out var snv))
+                                statusName = snv.GetString() ?? "";
+
+                            var reviewStatus = est.TryGetProperty("reviewStatus", out var rs) ? rs.GetString() ?? "" : "";
+
+                            DateTime? createdOn  = null;
+                            DateTime? modifiedOn = null;
+                            DateTime? soldOn     = null;
+                            if (est.TryGetProperty("createdOn", out var co) && co.ValueKind == JsonValueKind.String)
+                                createdOn = co.GetDateTime();
+                            if (est.TryGetProperty("modifiedOn", out var mo) && mo.ValueKind == JsonValueKind.String)
+                                modifiedOn = mo.GetDateTime();
+                            if (est.TryGetProperty("soldOn", out var so) && so.ValueKind == JsonValueKind.String && so.GetString() != null)
+                                soldOn = so.GetDateTime();
+
+                            Guid? localCustomerId = customerMap.TryGetValue(custId, out var lcid) ? lcid : null;
+
+                            var existing = await _context.Estimates
+                                .FirstOrDefaultAsync(e => e.ServiceTitanEstimateId == stEstId);
+
+                            if (existing == null)
+                            {
+                                _context.Estimates.Add(new Estimate
+                                {
+                                    Id = Guid.NewGuid(),
+                                    ServiceTitanEstimateId = stEstId,
+                                    ServiceTitanJobId = jobId,
+                                    ServiceTitanCustomerId = custId,
+                                    JobNumber = jobNum,
+                                    EstimateName = name,
+                                    Status = statusName,
+                                    ReviewStatus = reviewStatus,
+                                    Summary = summary,
+                                    BusinessUnitName = buName,
+                                    Subtotal = subtotal,
+                                    Tax = tax,
+                                    CreatedOn = createdOn,
+                                    ModifiedOn = modifiedOn,
+                                    SoldOn = soldOn,
+                                    IsActive = active,
+                                    CustomerId = localCustomerId,
+                                    LastSyncedFromServiceTitan = DateTime.UtcNow
+                                });
+                            }
+                            else
+                            {
+                                existing.ServiceTitanJobId = jobId;
+                                existing.ServiceTitanCustomerId = custId;
+                                existing.JobNumber = jobNum;
+                                existing.EstimateName = name;
+                                existing.Status = statusName;
+                                existing.ReviewStatus = reviewStatus;
+                                existing.Summary = summary;
+                                existing.BusinessUnitName = buName;
+                                existing.Subtotal = subtotal;
+                                existing.Tax = tax;
+                                existing.CreatedOn = createdOn;
+                                existing.ModifiedOn = modifiedOn;
+                                existing.SoldOn = soldOn;
+                                existing.IsActive = active;
+                                existing.CustomerId = localCustomerId;
+                                existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[EstimatesSync] Skipping estimate: {ex.Message}");
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
+
+                // Update sync state
+                if (syncState == null)
+                {
+                    syncState = new ServiceTitanSyncState { EntityName = "Estimates" };
+                    _context.ServiceTitanSyncStates.Add(syncState);
+                }
+                syncState.LastSynced = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine("[EstimatesSync] Complete.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EstimatesSync] Error: {ex.Message}");
+                throw;
+            }
+        }
     }
 }

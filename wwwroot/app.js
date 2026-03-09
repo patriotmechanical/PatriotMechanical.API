@@ -208,7 +208,7 @@ function enterApp() {
 // ═══════════════════════════════════════════════════════════════
 
 function showView(viewId, clickedLink) {
-    const views = ["dashboardPage", "boardView", "todoView", "customersView", "subsView", "equipmentView", "warrantyView", "pmView", "apView", "pricingView", "adminView"];
+    const views = ["dashboardPage", "boardView", "todoView", "customersView", "subsView", "equipmentView", "warrantyView", "pmView", "estimatesView", "apView", "pricingView", "adminView"];
     views.forEach(v => { const el = document.getElementById(v); if (el) el.style.display = "none"; });
     document.getElementById(viewId).style.display = "block";
     if (clickedLink) { document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active")); clickedLink.classList.add("active"); }
@@ -220,6 +220,7 @@ function showView(viewId, clickedLink) {
     if (viewId === "subsView") loadSubcontractors();
     if (viewId === "equipmentView") loadEquipment();
     if (viewId === "pmView") loadPmTracker();
+    if (viewId === "estimatesView") loadEstimates();
     if (viewId === "apView") { loadAp(); loadVendors(); }
     if (viewId === "adminView") loadAdminSettings();
 }
@@ -352,6 +353,36 @@ async function loadDashboard() {
         revSubEl.innerText = "first month on record";
     } else {
         revSubEl.innerText = "no invoices this month";
+    }
+
+    // ── FORECASTED REVENUE KPI ─────────────────────────────────
+    const forecast     = Number(data.forecastedRevenue ?? data.ForecastedRevenue ?? 0);
+    const daysInMonth  = Number(data.daysInMonth  ?? data.DaysInMonth  ?? 30);
+    const daysElapsed  = Number(data.daysElapsed  ?? data.DaysElapsed  ?? 1);
+    const totalPipeline = revThis + forecast;
+
+    document.getElementById("kpiForecast").innerText = fmtCurrency(totalPipeline);
+
+    // Progress bar: closed revenue as % of total pipeline
+    const barEl = document.getElementById("kpiForecastBar");
+    if (barEl && totalPipeline > 0) {
+        const pct = Math.min(100, Math.round((revThis / totalPipeline) * 100));
+        barEl.style.width = pct + "%";
+    }
+
+    // Sub-label
+    const forecastSubEl = document.getElementById("kpiForecastSub");
+    if (forecastSubEl) {
+        const daysLeft = daysInMonth - daysElapsed;
+        if (forecast > 0 && revThis > 0) {
+            forecastSubEl.innerHTML = `<span style="color:#818cf8">${fmtCurrency(revThis)} closed</span> + ${fmtCurrency(forecast)} scheduled`;
+        } else if (forecast > 0) {
+            forecastSubEl.innerText = `${fmtCurrency(forecast)} in scheduled jobs`;
+        } else if (revThis > 0) {
+            forecastSubEl.innerText = `${daysLeft}d left · no upcoming jobs`;
+        } else {
+            forecastSubEl.innerText = "no data";
+        }
     }
 
     // ── SCHEDULE PANEL (tabbed) ────────────────────────────────
@@ -2028,3 +2059,196 @@ document.addEventListener("click", e => {
 function showError(id, msg) { const el = document.getElementById(id); el.innerText = msg; el.classList.remove("hidden"); }
 function hideError(id) { document.getElementById(id).classList.add("hidden"); }
 function toast(message, type = "success") { const el = document.createElement("div"); el.className = `toast ${type}`; el.innerText = message; document.body.appendChild(el); setTimeout(() => el.remove(), 3000); }
+// ═══════════════════════════════════════════════════════════════
+// ESTIMATES
+// ═══════════════════════════════════════════════════════════════
+
+let _allEstimates = [];
+let _activeEstimateId = null;
+let _estActiveTab = 'Pending';
+
+async function loadEstimates() {
+    const res = await api("/estimates");
+    if (!res || !res.ok) return;
+    _allEstimates = await res.json();
+    renderEstimates();
+}
+
+function filterEstimates(tab) {
+    _estActiveTab = tab;
+    // Update tab button states
+    ['Pending','Won','Lost','All'].forEach(t => {
+        const el = document.getElementById('estTab' + t);
+        if (el) el.classList.toggle('active', t === tab);
+    });
+    renderEstimates();
+}
+
+function renderEstimates() {
+    const fmt = v => "$" + Number(v).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    // Compute counts
+    const pending = _allEstimates.filter(e => !e.followUp || e.followUp.outcome === 'Pending');
+    const won     = _allEstimates.filter(e => e.followUp?.outcome === 'Won');
+    const lost    = _allEstimates.filter(e => e.followUp?.outcome === 'Lost');
+
+    document.getElementById('estCountPending').innerText = pending.length;
+    document.getElementById('estCountWon').innerText     = won.length;
+    document.getElementById('estCountLost').innerText    = lost.length;
+    document.getElementById('estCountAll').innerText     = _allEstimates.length;
+    document.getElementById('estimatesCount').innerText  = _allEstimates.length;
+
+    // KPI cards
+    const openPipeline = pending.reduce((sum, e) => sum + Number(e.total || 0), 0);
+    document.getElementById('estKpiPipeline').innerText = fmt(openPipeline);
+    document.getElementById('estKpiPipelineSub').innerText = `${pending.length} open estimates`;
+
+    const dueToday = pending.filter(e => {
+        if (!e.followUp?.followUpDate) return false;
+        const d = new Date(e.followUp.followUpDate); d.setHours(0,0,0,0);
+        return d.getTime() === today.getTime();
+    }).length;
+    const overdue = pending.filter(e => {
+        if (!e.followUp?.followUpDate) return false;
+        const d = new Date(e.followUp.followUpDate); d.setHours(0,0,0,0);
+        return d < today;
+    }).length;
+    document.getElementById('estKpiDueToday').innerText = dueToday;
+    document.getElementById('estKpiOverdue').innerText  = overdue;
+
+    // Filter rows by active tab
+    let rows = _allEstimates;
+    if (_estActiveTab === 'Pending') rows = pending;
+    else if (_estActiveTab === 'Won')  rows = won;
+    else if (_estActiveTab === 'Lost') rows = lost;
+
+    const tbody = document.getElementById('estimatesBody');
+    if (!tbody) return;
+
+    if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b;padding:24px;">No estimates found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(e => {
+        const outcome = e.followUp?.outcome || 'Pending';
+        const badgeClass = outcome === 'Won' ? 'outcome-won' : outcome === 'Lost' ? 'outcome-lost' : 'outcome-pending';
+
+        let followUpHtml = '<span style="color:#475569;">—</span>';
+        if (e.followUp?.followUpDate) {
+            const d = new Date(e.followUp.followUpDate); d.setHours(0,0,0,0);
+            const label = d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+            const cls = d < today ? 'followup-overdue' : d.getTime() === today.getTime() ? 'followup-today' : 'followup-future';
+            followUpHtml = `<span class="${cls}">${label}</span>`;
+        }
+
+        const created = e.createdOn ? new Date(e.createdOn).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'2-digit'}) : '—';
+        const assignedTo = e.followUp?.assignedTo || '—';
+        const estName = e.estimateName || `Estimate #${e.serviceTitanEstimateId}`;
+
+        return `<tr>
+            <td><span class="job-number-link" onclick="event.stopPropagation();">${e.jobNumber || '—'}</span></td>
+            <td>${e.customerName}</td>
+            <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${estName}">${estName}</td>
+            <td class="text-right">${fmt(e.total || 0)}</td>
+            <td>${created}</td>
+            <td>${followUpHtml}</td>
+            <td>${assignedTo}</td>
+            <td><span class="outcome-badge ${badgeClass}">${outcome}</span></td>
+            <td><button class="btn-secondary" style="padding:4px 10px;font-size:11px;" onclick="openEstimateDrawer('${e.id}')">Follow Up</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function openEstimateDrawer(estimateId) {
+    const est = _allEstimates.find(e => e.id === estimateId);
+    if (!est) return;
+    _activeEstimateId = estimateId;
+
+    document.getElementById('drawerEstTitle').innerText = est.estimateName || `Estimate #${est.serviceTitanEstimateId}`;
+    document.getElementById('drawerEstMeta').innerText = `${est.customerName}  ·  Job ${est.jobNumber || '—'}  ·  $${Number(est.total||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+
+    // Populate fields
+    const fu = est.followUp;
+    document.getElementById('drawerFollowUpDate').value = fu?.followUpDate ? fu.followUpDate.substring(0,10) : '';
+    document.getElementById('drawerAssignedTo').value   = fu?.assignedTo || '';
+    document.getElementById('drawerOutcome').value      = fu?.outcome || 'Pending';
+
+    // Render notes
+    renderDrawerNotes(fu?.notes || []);
+
+    document.getElementById('estimateDrawer').classList.remove('hidden');
+}
+
+function closeEstimateDrawer() {
+    document.getElementById('estimateDrawer').classList.add('hidden');
+    _activeEstimateId = null;
+}
+
+function renderDrawerNotes(notes) {
+    const el = document.getElementById('drawerNotesList');
+    if (!el) return;
+    if (!notes || notes.length === 0) {
+        el.innerHTML = '<div style="color:#475569;font-size:12px;margin-bottom:8px;">No calls logged yet.</div>';
+        return;
+    }
+    el.innerHTML = notes.map(n => {
+        const ts = new Date(n.createdAt).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+        const author = n.author ? `<strong>${n.author}</strong> · ` : '';
+        return `<div class="drawer-note">
+            <span class="drawer-note-text">${n.text}</span>
+            <span class="drawer-note-meta">${author}${ts}
+                <button onclick="deleteEstimateNote('${n.id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;margin-left:6px;font-size:11px;">✕</button>
+            </span>
+        </div>`;
+    }).join('');
+}
+
+async function saveFollowUp() {
+    if (!_activeEstimateId) return;
+    const body = {
+        followUpDate: document.getElementById('drawerFollowUpDate').value || null,
+        assignedTo:   document.getElementById('drawerAssignedTo').value,
+        outcome:      document.getElementById('drawerOutcome').value
+    };
+    const res = await api(`/estimates/${_activeEstimateId}/followup`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (res?.ok) {
+        await loadEstimates();
+        // Re-open drawer with refreshed data
+        openEstimateDrawer(_activeEstimateId);
+    }
+}
+
+async function addEstimateNote() {
+    if (!_activeEstimateId) return;
+    const textEl = document.getElementById('drawerNoteText');
+    const text = textEl.value.trim();
+    if (!text) return;
+    const res = await api(`/estimates/${_activeEstimateId}/followup/notes`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) });
+    if (res?.ok) {
+        textEl.value = '';
+        await loadEstimates();
+        openEstimateDrawer(_activeEstimateId);
+    }
+}
+
+async function deleteEstimateNote(noteId) {
+    if (!_activeEstimateId) return;
+    const res = await api(`/estimates/${_activeEstimateId}/followup/notes/${noteId}`, { method:'DELETE' });
+    if (res?.ok) {
+        await loadEstimates();
+        openEstimateDrawer(_activeEstimateId);
+    }
+}
+
+async function syncEstimates() {
+    const btn = document.querySelector('#estimatesView .btn-refresh');
+    if (btn) { btn.innerText = '↻ Syncing...'; btn.disabled = true; }
+    try {
+        await api('/estimates/sync', { method:'POST' });
+        await loadEstimates();
+    } finally {
+        if (btn) { btn.innerText = '↻ Sync Estimates'; btn.disabled = false; }
+    }
+}

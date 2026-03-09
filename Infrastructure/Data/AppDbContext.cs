@@ -46,6 +46,11 @@ namespace PatriotMechanical.API.Infrastructure.Data
         public DbSet<Appointment> Appointments { get; set; }
         public DbSet<AppointmentTechnician> AppointmentTechnicians { get; set; }
 
+        // Estimates + Follow-Ups
+        public DbSet<Estimate> Estimates { get; set; }
+        public DbSet<EstimateFollowUp> EstimateFollowUps { get; set; }
+        public DbSet<EstimateFollowUpNote> EstimateFollowUpNotes { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()
@@ -91,6 +96,28 @@ namespace PatriotMechanical.API.Infrastructure.Data
                 .HasOne(t => t.Appointment)
                 .WithMany(a => a.Technicians)
                 .HasForeignKey(t => t.AppointmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Estimate>()
+                .HasIndex(e => e.ServiceTitanEstimateId)
+                .IsUnique();
+
+            modelBuilder.Entity<Estimate>()
+                .HasOne(e => e.Customer)
+                .WithMany()
+                .HasForeignKey(e => e.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<EstimateFollowUp>()
+                .HasOne(f => f.Estimate)
+                .WithOne(e => e.FollowUp)
+                .HasForeignKey<EstimateFollowUp>(f => f.EstimateId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<EstimateFollowUpNote>()
+                .HasOne(n => n.FollowUp)
+                .WithMany(f => f.Notes)
+                .HasForeignKey(n => n.FollowUpId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             base.OnModelCreating(modelBuilder);

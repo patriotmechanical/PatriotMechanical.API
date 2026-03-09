@@ -78,6 +78,7 @@
                     <a href="#" class="nav-link" onclick="showView('equipmentView', this)"><span class="nav-icon">▣</span> Equipment</a>
                     <a href="#" class="nav-link" onclick="showView('warrantyView', this)"><span class="nav-icon">⛨</span> Warranty</a>
                     <a href="#" class="nav-link" onclick="showView('pmView', this)"><span class="nav-icon">⏱</span> PM Tracker<span class="nav-badge nav-badge-amber" id="navBadgePm" style="display:none;"></span></a>
+                    <a href="#" class="nav-link" onclick="showView('estimatesView', this)"><span class="nav-icon">📋</span> Estimates</a>
                     <a href="#" class="nav-link" onclick="showView('apView', this)"><span class="nav-icon">◈</span> AP</a>
                     <a href="#" class="nav-link" onclick="showView('pricingView', this)"><span class="nav-icon">$</span> Pricing</a>
                     <a href="#" class="nav-link" onclick="showView('adminView', this)"><span class="nav-icon">⚙</span> Settings</a>
@@ -122,8 +123,8 @@
                         <button id="hardRefreshBtn" class="btn-refresh" onclick="hardRefresh()">↻ Sync Data</button>
                     </div>
 
-                    <!-- KPI Strip (4 cards: AR, AP, Net Position, Month Revenue) -->
-                    <div class="kpi-strip kpi-strip-4">
+                    <!-- KPI Strip (5 cards: AR, AP, Net Position, Month Revenue, Forecasted) -->
+                    <div class="kpi-strip kpi-strip-5">
                         <div class="kpi-card kpi-blue">
                             <div class="kpi-label">Total AR</div>
                             <div class="kpi-value" id="totalAR">$0</div>
@@ -143,6 +144,14 @@
                             <div class="kpi-label">Month Revenue</div>
                             <div class="kpi-value" id="kpiMonthRevenue">$0</div>
                             <div class="kpi-sub" id="kpiRevSub">—</div>
+                        </div>
+                        <div class="kpi-card kpi-indigo">
+                            <div class="kpi-label">Forecasted Revenue</div>
+                            <div class="kpi-value" id="kpiForecast">$0</div>
+                            <div class="kpi-forecast-bar-wrap">
+                                <div class="kpi-forecast-bar" id="kpiForecastBar"></div>
+                            </div>
+                            <div class="kpi-sub" id="kpiForecastSub">—</div>
                         </div>
                     </div>
 
@@ -432,8 +441,106 @@
                 </div>
 
                 <!-- ═══════════════════════════════════════════════════ -->
-                <!-- AP VIEW                                           -->
+                <!-- ESTIMATES VIEW                                     -->
                 <!-- ═══════════════════════════════════════════════════ -->
+                <div id="estimatesView" style="display:none;">
+                    <div class="page-header">
+                        <h1>Estimates <span class="panel-count" id="estimatesCount">0</span></h1>
+                        <button class="btn-refresh" onclick="syncEstimates()">↻ Sync Estimates</button>
+                    </div>
+
+                    <!-- Filter tabs -->
+                    <div class="est-tabs">
+                        <button class="est-tab active" id="estTabPending" onclick="filterEstimates('Pending')">Pending <span class="sched-tab-count" id="estCountPending">0</span></button>
+                        <button class="est-tab" id="estTabWon"     onclick="filterEstimates('Won')">Won <span class="sched-tab-count" id="estCountWon">0</span></button>
+                        <button class="est-tab" id="estTabLost"    onclick="filterEstimates('Lost')">Lost <span class="sched-tab-count" id="estCountLost">0</span></button>
+                        <button class="est-tab" id="estTabAll"     onclick="filterEstimates('All')">All <span class="sched-tab-count" id="estCountAll">0</span></button>
+                    </div>
+
+                    <!-- Summary KPIs -->
+                    <div class="est-kpi-row">
+                        <div class="est-kpi-card">
+                            <div class="kpi-label">Open Pipeline</div>
+                            <div class="kpi-value" id="estKpiPipeline">$0</div>
+                            <div class="kpi-sub" id="estKpiPipelineSub">—</div>
+                        </div>
+                        <div class="est-kpi-card">
+                            <div class="kpi-label">Follow-Up Due Today</div>
+                            <div class="kpi-value" id="estKpiDueToday">0</div>
+                            <div class="kpi-sub">need a call</div>
+                        </div>
+                        <div class="est-kpi-card">
+                            <div class="kpi-label">Overdue Follow-Ups</div>
+                            <div class="kpi-value" id="estKpiOverdue">0</div>
+                            <div class="kpi-sub">past follow-up date</div>
+                        </div>
+                    </div>
+
+                    <!-- Estimates table -->
+                    <div class="panel" style="margin-top:0;">
+                        <table class="data-table" id="estimatesTable">
+                            <thead>
+                                <tr>
+                                    <th>Job #</th>
+                                    <th>Customer</th>
+                                    <th>Estimate</th>
+                                    <th class="text-right">Total</th>
+                                    <th>Created</th>
+                                    <th>Follow-Up Date</th>
+                                    <th>Assigned To</th>
+                                    <th>Outcome</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="estimatesBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Estimate Follow-Up Drawer -->
+                <div class="modal hidden" id="estimateDrawer">
+                    <div class="modal-content" style="max-width:580px;">
+                        <div class="modal-header">
+                            <div>
+                                <h2 id="drawerEstTitle">Estimate</h2>
+                                <div style="font-size:12px; color:#94a3b8; margin-top:2px;" id="drawerEstMeta"></div>
+                            </div>
+                            <button class="modal-close" onclick="closeEstimateDrawer()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Follow-up fields -->
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                                <div class="form-group" style="margin:0;">
+                                    <label>Follow-Up Date</label>
+                                    <input type="date" id="drawerFollowUpDate" />
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label>Assigned To</label>
+                                    <input type="text" id="drawerAssignedTo" placeholder="Name" />
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-bottom:16px;">
+                                <label>Outcome</label>
+                                <select id="drawerOutcome">
+                                    <option value="Pending">Pending</option>
+                                    <option value="Won">Won ✓</option>
+                                    <option value="Lost">Lost ✗</option>
+                                </select>
+                            </div>
+                            <button class="btn-primary" style="width:100%; margin-bottom:20px;" onclick="saveFollowUp()">Save Follow-Up</button>
+
+                            <hr style="border:none; border-top:1px solid #334155; margin-bottom:16px;" />
+
+                            <!-- Call log -->
+                            <h3 style="font-size:13px; font-weight:700; color:#e2e8f0; margin-bottom:12px;">Call Log</h3>
+                            <div id="drawerNotesList" style="margin-bottom:12px;"></div>
+                            <div style="display:flex; gap:8px;">
+                                <input type="text" id="drawerNoteText" placeholder="Log a call attempt..." style="flex:1;" />
+                                <button class="btn-secondary" onclick="addEstimateNote()">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="apView" style="display:none;">
                     <div class="page-header"><h1>Accounts Payable</h1></div>
                     <div class="card" style="background:#1e293b;">

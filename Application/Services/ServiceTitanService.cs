@@ -493,5 +493,26 @@ namespace PatriotMechanical.API.Application.Services
 
             return await response.Content.ReadAsStringAsync();
         }
+
+        public async Task<string> GetOpenEstimatesAsync(int page = 1, int pageSize = 200, DateTime? modifiedOnOrAfter = null)
+        {
+            var token = await GetAccessTokenAsync();
+            var baseUrl = await GetBaseUrl();
+            var tenantId = await GetTenantId();
+            var appKey = await GetAppKey();
+
+            var url = $"{baseUrl}/sales/v2/tenant/{tenantId}/estimates?pageSize={pageSize}&page={page}&active=Any&status=Open&includeTotal=true";
+            if (modifiedOnOrAfter.HasValue)
+                url += $"&modifiedOnOrAfter={modifiedOnOrAfter.Value:O}";
+
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("ST-App-Key", appKey);
+
+            var response = await _httpClient.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            return await response.Content.ReadAsStringAsync();
+        }
     }
 }
