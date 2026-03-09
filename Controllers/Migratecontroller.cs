@@ -590,10 +590,8 @@ public class MigrateController : ControllerBase
         try
         {
             await _context.Database.ExecuteSqlRawAsync(@"
+                TRUNCATE TABLE ""Estimates"" CASCADE;
                 DELETE FROM ""ServiceTitanSyncStates"" WHERE ""EntityName"" = 'Estimates';
-                TRUNCATE TABLE ""EstimateFollowUpNotes"";
-                TRUNCATE TABLE ""EstimateFollowUps"";
-                TRUNCATE TABLE ""Estimates"";
             ");
             return Ok(new { message = "Estimates sync state reset. Run sync again to do a full pull." });
         }
