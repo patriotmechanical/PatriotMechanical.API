@@ -498,6 +498,15 @@ async function loadDashboard() {
 }
 
 // ── SCHEDULE TAB HELPERS ─────────────────────────────────────
+function togglePanel(panelId, chevronId) {
+    var panel = document.getElementById(panelId);
+    var chevron = document.getElementById(chevronId);
+    if (!panel) return;
+    var collapsed = panel.style.display === 'none';
+    panel.style.display = collapsed ? '' : 'none';
+    if (chevron) chevron.textContent = collapsed ? '▾' : '▸';
+}
+
 function renderSchedTab(tab) {
     window._schedActiveTab = tab;
     const d = (window._schedData || {})[tab] || { count: 0, items: [] };

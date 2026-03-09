@@ -139,21 +139,6 @@
                             <div class="kpi-value" id="totalAP">$0</div>
                             <div class="kpi-sub" id="kpiApSub">—</div>
                         </div>
-                        <div class="kpi-card kpi-red kpi-clickable" onclick="openOpsDrilldown(0)" title="Click to see all open WOs">
-                            <div class="kpi-label">Open WOs</div>
-                            <div class="kpi-value" id="kpiOpenWo">0</div>
-                            <div class="kpi-sub" id="kpiWoSub">—</div>
-                        </div>
-                        <div class="kpi-card kpi-amber kpi-clickable" onclick="openOpsDrilldown(1)" title="Click to see unscheduled jobs">
-                            <div class="kpi-label">Need to Schedule</div>
-                            <div class="kpi-value" id="kpiNeedSchedule">0</div>
-                            <div class="kpi-sub" id="kpiSchedSub">unbooked jobs</div>
-                        </div>
-                        <div class="kpi-card kpi-purple kpi-clickable" onclick="openOpsDrilldown(2)" title="Click to see overdue PM customers">
-                            <div class="kpi-label">Overdue PMs</div>
-                            <div class="kpi-value" id="kpiOverduePm">0</div>
-                            <div class="kpi-sub" id="kpiPmSub">180+ days</div>
-                        </div>
                         <div class="kpi-card kpi-teal">
                             <div class="kpi-label">Month Revenue</div>
                             <div class="kpi-value" id="kpiMonthRevenue">$0</div>
@@ -178,27 +163,49 @@
                         </div>
                     </div>
 
+                    <!-- Ops KPI row: Open WOs / Need to Schedule / Overdue PMs -->
+                    <div class="ops-kpi-row" style="margin-bottom:16px;">
+                        <div class="kpi-card kpi-red kpi-clickable" onclick="openOpsDrilldown(0)" title="Click to see all open WOs">
+                            <div class="kpi-label">Open WOs</div>
+                            <div class="kpi-value" id="kpiOpenWo">0</div>
+                            <div class="kpi-sub" id="kpiWoSub">—</div>
+                        </div>
+                        <div class="kpi-card kpi-amber kpi-clickable" onclick="openOpsDrilldown(1)" title="Click to see unscheduled jobs">
+                            <div class="kpi-label">Need to Schedule</div>
+                            <div class="kpi-value" id="kpiNeedSchedule">0</div>
+                            <div class="kpi-sub" id="kpiSchedSub">unbooked jobs</div>
+                        </div>
+                        <div class="kpi-card kpi-purple kpi-clickable" onclick="openOpsDrilldown(2)" title="Click to see overdue PM customers">
+                            <div class="kpi-label">Overdue PMs</div>
+                            <div class="kpi-value" id="kpiOverduePm">0</div>
+                            <div class="kpi-sub" id="kpiPmSub">180+ days</div>
+                        </div>
+                    </div>
+
                     <!-- Main 3-col grid -->
                     <div class="dash-main-grid">
 
                         <!-- Active Work Orders -->
                         <div class="panel dash-panel">
-                            <div class="dash-panel-header">
+                            <div class="dash-panel-header" style="cursor:pointer;" onclick="togglePanel('woPanel', 'woChevron')">
                                 <h2>Active Work Orders <span class="panel-count" id="woCount">0</span></h2>
                                 <div style="display:flex;gap:8px;align-items:center;">
-                                    <select id="woStatusFilter" class="dash-select" onchange="filterWoTable()">
+                                    <select id="woStatusFilter" class="dash-select" onchange="filterWoTable()" onclick="event.stopPropagation()">
                                         <option value="">All Statuses</option>
                                         <option value="inprogress">InProgress</option>
                                         <option value="scheduled">Scheduled</option>
                                         <option value="hold">Hold</option>
                                     </select>
-                                    <a class="dash-link" onclick="showView('boardView', document.querySelector('.nav-link[onclick*=boardView]'))">Board →</a>
+                                    <a class="dash-link" onclick="event.stopPropagation();showView('boardView', document.querySelector('.nav-link[onclick*=boardView]'))">Board →</a>
+                                    <span class="panel-chevron" id="woChevron">▾</span>
                                 </div>
                             </div>
+                            <div id="woPanel">
                             <table class="data-table" id="dashWoTable">
                                 <thead><tr><th>Customer</th><th class="text-right">WOs</th><th class="text-right">Amount</th><th class="text-right">Oldest</th></tr></thead>
                                 <tbody id="openWoBody"></tbody>
                             </table>
+                            </div>
                         </div>
 
                         <!-- CENTER: AR Aging + AP -->
@@ -206,9 +213,12 @@
 
                             <!-- AR Aging Panel -->
                             <div class="panel dash-panel">
-                                <div class="dash-panel-header">
+                                <div class="dash-panel-header" style="cursor:pointer;" onclick="togglePanel('arPanel', 'arChevron')">
                                     <h2>AR Aging</h2>
-                                    <span class="panel-total-label" id="arAgingTotal">$0 outstanding</span>
+                                    <div style="display:flex;gap:12px;align-items:center;">
+                                        <span class="panel-total-label" id="arAgingTotal">$0 outstanding</span>
+                                        <span class="panel-chevron" id="arChevron">▾</span>
+                                    </div>
                                 </div>
                                 <div class="ar-aging-bars" id="arAgingBars">
                                     <div class="aging-row"><span class="aging-label">0–30d</span><div class="aging-track"><div class="aging-fill aging-green" id="agingBar0" style="width:0%"></div></div><span class="aging-amount" id="agingAmt0">$0</span></div>
@@ -216,22 +226,29 @@
                                     <div class="aging-row"><span class="aging-label">61–90d</span><div class="aging-track"><div class="aging-fill aging-orange" id="agingBar2" style="width:0%"></div></div><span class="aging-amount" id="agingAmt2">$0</span></div>
                                     <div class="aging-row"><span class="aging-label">90+d</span><div class="aging-track"><div class="aging-fill aging-red" id="agingBar3" style="width:0%"></div></div><span class="aging-amount aging-red-text" id="agingAmt3">$0</span></div>
                                 </div>
+                                <div id="arPanel">
                                 <table class="data-table" id="dashArTable">
                                     <thead><tr><th>Customer</th><th class="text-right">Amount Owed</th></tr></thead>
                                     <tbody id="arTableBody"></tbody>
                                 </table>
+                                </div>
                             </div>
 
                             <!-- AP Panel -->
                             <div class="panel dash-panel">
-                                <div class="dash-panel-header">
+                                <div class="dash-panel-header" style="cursor:pointer;" onclick="togglePanel('apPanel', 'apChevron')">
                                     <h2>Accounts Payable</h2>
-                                    <a class="dash-link" onclick="showView('apView', document.querySelector('.nav-link[onclick*=apView]'))">View All →</a>
+                                    <div style="display:flex;gap:12px;align-items:center;">
+                                        <a class="dash-link" onclick="event.stopPropagation();showView('apView', document.querySelector('.nav-link[onclick*=apView]'))">View All →</a>
+                                        <span class="panel-chevron" id="apChevron">▾</span>
+                                    </div>
                                 </div>
+                                <div id="apPanel">
                                 <table class="data-table" id="dashApTable">
                                     <thead><tr><th>Vendor</th><th class="text-right">Total Owed</th><th>Next Due</th></tr></thead>
                                     <tbody id="apTableBody2"></tbody>
                                 </table>
+                                </div>
                             </div>
                         </div>
 

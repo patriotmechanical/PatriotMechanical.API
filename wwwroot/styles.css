@@ -2165,3 +2165,21 @@ tr.ar-row-bad  td.bold { color: #f87171; }
 #dashPanelGrid {
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
 }
+
+/* ── Ops KPI row (Open WOs / Need to Schedule / Overdue PMs) ── */
+.ops-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+.ops-kpi-row .kpi-card {
+    margin: 0;
+}
+
+/* ── Collapsible panel chevron ── */
+.panel-chevron {
+    font-size: 14px;
+    color: var(--text-muted);
+    transition: transform 0.15s;
+    user-select: none;
+}
