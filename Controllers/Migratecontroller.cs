@@ -209,6 +209,23 @@ public class MigrateController : ControllerBase
     }
 
     /// <summary>
+    /// GET /migrate/debug-raw-job — fetch raw ST job data for a specific job to check locationId field
+    /// </summary>
+    [HttpGet("debug-raw-job/{stJobId}")]
+    public async Task<IActionResult> DebugRawJob(long stJobId)
+    {
+        try
+        {
+            var raw = await _stService.GetJobRawAsync(stJobId);
+            return Ok(new { raw });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// GET /migrate/debug-wo-locations — check ServiceTitanLocationId on WorkOrders for upcoming jobs
     /// </summary>
     [HttpGet("debug-wo-locations")]

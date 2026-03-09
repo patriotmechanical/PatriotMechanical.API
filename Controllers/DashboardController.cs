@@ -159,13 +159,19 @@ public class DashboardController : ControllerBase
             .Sum(i => i.TotalAmount);
 
         // ── SCHEDULE STRIP ────────────────────────────────────────
-        var todayUtc    = now.Date;
-        var tomorrowUtc = todayUtc.AddDays(1);
-        var dayAfterUtc = todayUtc.AddDays(2);
-        var windowEnd   = todayUtc.AddDays(3);
+        // Use Central time for day bucketing so Today/Tomorrow match local business days
+        var centralZone = TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
+        var nowCentral  = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, centralZone);
+        var todayLocal    = nowCentral.Date;
+        var tomorrowLocal = todayLocal.AddDays(1);
+        var dayAfterLocal = todayLocal.AddDays(2);
+
+        // Query window in UTC: start = midnight Central today as UTC, end = midnight Central dayafter+1 as UTC
+        var windowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal, centralZone);
+        var windowEndUtc   = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(3), centralZone);
 
         var appts = await _context.Appointments
-            .Where(a => a.Start >= todayUtc && a.Start < windowEnd)
+            .Where(a => a.Start >= windowStartUtc && a.Start < windowEndUtc)
             .Where(a => a.Status != "Canceled" && a.Status != "Cancelled")
             .Include(a => a.Technicians)
             .Include(a => a.WorkOrder)
@@ -193,9 +199,10 @@ public class DashboardController : ControllerBase
         }
 
         // Build appointment items with tech + job + location info
-        object BuildDaySchedule(DateTime dayUtc)
+        object BuildDaySchedule(DateTime localDay)
         {
-            var dayAppts = appts.Where(a => a.Start.Date == dayUtc).ToList();
+            var dayAppts = appts.Where(a =>
+                TimeZoneInfo.ConvertTimeFromUtc(a.Start, centralZone).Date == localDay).ToList();
             var items = dayAppts.Select(a =>
             {
                 var locId = a.WorkOrder?.ServiceTitanLocationId ?? 0;
@@ -214,9 +221,9 @@ public class DashboardController : ControllerBase
             return new { Count = dayAppts.Count, Items = items };
         }
 
-        var schedToday    = BuildDaySchedule(todayUtc);
-        var schedTomorrow = BuildDaySchedule(tomorrowUtc);
-        var schedDayAfter = BuildDaySchedule(dayAfterUtc);
+        var schedToday    = BuildDaySchedule(todayLocal);
+        var schedTomorrow = BuildDaySchedule(tomorrowLocal);
+        var schedDayAfter = BuildDaySchedule(dayAfterLocal);
 
         return Ok(new
         {
