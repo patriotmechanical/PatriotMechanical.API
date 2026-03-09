@@ -208,7 +208,7 @@ function enterApp() {
 // ═══════════════════════════════════════════════════════════════
 
 function showView(viewId, clickedLink) {
-    const views = ["dashboardPage", "boardView", "todoView", "customersView", "subsView", "equipmentView", "warrantyView", "pmView", "estimatesView", "apView", "pricingView", "adminView"];
+    const views = ["dashboardPage", "boardView", "todoView", "customersView", "subsView", "equipmentView", "warrantyView", "pmView", "estimatesView", "alertsView", "apView", "pricingView", "adminView"];
     views.forEach(v => { const el = document.getElementById(v); if (el) el.style.display = "none"; });
     document.getElementById(viewId).style.display = "block";
     if (clickedLink) { document.querySelectorAll(".nav-link").forEach(l => l.classList.remove("active")); clickedLink.classList.add("active"); }
@@ -221,6 +221,7 @@ function showView(viewId, clickedLink) {
     if (viewId === "equipmentView") loadEquipment();
     if (viewId === "pmView") loadPmTracker();
     if (viewId === "estimatesView") loadEstimates();
+    if (viewId === "alertsView") loadArAlerts();
     if (viewId === "apView") { loadAp(); loadVendors(); }
     if (viewId === "adminView") loadAdminSettings();
 }
@@ -435,6 +436,11 @@ async function loadDashboard() {
     });
     if (data.ar.length === 0) arTable.innerHTML = '<tr class="empty-row"><td colspan="2">No outstanding receivables</td></tr>';
     makeSortable("dashArTable");
+
+    // Load AR alert badge in background (non-blocking)
+    api("/alerts/ar").then(r => r && r.ok ? r.json() : null).then(d => {
+        if (d) updateArAlertBadge(d.activeAlerts);
+    });
 
     // ── AR AGING BARS ──────────────────────────────────────────
     if (data.aRaging || data.arAging) {
@@ -812,6 +818,23 @@ async function openCustomerProfile(id) {
     const balEl = document.getElementById("profileBalance");
     balEl.innerText = "$" + bal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     balEl.className = "profile-stat-value" + (bal > 0 ? " profile-danger" : " profile-good");
+
+    // ── AR ALERT BANNER ──────────────────────────────────────────
+    const alertBanner = document.getElementById("profileArAlertBanner");
+    if (alertBanner) {
+        alertBanner.classList.add("hidden");
+        alertBanner.innerHTML = "";
+        // Check live alerts for this customer
+        api("/alerts/ar").then(r => r && r.ok ? r.json() : null).then(d => {
+            if (!d) return;
+            const match = d.alerts.find(a => a.customerId === id && !a.isDismissed);
+            if (match) {
+                alertBanner.innerHTML = `<span style="font-weight:700;">⚠ AR Alert:</span> ${match.reasons.join(' · ')}
+                    <button style="margin-left:12px; background:transparent; border:1px solid #fca5a5; color:#fca5a5; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;" onclick="dismissArAlert('${match.customerId}'); document.getElementById('profileArAlertBanner').classList.add('hidden');">Dismiss</button>`;
+                alertBanner.classList.remove("hidden");
+            }
+        });
+    }
 
     document.getElementById("profileWoCount").innerText = c.workOrders ? c.workOrders.length : "0";
 
@@ -1458,6 +1481,7 @@ async function loadAdminSettings() {
     const syncInfo = document.getElementById("lastSyncInfo");
     syncInfo.innerText = data.lastSyncAt ? `Last sync: ${new Date(data.lastSyncAt).toLocaleString()} — Status: ${data.lastSyncStatus || "Unknown"}` : "No sync has run yet.";
     await loadUsers();
+    await loadArAlertSettings();
 }
 
 async function saveCompanySettings() { const res = await api("/admin/settings/company", { method: "PUT", body: JSON.stringify({ companyName: document.getElementById("adminCompanyName").value, creditCardFeePercent: parseFloat(document.getElementById("adminCcFee").value) }) }); if (res && res.ok) { document.getElementById("sidebarCompanyName").innerText = document.getElementById("adminCompanyName").value; toast("Company settings saved.", "success"); } else { toast("Failed to save.", "error"); } }
@@ -1469,6 +1493,139 @@ async function testServiceTitanConnection() { const d = document.getElementById(
 async function saveSyncSettings() { const res = await api("/admin/settings/sync", { method: "PUT", body: JSON.stringify({ autoSyncEnabled: document.getElementById("adminAutoSync").checked, syncIntervalMinutes: parseInt(document.getElementById("adminSyncInterval").value) }) }); if (res && res.ok) toast("Sync settings saved.", "success"); else toast("Failed to save.", "error"); }
 
 async function changePassword() { const current = document.getElementById("adminCurrentPw").value; const newPw = document.getElementById("adminNewPw").value; if (!current || !newPw) { toast("Fill in both fields.", "error"); return; } const res = await api("/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword: current, newPassword: newPw }) }); if (res && res.ok) { document.getElementById("adminCurrentPw").value = ""; document.getElementById("adminNewPw").value = ""; toast("Password updated.", "success"); } else { const data = await res.json(); toast(data.message || "Failed.", "error"); } }
+
+// ═══════════════════════════════════════════════════════════════
+// AR ALERT SETTINGS
+// ═══════════════════════════════════════════════════════════════
+
+async function loadArAlertSettings() {
+    const res = await api("/admin/settings/ar-alerts");
+    if (!res || !res.ok) return;
+    const d = await res.json();
+
+    const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+    const setVal   = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+
+    setCheck("arAlertOnBalance", d.arAlertOnBalanceAmount);
+    setVal("arAlertBalanceAmt", d.arAlertBalanceThreshold);
+    toggleArAlertField("arBalanceThreshold", d.arAlertOnBalanceAmount);
+
+    setCheck("arAlertOn30", d.arAlertOn30Days);
+    setVal("arAlert30Amt", d.arAlertDays30Threshold);
+    toggleArAlertField("ar30Threshold", d.arAlertOn30Days);
+
+    setCheck("arAlertOn60", d.arAlertOn60Days);
+    setVal("arAlert60Amt", d.arAlertDays60Threshold);
+    toggleArAlertField("ar60Threshold", d.arAlertOn60Days);
+
+    setCheck("arAlertOn90", d.arAlertOn90Days);
+    setVal("arAlert90Amt", d.arAlertDays90Threshold);
+    toggleArAlertField("ar90Threshold", d.arAlertOn90Days);
+}
+
+function toggleArAlertField(fieldId, show) {
+    const el = document.getElementById(fieldId);
+    if (el) el.style.display = show ? "flex" : "none";
+}
+
+async function saveArAlertSettings() {
+    const body = {
+        arAlertOnBalanceAmount: document.getElementById("arAlertOnBalance").checked,
+        arAlertBalanceThreshold: parseFloat(document.getElementById("arAlertBalanceAmt").value) || 0,
+        arAlertOn30Days: document.getElementById("arAlertOn30").checked,
+        arAlertDays30Threshold: parseFloat(document.getElementById("arAlert30Amt").value) || 0,
+        arAlertOn60Days: document.getElementById("arAlertOn60").checked,
+        arAlertDays60Threshold: parseFloat(document.getElementById("arAlert60Amt").value) || 0,
+        arAlertOn90Days: document.getElementById("arAlertOn90").checked,
+        arAlertDays90Threshold: parseFloat(document.getElementById("arAlert90Amt").value) || 0
+    };
+    const res = await api("/admin/settings/ar-alerts", { method: "PUT", body: JSON.stringify(body) });
+    if (res && res.ok) { toast("AR alert settings saved.", "success"); }
+    else { toast("Failed to save.", "error"); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AR ALERTS PAGE
+// ═══════════════════════════════════════════════════════════════
+
+let _arAlertsData = null;
+
+async function loadArAlerts() {
+    const res = await api("/alerts/ar");
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    _arAlertsData = data;
+
+    const countEl = document.getElementById("alertsCount");
+    if (countEl) countEl.innerText = data.activeAlerts;
+
+    renderArAlerts(data);
+    updateArAlertBadge(data.activeAlerts);
+}
+
+function renderArAlerts(data) {
+    const fmt = v => "$" + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const active   = data.alerts.filter(a => !a.isDismissed);
+    const dismissed = data.alerts.filter(a => a.isDismissed);
+
+    const renderRow = (a, isDismissed) => `
+        <div class="ar-alert-item ${isDismissed ? 'ar-alert-dismissed' : ''}">
+            <div class="ar-alert-item-main">
+                <div class="ar-alert-customer" onclick="openCustomerProfile('${a.customerId}')">${a.customerName}</div>
+                <div class="ar-alert-meta">
+                    ${a.days90 > 0 ? `<span class="ar-aging-chip chip-red">90+d: ${fmt(a.days90)}</span>` : ''}
+                    ${a.days60 > 0 ? `<span class="ar-aging-chip chip-orange">61–90d: ${fmt(a.days60)}</span>` : ''}
+                    ${a.days30 > 0 ? `<span class="ar-aging-chip chip-amber">31–60d: ${fmt(a.days30)}</span>` : ''}
+                    <span class="ar-alert-total">Total: ${fmt(a.totalBalance)}</span>
+                </div>
+                <div class="ar-alert-reasons">${a.reasons.map(r => `<span>• ${r}</span>`).join('')}</div>
+            </div>
+            <div class="ar-alert-actions">
+                ${isDismissed
+                    ? `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;" onclick="undismissArAlert('${a.customerId}')">Re-activate</button>`
+                    : `<button class="btn-secondary" style="font-size:11px;padding:4px 10px;" onclick="dismissArAlert('${a.customerId}')">Dismiss</button>`
+                }
+            </div>
+        </div>`;
+
+    const activeEl = document.getElementById("alertsActiveList");
+    if (activeEl) {
+        activeEl.innerHTML = active.length === 0
+            ? '<div style="padding:24px; text-align:center; color:#64748b;">No active alerts. Configure thresholds in Settings → AR Alert Thresholds.</div>'
+            : active.map(a => renderRow(a, false)).join('');
+    }
+
+    const dismissedEl = document.getElementById("alertsDismissedList");
+    if (dismissedEl) {
+        dismissedEl.innerHTML = dismissed.length === 0
+            ? '<div style="padding:16px 24px; color:#475569; font-size:13px;">No dismissed alerts.</div>'
+            : dismissed.map(a => renderRow(a, true)).join('');
+    }
+}
+
+async function dismissArAlert(customerId) {
+    const res = await api(`/alerts/ar/${customerId}/dismiss`, { method: "POST" });
+    if (res && res.ok) { await loadArAlerts(); toast("Alert dismissed.", "success"); }
+}
+
+async function undismissArAlert(customerId) {
+    const res = await api(`/alerts/ar/${customerId}/dismiss`, { method: "DELETE" });
+    if (res && res.ok) { await loadArAlerts(); toast("Alert re-activated.", "success"); }
+}
+
+function updateArAlertBadge(count) {
+    const badge = document.getElementById("arAlertBadge");
+    const navBadge = document.getElementById("navBadgeAlerts");
+    if (badge) {
+        if (count > 0) { badge.style.display = "inline"; badge.innerText = `⚠ ${count} alert${count !== 1 ? 's' : ''}`; }
+        else { badge.style.display = "none"; }
+    }
+    if (navBadge) {
+        navBadge.style.display = count > 0 ? "inline" : "none";
+        navBadge.innerText = count;
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // USER MANAGEMENT

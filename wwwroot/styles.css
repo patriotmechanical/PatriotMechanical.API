@@ -2319,3 +2319,110 @@ th.sort-asc .sort-arrow::after {
 th.sort-desc .sort-arrow::after {
     content: '↓';
 }
+
+/* ── AR Alerts ──────────────────────────────────────────────── */
+.nav-badge-red {
+    background: #ef4444;
+}
+
+.ar-alert-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid #1e293b;
+}
+.ar-alert-row:last-of-type { border-bottom: none; }
+
+.ar-alert-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: #cbd5e1;
+    font-size: 13px;
+    min-width: 260px;
+}
+.ar-alert-toggle input[type="checkbox"] { cursor: pointer; }
+
+.ar-alert-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #94a3b8;
+    font-size: 13px;
+}
+.ar-alert-field input[type="number"] {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #e2e8f0;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+.ar-alert-hint { color: #475569; font-size: 11px; }
+
+/* Alert items on the Alerts page */
+.ar-alert-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #1e293b;
+    gap: 16px;
+}
+.ar-alert-item:last-child { border-bottom: none; }
+.ar-alert-item.ar-alert-dismissed { opacity: 0.55; }
+
+.ar-alert-item-main { flex: 1; min-width: 0; }
+
+.ar-alert-customer {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    cursor: pointer;
+    margin-bottom: 6px;
+}
+.ar-alert-customer:hover { color: #818cf8; }
+
+.ar-alert-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.ar-aging-chip {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+.chip-red    { background: rgba(239,68,68,0.2);  color: #fca5a5; }
+.chip-orange { background: rgba(234,88,12,0.2);  color: #fdba74; }
+.chip-amber  { background: rgba(217,119,6,0.2);  color: #fcd34d; }
+
+.ar-alert-total { font-size: 12px; color: #64748b; align-self: center; }
+
+.ar-alert-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.ar-alert-actions { flex-shrink: 0; padding-top: 2px; }
+
+/* Customer profile AR alert banner */
+.profile-ar-alert-banner {
+    background: rgba(239,68,68,0.12);
+    border-left: 3px solid #ef4444;
+    color: #fca5a5;
+    font-size: 13px;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.profile-ar-alert-banner.hidden { display: none; }

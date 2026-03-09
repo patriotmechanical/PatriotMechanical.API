@@ -79,6 +79,7 @@
                     <a href="#" class="nav-link" onclick="showView('warrantyView', this)"><span class="nav-icon">⛨</span> Warranty</a>
                     <a href="#" class="nav-link" onclick="showView('pmView', this)"><span class="nav-icon">⏱</span> PM Tracker<span class="nav-badge nav-badge-amber" id="navBadgePm" style="display:none;"></span></a>
                     <a href="#" class="nav-link" onclick="showView('estimatesView', this)"><span class="nav-icon">📋</span> Estimates</a>
+                    <a href="#" class="nav-link" onclick="showView('alertsView', this)"><span class="nav-icon">🔔</span> AR Alerts<span class="nav-badge nav-badge-red" id="navBadgeAlerts" style="display:none;"></span></a>
                     <a href="#" class="nav-link" onclick="showView('apView', this)"><span class="nav-icon">◈</span> AP</a>
                     <a href="#" class="nav-link" onclick="showView('pricingView', this)"><span class="nav-icon">$</span> Pricing</a>
                     <a href="#" class="nav-link" onclick="showView('adminView', this)"><span class="nav-icon">⚙</span> Settings</a>
@@ -225,6 +226,7 @@
                                 <div class="dash-panel-header" style="cursor:pointer;" onclick="togglePanel('arPanel', 'arChevron')">
                                     <h2>AR Aging</h2>
                                     <div style="display:flex;gap:12px;align-items:center;">
+                                        <span id="arAlertBadge" style="display:none; background:#ef4444; color:white; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; cursor:pointer;" onclick="event.stopPropagation(); showView('alertsView', document.querySelector('.nav-link[onclick*=alertsView]'))"></span>
                                         <span class="panel-total-label" id="arAgingTotal">$0 outstanding</span>
                                         <span class="panel-chevron" id="arChevron">▾</span>
                                     </div>
@@ -541,6 +543,30 @@
                         </div>
                     </div>
                 </div>
+                <div id="alertsView" style="display:none;">
+                    <div class="page-header">
+                        <h1>AR Alerts <span class="panel-count" id="alertsCount">0</span></h1>
+                    </div>
+
+                    <!-- Active Alerts -->
+                    <div id="alertsActiveSection">
+                        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                            <h2 style="font-size:15px; color:#e2e8f0; margin:0;">Active Alerts</h2>
+                            <span style="font-size:12px; color:#64748b;">Customers breaching your configured thresholds</span>
+                        </div>
+                        <div id="alertsActiveList" class="panel" style="padding:0; overflow:hidden;"></div>
+                    </div>
+
+                    <!-- Dismissed Alerts -->
+                    <div style="margin-top:24px;">
+                        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                            <h2 style="font-size:15px; color:#64748b; margin:0;">Dismissed</h2>
+                            <span style="font-size:12px; color:#475569;">Will re-trigger if thresholds are still breached after un-dismissing</span>
+                        </div>
+                        <div id="alertsDismissedList" class="panel" style="padding:0; overflow:hidden;"></div>
+                    </div>
+                </div>
+
                 <div id="apView" style="display:none;">
                     <div class="page-header"><h1>Accounts Payable</h1></div>
                     <div class="card" style="background:#1e293b;">
@@ -668,6 +694,30 @@
 
                     <div class="settings-section"><h2>Your Account</h2><div class="settings-card"><div class="form-group"><label>Current Password</label><input type="password" id="adminCurrentPw" /></div><div class="form-group"><label>New Password</label><input type="password" id="adminNewPw" placeholder="At least 8 characters" /></div><button class="btn-primary" onclick="changePassword()">Update Password</button></div></div>
 
+                    <div class="settings-section">
+                        <h2>AR Alert Thresholds</h2>
+                        <div class="settings-card">
+                            <p style="color:#94a3b8; font-size:13px; margin:0 0 16px;">Configure which customers trigger an alert on the AR Alerts page and dashboard.</p>
+                            <div class="ar-alert-row">
+                                <label class="ar-alert-toggle"><input type="checkbox" id="arAlertOnBalance" onchange="toggleArAlertField('arBalanceThreshold', this.checked)" /> <span>Alert when total balance exceeds</span></label>
+                                <div class="ar-alert-field" id="arBalanceThreshold" style="display:none;"><span>$</span><input type="number" id="arAlertBalanceAmt" min="0" step="500" value="5000" style="width:100px;" /></div>
+                            </div>
+                            <div class="ar-alert-row">
+                                <label class="ar-alert-toggle"><input type="checkbox" id="arAlertOn30" onchange="toggleArAlertField('ar30Threshold', this.checked)" /> <span>Alert when 31–60 day balance exceeds</span></label>
+                                <div class="ar-alert-field" id="ar30Threshold" style="display:none;"><span>$</span><input type="number" id="arAlert30Amt" min="0" step="100" value="0" style="width:100px;" /><span class="ar-alert-hint">(0 = any amount)</span></div>
+                            </div>
+                            <div class="ar-alert-row">
+                                <label class="ar-alert-toggle"><input type="checkbox" id="arAlertOn60" onchange="toggleArAlertField('ar60Threshold', this.checked)" /> <span>Alert when 61–90 day balance exceeds</span></label>
+                                <div class="ar-alert-field" id="ar60Threshold" style="display:none;"><span>$</span><input type="number" id="arAlert60Amt" min="0" step="100" value="0" style="width:100px;" /><span class="ar-alert-hint">(0 = any amount)</span></div>
+                            </div>
+                            <div class="ar-alert-row">
+                                <label class="ar-alert-toggle"><input type="checkbox" id="arAlertOn90" onchange="toggleArAlertField('ar90Threshold', this.checked)" /> <span>Alert when 90+ day balance exceeds</span></label>
+                                <div class="ar-alert-field" id="ar90Threshold" style="display:none;"><span>$</span><input type="number" id="arAlert90Amt" min="0" step="100" value="0" style="width:100px;" /><span class="ar-alert-hint">(0 = any amount)</span></div>
+                            </div>
+                            <button class="btn-primary" style="margin-top:16px;" onclick="saveArAlertSettings()">Save Alert Settings</button>
+                        </div>
+                    </div>
+
                     <div class="settings-section"><h2>Users</h2><div class="settings-card"><div class="add-user-form"><h3 style="margin-bottom:12px; font-size:15px; color:#e2e8f0;">Add New User</h3><div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;"><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Full Name</label><input type="text" id="newUserName" placeholder="Jane Smith" /></div><div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Email</label><input type="email" id="newUserEmail" placeholder="jane@company.com" /></div><div class="form-group" style="flex:1; min-width:160px; margin-bottom:0;"><label>Password</label><input type="password" id="newUserPassword" placeholder="Min 8 characters" /></div><button class="btn-primary" style="height:40px;" onclick="createUser()">Add User</button></div></div><hr style="border:none; border-top:1px solid #334155; margin:20px 0;" /><table class="data-table" id="usersTable"><thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="usersBody"></tbody></table></div></div>
 
                     <!-- Theme Picker -->
@@ -702,6 +752,9 @@
                 </div>
                 <button class="modal-close" onclick="document.getElementById('customerModal').classList.add('hidden')">✕</button>
             </div>
+
+            <!-- AR Alert Banner -->
+            <div id="profileArAlertBanner" class="profile-ar-alert-banner hidden"></div>
 
             <div class="profile-layout">
                 <!-- LEFT SIDEBAR -->

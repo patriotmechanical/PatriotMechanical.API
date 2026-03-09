@@ -139,6 +139,49 @@ public class AdminController : ControllerBase
         }
     }
 
+    // ─── GET AR ALERT SETTINGS ───────────────────────────────────
+    [HttpGet("settings/ar-alerts")]
+    public async Task<IActionResult> GetArAlertSettings()
+    {
+        var companyId = GetCompanyId();
+        var company = await _context.CompanySettings.FindAsync(companyId);
+        if (company == null) return NotFound();
+
+        return Ok(new
+        {
+            arAlertOnBalanceAmount = company.ArAlertOnBalanceAmount,
+            arAlertBalanceThreshold = company.ArAlertBalanceThreshold,
+            arAlertOn30Days = company.ArAlertOn30Days,
+            arAlertDays30Threshold = company.ArAlertDays30Threshold,
+            arAlertOn60Days = company.ArAlertOn60Days,
+            arAlertDays60Threshold = company.ArAlertDays60Threshold,
+            arAlertOn90Days = company.ArAlertOn90Days,
+            arAlertDays90Threshold = company.ArAlertDays90Threshold
+        });
+    }
+
+    // ─── UPDATE AR ALERT SETTINGS ────────────────────────────────
+    [HttpPut("settings/ar-alerts")]
+    public async Task<IActionResult> UpdateArAlertSettings([FromBody] UpdateArAlertSettingsRequest request)
+    {
+        var companyId = GetCompanyId();
+        var company = await _context.CompanySettings.FindAsync(companyId);
+        if (company == null) return NotFound();
+
+        company.ArAlertOnBalanceAmount = request.ArAlertOnBalanceAmount;
+        company.ArAlertBalanceThreshold = request.ArAlertBalanceThreshold;
+        company.ArAlertOn30Days = request.ArAlertOn30Days;
+        company.ArAlertDays30Threshold = request.ArAlertDays30Threshold;
+        company.ArAlertOn60Days = request.ArAlertOn60Days;
+        company.ArAlertDays60Threshold = request.ArAlertDays60Threshold;
+        company.ArAlertOn90Days = request.ArAlertOn90Days;
+        company.ArAlertDays90Threshold = request.ArAlertDays90Threshold;
+        company.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "AR alert settings saved." });
+    }
+
     // ─── UPDATE SYNC SETTINGS ─────────────────────────────────────
     [HttpPut("settings/sync")]
     public async Task<IActionResult> UpdateSyncSettings([FromBody] UpdateSyncRequest request)
@@ -389,4 +432,16 @@ public class UpdateUserRequest
 public class ResetPasswordRequest
 {
     public string NewPassword { get; set; } = null!;
+}
+
+public class UpdateArAlertSettingsRequest
+{
+    public bool ArAlertOnBalanceAmount { get; set; }
+    public decimal ArAlertBalanceThreshold { get; set; }
+    public bool ArAlertOn30Days { get; set; }
+    public decimal ArAlertDays30Threshold { get; set; }
+    public bool ArAlertOn60Days { get; set; }
+    public decimal ArAlertDays60Threshold { get; set; }
+    public bool ArAlertOn90Days { get; set; }
+    public decimal ArAlertDays90Threshold { get; set; }
 }

@@ -51,6 +51,9 @@ namespace PatriotMechanical.API.Infrastructure.Data
         public DbSet<EstimateFollowUp> EstimateFollowUps { get; set; }
         public DbSet<EstimateFollowUpNote> EstimateFollowUpNotes { get; set; }
 
+        // AR Alert Dismissals
+        public DbSet<ArAlertDismissal> ArAlertDismissals { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<User>()

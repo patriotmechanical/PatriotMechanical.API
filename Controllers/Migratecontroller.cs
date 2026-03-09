@@ -600,4 +600,44 @@ public class MigrateController : ControllerBase
             return Ok(new { error = ex.Message });
         }
     }
+
+    [HttpPost("add-ar-alerts")]
+    public async Task<IActionResult> AddArAlerts()
+    {
+        try
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"
+                -- Add AR alert threshold columns to CompanySettings
+                ALTER TABLE ""CompanySettings""
+                    ADD COLUMN IF NOT EXISTS ""ArAlertOnBalanceAmount"" boolean NOT NULL DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS ""ArAlertBalanceThreshold"" numeric NOT NULL DEFAULT 5000,
+                    ADD COLUMN IF NOT EXISTS ""ArAlertOn30Days"" boolean NOT NULL DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS ""ArAlertDays30Threshold"" numeric NOT NULL DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS ""ArAlertOn60Days"" boolean NOT NULL DEFAULT false,
+                    ADD COLUMN IF NOT EXISTS ""ArAlertDays60Threshold"" numeric NOT NULL DEFAULT 0,
+                    ADD COLUMN IF NOT EXISTS ""ArAlertOn90Days"" boolean NOT NULL DEFAULT true,
+                    ADD COLUMN IF NOT EXISTS ""ArAlertDays90Threshold"" numeric NOT NULL DEFAULT 0;
+
+                -- Create ArAlertDismissals table
+                CREATE TABLE IF NOT EXISTS ""ArAlertDismissals"" (
+                    ""Id"" uuid NOT NULL DEFAULT gen_random_uuid(),
+                    ""CompanySettingsId"" uuid NOT NULL,
+                    ""CustomerId"" uuid NOT NULL,
+                    ""DismissedAt"" timestamp with time zone NOT NULL DEFAULT now(),
+                    ""DismissedBy"" text NOT NULL DEFAULT '',
+                    CONSTRAINT ""PK_ArAlertDismissals"" PRIMARY KEY (""Id""),
+                    CONSTRAINT ""UQ_ArAlertDismissals_Company_Customer"" UNIQUE (""CompanySettingsId"", ""CustomerId"")
+                );
+
+                CREATE INDEX IF NOT EXISTS ""IX_ArAlertDismissals_CompanyId""
+                    ON ""ArAlertDismissals""(""CompanySettingsId"");
+            ");
+
+            return Ok(new { message = "AR alerts migration applied successfully." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { error = ex.Message });
+        }
+    }
 }

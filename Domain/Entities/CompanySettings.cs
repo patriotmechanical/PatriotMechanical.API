@@ -24,6 +24,16 @@ public class CompanySettings
     // Markup Defaults (configurable per company)
     public decimal CreditCardFeePercent { get; set; } = 2.5m;
 
+    // AR Alert Thresholds
+    public bool ArAlertOnBalanceAmount { get; set; } = false;
+    public decimal ArAlertBalanceThreshold { get; set; } = 5000m;
+    public bool ArAlertOn30Days { get; set; } = false;
+    public decimal ArAlertDays30Threshold { get; set; } = 0m;
+    public bool ArAlertOn60Days { get; set; } = false;
+    public decimal ArAlertDays60Threshold { get; set; } = 0m;
+    public bool ArAlertOn90Days { get; set; } = true;
+    public decimal ArAlertDays90Threshold { get; set; } = 0m;
+
     // Metadata
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
