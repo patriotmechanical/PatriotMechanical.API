@@ -1748,7 +1748,7 @@ async function loadWarrantyClaims() {
         "Installed": "#16a34a", "Defective Returned": "#9333ea", "Closed": "#475569"
     };
 
-    let html = '<table class="data-table"><thead><tr>';
+    let html = '<table class="data-table" id="warrantyTable"><thead><tr>';
     html += '<th>Part</th><th>Customer</th><th>Job #</th><th>Supplier</th><th>RMA</th><th>Type</th><th>Status</th><th>ETA</th><th>Age</th>';
     html += '</tr></thead><tbody>';
 
@@ -1771,6 +1771,7 @@ async function loadWarrantyClaims() {
 
     html += '</tbody></table>';
     wrap.innerHTML = html;
+    makeSortable("warrantyTable");
 }
 
 function showNewClaimForm() { document.getElementById("newClaimForm").classList.remove("hidden"); document.getElementById("wcPartName").focus(); }
@@ -2131,6 +2132,12 @@ function renderEstimates() {
         return;
     }
 
+    if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b;padding:24px;">No estimates found.</td></tr>`;
+        makeSortable("estimatesTable");
+        return;
+    }
+
     tbody.innerHTML = rows.map(e => {
         const outcome = e.followUp?.outcome || 'Pending';
         const badgeClass = outcome === 'Won' ? 'outcome-won' : outcome === 'Lost' ? 'outcome-lost' : 'outcome-pending';
@@ -2159,6 +2166,7 @@ function renderEstimates() {
             <td><button class="btn-secondary" style="padding:4px 10px;font-size:11px;" onclick="openEstimateDrawer('${e.id}')">Follow Up</button></td>
         </tr>`;
     }).join('');
+    makeSortable("estimatesTable");
 }
 
 function openEstimateDrawer(estimateId) {

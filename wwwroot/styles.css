@@ -2289,3 +2289,33 @@ tr.ar-row-bad  td.bold { color: #f87171; }
     width: 0%;
     transition: width 0.6s ease;
 }
+
+/* ── Sortable Table Headers ─────────────────────────────────── */
+.data-table th:not(.no-sort) {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.data-table th:not(.no-sort):hover {
+    color: #e2e8f0;
+}
+.sort-arrow {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 10px;
+    opacity: 0.35;
+    transition: opacity 0.15s;
+}
+.sort-arrow::after {
+    content: '⇅';
+}
+th.sort-asc .sort-arrow,
+th.sort-desc .sort-arrow {
+    opacity: 1;
+}
+th.sort-asc .sort-arrow::after {
+    content: '↑';
+}
+th.sort-desc .sort-arrow::after {
+    content: '↓';
+}
