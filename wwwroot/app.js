@@ -251,6 +251,11 @@ async function loadDashboard() {
     const openWoCount = data.openWorkOrders ? data.openWorkOrders.length : 0;
     document.getElementById("kpiOpenWo").innerText = openWoCount;
 
+    // No Invoice KPI
+    const noInvoiceCount = data.completedNoInvoiceCount ?? (data.completedNoInvoice ? data.completedNoInvoice.length : 0);
+    document.getElementById("kpiNoInvoice").innerText = noInvoiceCount;
+    document.getElementById("kpiNoInvoiceSub").innerText = noInvoiceCount === 1 ? "completed job" : "completed jobs";
+
     const overduePmCount = data.overduePms ? data.overduePms.length : 0;
     document.getElementById("kpiOverduePm").innerText = overduePmCount;
 
@@ -720,6 +725,7 @@ function renderOpsStats(data) {
         { label: "Waiting Quote",   count: waitingQuote.count, color: waitingQuote.color || "#9333ea", items: waitingQuote.cards, type: "board" },
         { label: "Waiting Parts",   count: waitingParts.count, color: waitingParts.color || "#d97706", items: waitingParts.cards, type: "board" },
         { label: "Need Return",     count: needReturn.count,   color: needReturn.color || "#dc2626",   items: needReturn.cards,   type: "board" },
+        { label: "No Invoice",       count: noInvoiceCount,     color: "#ea580c", items: data.completedNoInvoice || [], type: "noinvoice" },
     ];
 }
 
@@ -733,6 +739,7 @@ function openOpsDrilldown(idx) {
     let html = '<table class="data-table"><thead><tr><th>Job #</th><th>Customer</th>';
     if (stat.type === "wo") html += "<th>Status</th><th>Created</th>";
     if (stat.type === "pm") html += "<th>Last PM</th><th>Days Since</th>";
+    if (stat.type === "noinvoice") html += "<th>Completed</th><th class='text-right'>Job Total</th>";
     html += "</tr></thead><tbody>";
 
     stat.items.forEach(item => {
@@ -746,6 +753,10 @@ function openOpsDrilldown(idx) {
             const lastPm = item.lastPm ? new Date(item.lastPm).toLocaleDateString() : "Never";
             const days = item.lastPm ? Math.floor((Date.now() - new Date(item.lastPm).getTime()) / 86400000) : "—";
             html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${lastPm}</td><td class="danger">${days}</td></tr>`;
+        } else if (stat.type === "noinvoice") {
+            const completed = item.completedAt ? new Date(item.completedAt).toLocaleDateString() : "—";
+            const total = item.totalAmount > 0 ? "$" + Number(item.totalAmount).toLocaleString() : "—";
+            html += `<tr${custClick}><td class="bold">${item.jobNumber || "—"}</td><td>${item.customerName || "—"}</td><td>${completed}</td><td class="text-right danger">${total}</td></tr>`;
         }
     });
 

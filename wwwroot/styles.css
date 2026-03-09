@@ -1051,6 +1051,7 @@ td {
 .kpi-red::before    { background: #ef4444; }
 .kpi-amber::before  { background: #f59e0b; }
 .kpi-purple::before { background: #a855f7; }
+.kpi-orange::before { background: #ea580c; }
 .kpi-teal::before   { background: #14b8a6; }
 
 .kpi-label {

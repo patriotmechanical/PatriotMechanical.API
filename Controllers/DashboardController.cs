@@ -228,6 +228,53 @@ public class DashboardController : ControllerBase
         var schedTomorrow = BuildDaySchedule(tomorrowLocal);
         var schedDayAfter = BuildDaySchedule(dayAfterLocal);
 
+        // ── FORECASTED MONTH REVENUE ──────────────────────────────
+        // Sum TotalAmount on all open/scheduled WOs that have at least one appointment
+        // scheduled for the rest of this month (i.e., after now through end of month).
+        var thisMonthEnd = thisMonthStart.AddMonths(1);
+
+        // Get all WO IDs from appointments scheduled rest of this month
+        var apptWoIdsRaw = await _context.Appointments
+            .Where(a => a.Start >= now && a.Start < thisMonthEnd)
+            .Where(a => a.Status != "Canceled" && a.Status != "Cancelled")
+            .Where(a => a.WorkOrderId != null)
+            .Select(a => a.WorkOrderId!.Value)
+            .Distinct()
+            .ToListAsync();
+
+        // Fetch those WOs (not complete/canceled), apply demo filter, sum TotalAmount
+        var forecastedRevenue = await _context.WorkOrders
+            .Where(w => apptWoIdsRaw.Contains(w.Id))
+            .Where(w => w.Status != null
+                && !w.Status.ToLower().Contains("complete")
+                && !w.Status.ToLower().Contains("cancel"))
+            .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
+            .Where(w => isDemo  || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
+            .SumAsync(w => w.TotalAmount);
+
+        // Days elapsed / days in month — for progress context on the frontend
+        var daysInMonth   = DateTime.DaysInMonth(now.Year, now.Month);
+        var daysElapsed   = now.Day;
+
+        // ── COMPLETED, NO INVOICE ─────────────────────────────────
+        var completedNoInvoice = await _context.WorkOrders
+            .Where(w => w.Status != null && w.Status.ToLower().Contains("complete"))
+            .Where(w => w.Invoice == null)
+            .Where(w => !isDemo || w.Customer.Name.StartsWith("[DEMO]"))
+            .Where(w => isDemo || w.Customer == null || !w.Customer.Name.StartsWith("[DEMO]"))
+            .Include(w => w.Customer)
+            .OrderByDescending(w => w.CompletedAt ?? w.CreatedAt)
+            .Select(w => new
+            {
+                w.Id,
+                w.JobNumber,
+                CustomerName = w.Customer.Name,
+                w.Status,
+                w.TotalAmount,
+                CompletedAt = w.CompletedAt ?? w.CreatedAt
+            })
+            .ToListAsync();
+
         return Ok(new
         {
             TotalAR = totalAr,
@@ -239,10 +286,15 @@ public class DashboardController : ControllerBase
             OpenWorkOrders = openWorkOrders,
             BoardColumns = boardColumns,
             OverduePms = overduePms,
-            OpenWoCount       = openWoCount,
-            OverduePmCount    = overduePmCount,
-            RevenueThisMonth  = revenueThisMonth,
-            RevenueLastMonth  = revenueLastMonth,
+            OpenWoCount             = openWoCount,
+            OverduePmCount          = overduePmCount,
+            CompletedNoInvoice      = completedNoInvoice,
+            CompletedNoInvoiceCount = completedNoInvoice.Count,
+            RevenueThisMonth     = revenueThisMonth,
+            RevenueLastMonth     = revenueLastMonth,
+            ForecastedRevenue    = forecastedRevenue,
+            DaysInMonth          = daysInMonth,
+            DaysElapsed          = daysElapsed,
             ScheduledToday    = schedToday,
             ScheduledTomorrow = schedTomorrow,
             ScheduledDayAfter = schedDayAfter
