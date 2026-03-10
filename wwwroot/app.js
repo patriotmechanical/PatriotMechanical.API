@@ -1236,10 +1236,8 @@ async function addBoardColumn() {
 
     if (!name) { toast("Enter a column name.", "error"); return; }
 
-    const res = await api("/board/columns", {
-        method: "POST",
-        body: JSON.stringify({ name, color })
-    });
+    const role = document.getElementById("boardNewColRole")?.value || "";
+const res = await api("/board/columns", { method: "POST", body: JSON.stringify({ name, color, columnRole: role || null }) });
 
     if (res && res.ok) {
         document.getElementById("boardNewColName").value = "";

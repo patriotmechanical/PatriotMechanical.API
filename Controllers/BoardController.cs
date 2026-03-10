@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using PatriotMechanical.API.Application.Services;
 using PatriotMechanical.API.Domain.Entities;
 using PatriotMechanical.API.Infrastructure.Data;
 using System.Security.Claims;
@@ -14,27 +13,13 @@ namespace PatriotMechanical.API.Controllers
     public class BoardController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly ServiceTitanService _stService;
 
-        public BoardController(AppDbContext context, ServiceTitanService stService)
+        public BoardController(AppDbContext context)
         {
             _context = context;
-            _stService = stService;
         }
 
-        // ── ST HOLD REASON MAPPING ───────────────────────────────────
-        // Board column name → ST job hold reason ID
-        // IDs filled in after running GET /servicetitan/hold-reasons
-        // Columns NOT listed here (Waiting to Schedule, Quote Sent) → do nothing in ST
-        private static readonly Dictionary<string, long> ColumnHoldReasonMap = new(StringComparer.OrdinalIgnoreCase)
-        {
-            { "Need to Return",  6275 }, // ST: "Need to return"
-            { "Waiting Parts",   1750 }, // ST: "Waiting for materials"
-            { "Parts on Order",  6154 }, // ST: "Order Parts"
-            { "Waiting Quote",   6153 }, // ST: "Needs Quote"
-        };
-
-        // GET /board — full board with columns and cards
+        // GET /board
         [HttpGet]
         public async Task<IActionResult> GetBoard()
         {
@@ -46,28 +31,21 @@ namespace PatriotMechanical.API.Controllers
                                      .Where(card => isDemo || !card.CustomerName.StartsWith("[DEMO]"))
                                      .OrderBy(card => card.SortOrder))
                     .ThenInclude(card => card.Notes.OrderByDescending(n => n.CreatedAt))
-                .Include(c => c.Cards)
-                    .ThenInclude(card => card.WorkOrder)
-                        .ThenInclude(wo => wo!.MaterialEntries)
-                .Include(c => c.Cards)
-                    .ThenInclude(card => card.WorkOrder)
-                        .ThenInclude(wo => wo!.Invoice)
                 .ToListAsync();
 
-            // Seed defaults if empty
             if (columns.Count == 0)
             {
                 var defaults = new[]
                 {
-                    ("Waiting to Schedule", "#2563eb", 0),
-                    ("Need to Return", "#dc2626", 1),
-                    ("Waiting Parts", "#d97706", 2),
-                    ("Parts on Order", "#ea580c", 3),
-                    ("Waiting Quote", "#9333ea", 4),
-                    ("Quote Sent", "#16a34a", 5)
+                    ("Waiting to Schedule", "#2563eb", 0, "WaitingToSchedule"),
+                    ("Need to Return",       "#dc2626", 1, "NeedToReturn"),
+                    ("Waiting Parts",        "#d97706", 2, (string?)null),
+                    ("Parts on Order",       "#ea580c", 3, (string?)null),
+                    ("Waiting Quote",        "#9333ea", 4, (string?)null),
+                    ("Quote Sent",           "#16a34a", 5, (string?)null)
                 };
 
-                foreach (var (name, color, order) in defaults)
+                foreach (var (name, color, order, role) in defaults)
                 {
                     _context.BoardColumns.Add(new BoardColumn
                     {
@@ -75,7 +53,8 @@ namespace PatriotMechanical.API.Controllers
                         Name = name,
                         Color = color,
                         SortOrder = order,
-                        IsDefault = true
+                        IsDefault = true,
+                        ColumnRole = role
                     });
                 }
 
@@ -94,6 +73,7 @@ namespace PatriotMechanical.API.Controllers
                 col.Color,
                 col.SortOrder,
                 col.IsDefault,
+                col.ColumnRole,
                 Cards = col.Cards.Select(card => new
                 {
                     card.Id,
@@ -108,19 +88,12 @@ namespace PatriotMechanical.API.Controllers
                         n.Text,
                         n.Author,
                         n.CreatedAt
-                    }),
-                    // WO risk data
-                    WoCreatedAt = card.WorkOrder != null ? card.WorkOrder.CreatedAt : (DateTime?)null,
-                    WoStatus = card.WorkOrder != null ? card.WorkOrder.Status : null,
-                    WoTotal = card.WorkOrder != null ? card.WorkOrder.TotalAmount : 0m,
-                    WoHasMaterials = card.WorkOrder != null && card.WorkOrder.MaterialEntries.Any(),
-                    WoHasInvoice = card.WorkOrder != null && card.WorkOrder.Invoice != null,
-                    WoLastNote = card.Notes.Any() ? card.Notes.Max(n => n.CreatedAt) : (DateTime?)null
+                    })
                 })
             }));
         }
 
-        // POST /board/columns — add a new column
+        // POST /board/columns
         [HttpPost("columns")]
         public async Task<IActionResult> AddColumn([FromBody] AddColumnRequest req)
         {
@@ -132,13 +105,14 @@ namespace PatriotMechanical.API.Controllers
                 Name = req.Name,
                 Color = req.Color ?? "#334155",
                 SortOrder = maxOrder + 1,
-                IsDefault = false
+                IsDefault = false,
+                ColumnRole = string.IsNullOrWhiteSpace(req.ColumnRole) ? null : req.ColumnRole
             };
 
             _context.BoardColumns.Add(col);
             await _context.SaveChangesAsync();
 
-            return Ok(new { col.Id, col.Name, col.Color, col.SortOrder });
+            return Ok(new { col.Id, col.Name, col.Color, col.SortOrder, col.ColumnRole });
         }
 
         // DELETE /board/columns/{id}
@@ -154,7 +128,7 @@ namespace PatriotMechanical.API.Controllers
             return Ok(new { message = "Column deleted." });
         }
 
-        // PUT /board/columns/{id} — rename or recolor
+        // PUT /board/columns/{id}
         [HttpPut("columns/{id}")]
         public async Task<IActionResult> UpdateColumn(Guid id, [FromBody] UpdateColumnRequest req)
         {
@@ -163,23 +137,22 @@ namespace PatriotMechanical.API.Controllers
 
             if (req.Name != null) col.Name = req.Name;
             if (req.Color != null) col.Color = req.Color;
+            if (req.ColumnRole != null) col.ColumnRole = req.ColumnRole == "" ? null : req.ColumnRole;
 
             await _context.SaveChangesAsync();
-            return Ok(new { col.Id, col.Name, col.Color });
+            return Ok(new { col.Id, col.Name, col.Color, col.ColumnRole });
         }
 
-        // POST /board/cards — add a work order card to a column
+        // POST /board/cards
         [HttpPost("cards")]
         public async Task<IActionResult> AddCard([FromBody] AddCardRequest req)
         {
             var column = await _context.BoardColumns.FindAsync(req.ColumnId);
             if (column == null) return BadRequest(new { message = "Column not found." });
 
-            // Check for duplicate job number on board
             var exists = await _context.BoardCards.AnyAsync(c => c.JobNumber == req.JobNumber);
             if (exists) return BadRequest(new { message = $"Job {req.JobNumber} is already on the board." });
 
-            // Try to match to a synced work order
             var wo = await _context.WorkOrders
                 .Include(w => w.Customer)
                 .FirstOrDefaultAsync(w => w.JobNumber == req.JobNumber);
@@ -200,10 +173,9 @@ namespace PatriotMechanical.API.Controllers
 
             _context.BoardCards.Add(card);
 
-            // Add initial note if provided
             if (!string.IsNullOrWhiteSpace(req.Note))
             {
-                var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? "System";
+                var userName = User.FindFirst(ClaimTypes.Name)?.Value ?? "User";
                 _context.BoardCardNotes.Add(new BoardCardNote
                 {
                     Id = Guid.NewGuid(),
@@ -226,7 +198,18 @@ namespace PatriotMechanical.API.Controllers
             });
         }
 
-        // PUT /board/cards/{id}/move — move card to different column (drag & drop)
+        // DELETE /board/cards/{id}
+        [HttpDelete("cards/{id}")]
+        public async Task<IActionResult> RemoveCard(Guid id)
+        {
+            var card = await _context.BoardCards.FindAsync(id);
+            if (card == null) return NotFound();
+            _context.BoardCards.Remove(card);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Card removed." });
+        }
+
+        // PUT /board/cards/{id}/move
         [HttpPut("cards/{id}/move")]
         public async Task<IActionResult> MoveCard(Guid id, [FromBody] MoveCardRequest req)
         {
@@ -237,52 +220,10 @@ namespace PatriotMechanical.API.Controllers
             card.SortOrder = req.SortOrder;
 
             await _context.SaveChangesAsync();
-
-            // ── Push hold reason to ServiceTitan (fire-and-forget, don't fail the card move) ──
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var column = await _context.BoardColumns.FindAsync(req.ColumnId);
-                    if (column == null) return;
-
-                    // If column is not mapped, do nothing in ST
-                    if (!ColumnHoldReasonMap.TryGetValue(column.Name.Trim(), out var holdReasonId) || holdReasonId == 0)
-                        return;
-
-                    // Look up the WO for its ST job ID
-                    var wo = await _context.WorkOrders.FirstOrDefaultAsync(w => w.JobNumber == card.JobNumber);
-                    if (wo == null || wo.ServiceTitanJobId == 0) return;
-
-                    // Query ST directly for the active appointment — bypasses our 4-day local sync window
-                    var stApptId = await _stService.GetActiveAppointmentIdForJobAsync(wo.ServiceTitanJobId);
-                    if (stApptId == null) return;
-
-                    var memo = $"Moved to {column.Name.Trim()} on {DateTime.Now:MM/dd/yyyy}";
-                    await _stService.PutAppointmentOnHoldAsync(stApptId.Value, holdReasonId, memo);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ST Hold Sync] Failed for card {id}: {ex.Message}");
-                }
-            });
-
-            return Ok(new { message = "Card moved." });
+            return Ok(new { card.Id, card.BoardColumnId, card.SortOrder });
         }
 
-        // DELETE /board/cards/{id}
-        [HttpDelete("cards/{id}")]
-        public async Task<IActionResult> DeleteCard(Guid id)
-        {
-            var card = await _context.BoardCards.FindAsync(id);
-            if (card == null) return NotFound();
-
-            _context.BoardCards.Remove(card);
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "Card removed." });
-        }
-
-        // POST /board/cards/{id}/notes — add a timestamped note
+        // POST /board/cards/{id}/notes
         [HttpPost("cards/{id}/notes")]
         public async Task<IActionResult> AddNote(Guid id, [FromBody] AddNoteRequest req)
         {
@@ -317,6 +258,36 @@ namespace PatriotMechanical.API.Controllers
 
             return Ok(notes);
         }
+
+        // POST /board/migrate/assign-roles
+        // One-time migration: assigns ColumnRole to existing columns by name matching
+        [HttpPost("migrate/assign-roles")]
+        public async Task<IActionResult> AssignRolesByName()
+        {
+            var columns = await _context.BoardColumns.ToListAsync();
+            int updated = 0;
+
+            foreach (var col in columns)
+            {
+                if (col.ColumnRole != null) continue; // already assigned, skip
+
+                var lower = col.Name.ToLower();
+
+                if (lower.Contains("schedule") || lower.Contains("waiting to schedule"))
+                {
+                    col.ColumnRole = "WaitingToSchedule";
+                    updated++;
+                }
+                else if (lower.Contains("return") || lower.Contains("need to return"))
+                {
+                    col.ColumnRole = "NeedToReturn";
+                    updated++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = $"Assigned roles to {updated} column(s)." });
+        }
     }
 
     // ─── Request DTOs ─────────────────────────────────────────────
@@ -325,12 +296,14 @@ namespace PatriotMechanical.API.Controllers
     {
         public string Name { get; set; } = null!;
         public string? Color { get; set; }
+        public string? ColumnRole { get; set; }
     }
 
     public class UpdateColumnRequest
     {
         public string? Name { get; set; }
         public string? Color { get; set; }
+        public string? ColumnRole { get; set; }
     }
 
     public class AddCardRequest

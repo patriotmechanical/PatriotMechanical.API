@@ -319,14 +319,23 @@
                     </div>
 
                     <!-- Add Column Form (hidden by default) -->
-                    <div id="addColumnForm" class="card hidden" style="background:#1e293b; margin-bottom:15px;">
-                        <h3 style="margin-bottom:10px;">Add Column</h3>
-                        <div style="display:flex; gap:10px; align-items:flex-end;">
-                            <div class="form-group" style="flex:1; min-width:150px; margin-bottom:0;"><label>Name</label><input type="text" id="boardNewColName" placeholder="Column name" /></div>
-                            <div class="form-group" style="min-width:80px; margin-bottom:0;"><label>Color</label><input type="color" id="boardNewColColor" value="#2563eb" /></div>
-                            <button class="btn-primary" style="height:40px;" onclick="addBoardColumn()">Add</button>
-                        </div>
-                    </div>
+                    <div id="addColumnForm" class="card hidden" style="background:#1e293b; margin-bottom:16px;">
+    <h3 style="margin-bottom:10px; color:#e2e8f0; font-size:15px; font-weight:600;">Add New Column</h3>
+    <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+        <div class="form-group" style="flex:1; min-width:200px; margin-bottom:0;"><label>Column Name</label><input type="text" id="boardNewColName" placeholder="e.g. Waiting on Inspection" /></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Color</label><input type="color" id="boardNewColColor" value="#334155" style="height:40px; width:60px; padding:2px;" /></div>
+        <div class="form-group" style="min-width:180px; margin-bottom:0;">
+            <label>Auto-placement Role</label>
+            <select id="boardNewColRole">
+                <option value="">None</option>
+                <option value="WaitingToSchedule">Waiting to Schedule</option>
+                <option value="NeedToReturn">Need to Return</option>
+            </select>
+        </div>
+        <button class="btn-primary" style="height:40px;" onclick="addBoardColumn()">Add</button>
+        <button class="btn-secondary" style="height:40px;" onclick="hideAddColumnForm()">Cancel</button>
+    </div>
+</div>
 
                     <div id="kanbanBoard" class="kanban-board"></div>
                 </div>

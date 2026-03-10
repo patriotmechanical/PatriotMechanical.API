@@ -566,12 +566,10 @@ namespace PatriotMechanical.API.Application.Services
         private async Task AutoBoardFromAppointmentsAsync(Dictionary<long, List<ApptInfo>> jobAppointments, HashSet<long> jobsWithTechAssigned)
         {
             var needReturnCol = await _context.BoardColumns
-                .FirstOrDefaultAsync(c => c.Name.ToLower().Contains("need to return")
-                                       || c.Name.ToLower().Contains("return"));
+                .FirstOrDefaultAsync(c => c.ColumnRole == "NeedToReturn");
 
             var waitScheduleCol = await _context.BoardColumns
-                .FirstOrDefaultAsync(c => c.Name.ToLower().Contains("schedule"));
-
+                .FirstOrDefaultAsync(c => c.ColumnRole == "WaitingToSchedule");
             if (needReturnCol == null && waitScheduleCol == null)
             {
                 Console.WriteLine("[AutoBoard] No relevant board columns found.");
