@@ -18,6 +18,7 @@ namespace PatriotMechanical.API.Domain.Entities
         public DateTime? ServiceTitanModifiedOn { get; set; }
         public long ServiceTitanCustomerId { get; set; }
         public long ServiceTitanLocationId { get; set; } // location of the job site
+        public long? HoldReasonId { get; set; } // ST hold reason ID (null if not on hold)
         public Guid? TechnicianId { get; set; }
         public Technician? Technician { get; set; }
 

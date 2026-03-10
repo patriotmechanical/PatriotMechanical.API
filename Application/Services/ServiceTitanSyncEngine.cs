@@ -148,6 +148,10 @@ namespace PatriotMechanical.API.Application.Services
                     if (job.TryGetProperty("locationId", out var locIdProp) && locIdProp.ValueKind == JsonValueKind.Number)
                         locationId = locIdProp.GetInt64();
 
+                    long? holdReasonId = null;
+                    if (job.TryGetProperty("holdReasonId", out var hrProp) && hrProp.ValueKind == JsonValueKind.Number)
+                        holdReasonId = hrProp.GetInt64();
+
                     var customer = await _context.Customers
                         .FirstOrDefaultAsync(c => c.ServiceTitanCustomerId == customerId);
 
@@ -171,7 +175,8 @@ namespace PatriotMechanical.API.Application.Services
                             ServiceTitanLocationId = locationId,
                             JobTypeName = jobTypeName,
                             CompletedAt = completedAt,
-                            CreatedAt = createdAt
+                            CreatedAt = createdAt,
+                            HoldReasonId = holdReasonId
                         });
                     }
                     else
@@ -186,6 +191,7 @@ namespace PatriotMechanical.API.Application.Services
                         existing.ServiceTitanLocationId = locationId;
                         if (completedAt.HasValue) existing.CompletedAt = completedAt;
                         existing.CreatedAt = createdAt;
+                        existing.HoldReasonId = holdReasonId; // always update (clears when hold removed)
                     }
                 }
 
@@ -310,6 +316,11 @@ namespace PatriotMechanical.API.Application.Services
                     if (job.TryGetProperty("locationId", out var locIdProp) && locIdProp.ValueKind == JsonValueKind.Number)
                         locationId = locIdProp.GetInt64();
 
+                    // holdReasonId - null if not on hold, populated if job is on hold
+                    long? holdReasonId = null;
+                    if (job.TryGetProperty("holdReasonId", out var hrProp) && hrProp.ValueKind == JsonValueKind.Number)
+                        holdReasonId = hrProp.GetInt64();
+
                     // Match to our customer
                     var customer = await _context.Customers
                         .FirstOrDefaultAsync(c => c.ServiceTitanCustomerId == customerId);
@@ -335,7 +346,8 @@ namespace PatriotMechanical.API.Application.Services
                             ServiceTitanLocationId = locationId,
                             JobTypeName = jobTypeName,
                             CompletedAt = completedAt,
-                            CreatedAt = createdAt ?? DateTime.UtcNow
+                            CreatedAt = createdAt ?? DateTime.UtcNow,
+                            HoldReasonId = holdReasonId
                         });
                     }
                     else
@@ -346,6 +358,7 @@ namespace PatriotMechanical.API.Application.Services
                         existing.ServiceTitanModifiedOn = modifiedOn;
                         existing.LastSyncedFromServiceTitan = DateTime.UtcNow;
                         existing.JobTypeName = jobTypeName;
+                        existing.HoldReasonId = holdReasonId; // always update (clears when hold removed)
                         if (locationId > 0) existing.ServiceTitanLocationId = locationId;
 
                         // Only overwrite total if the list endpoint actually returned it
@@ -767,9 +780,9 @@ namespace PatriotMechanical.API.Application.Services
 
         // ═══════════════════════════════════════════════════════════════
         // SYNC HOLD REASONS → BOARD CARDS
-        // - Jobs with a hold reason are added to / moved to the matching column
-        // - Jobs whose hold reason was cleared are removed from the board
-        // Uses the in-memory jobAppointments map (already fetched this sync cycle).
+        // - Jobs with HoldReasonId set → add/move card to matching column
+        // - Jobs in a hold reason column whose HoldReasonId was cleared → remove card
+        // Reads directly from WorkOrders.HoldReasonId (populated during job sync).
         // ═══════════════════════════════════════════════════════════════
         private async Task SyncHoldReasonsToBoard(Dictionary<long, List<ApptInfo>> jobAppointments)
         {
@@ -801,42 +814,29 @@ namespace PatriotMechanical.API.Application.Services
 
             var boardColumns = await _context.BoardColumns.ToListAsync();
 
-            // Build a set of jobs that currently have an active hold reason appointment
-            // key = ST job ID, value = hold reason ID
-            var jobsWithActiveHold = new Dictionary<long, long>();
-            foreach (var (stJobId, appts) in jobAppointments)
-            {
-                var holdAppt = appts.FirstOrDefault(a =>
-                    a.Active &&
-                    a.Status.Equals("Hold", StringComparison.OrdinalIgnoreCase) &&
-                    a.HoldReasonId.HasValue &&
-                    holdReasonMap.ContainsKey(a.HoldReasonId.Value));
-
-                if (holdAppt != null)
-                    jobsWithActiveHold[stJobId] = holdAppt.HoldReasonId!.Value;
-            }
-
-            Console.WriteLine($"[HoldSync] Found {jobsWithActiveHold.Count} jobs with active hold reasons.");
-
             // Hold reason column IDs (only columns tied to a ST hold reason)
             var holdReasonColumnIds = boardColumns
                 .Where(c => c.ServiceTitanHoldReasonId.HasValue)
                 .Select(c => c.Id)
                 .ToHashSet();
 
-            // ─── ADD / MOVE: jobs with active hold reason → correct column ───
-            foreach (var (stJobId, holdReasonId) in jobsWithActiveHold)
+            // ─── ADD / MOVE: jobs with HoldReasonId set → correct column ───
+            var jobsOnHold = await _context.WorkOrders
+                .Include(w => w.Customer)
+                .Where(w => w.HoldReasonId != null && holdReasonMap.Keys.Contains(w.HoldReasonId.Value))
+                .ToListAsync();
+
+            Console.WriteLine($"[HoldSync] Found {jobsOnHold.Count} jobs with active hold reasons in DB.");
+
+            foreach (var wo in jobsOnHold)
             {
+                var holdReasonId = wo.HoldReasonId!.Value;
+
                 var targetColumn = boardColumns.FirstOrDefault(c => c.ServiceTitanHoldReasonId == holdReasonId)
                     ?? boardColumns.FirstOrDefault(c =>
                         c.Name.Equals(holdReasonMap[holdReasonId], StringComparison.OrdinalIgnoreCase));
 
                 if (targetColumn == null) continue;
-
-                var wo = await _context.WorkOrders
-                    .Include(w => w.Customer)
-                    .FirstOrDefaultAsync(w => w.ServiceTitanJobId == stJobId);
-                if (wo == null) continue;
 
                 var woStatus = wo.Status?.ToLower() ?? "";
                 if (woStatus.Contains("completed") || woStatus.Contains("cancel")) continue;
@@ -849,7 +849,6 @@ namespace PatriotMechanical.API.Application.Services
 
                 if (card == null)
                 {
-                    // Card doesn't exist yet — add it
                     var maxSort = await _context.BoardCards
                         .Where(c => c.BoardColumnId == targetColumn.Id)
                         .Select(c => (int?)c.SortOrder)
@@ -876,7 +875,6 @@ namespace PatriotMechanical.API.Application.Services
                 }
                 else if (card.BoardColumnId != targetColumn.Id)
                 {
-                    // Card exists but in wrong column — move it
                     card.BoardColumnId = targetColumn.Id;
                     Console.WriteLine($"[HoldSync] Moved card {wo.JobNumber} to '{targetColumn.Name}'.");
                 }
@@ -885,18 +883,16 @@ namespace PatriotMechanical.API.Application.Services
             // ─── REMOVE: jobs in hold reason columns whose hold was cleared ───
             if (holdReasonColumnIds.Any())
             {
+                var onHoldJobNumbers = jobsOnHold.Select(w => w.JobNumber).ToHashSet();
+
                 var cardsInHoldColumns = await _context.BoardCards
-                    .Include(c => c.WorkOrder)
                     .Where(c => holdReasonColumnIds.Contains(c.BoardColumnId))
                     .ToListAsync();
 
                 int removed = 0;
                 foreach (var card in cardsInHoldColumns)
                 {
-                    var stJobId = card.WorkOrder?.ServiceTitanJobId ?? 0;
-                    if (stJobId == 0) continue;
-
-                    if (!jobsWithActiveHold.ContainsKey(stJobId))
+                    if (!onHoldJobNumbers.Contains(card.JobNumber))
                     {
                         _context.BoardCards.Remove(card);
                         removed++;
