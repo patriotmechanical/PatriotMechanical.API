@@ -62,6 +62,23 @@ var app = builder.Build();
 // Show detailed errors so we can diagnose 500s
 app.UseDeveloperExceptionPage();
 
+// ─── Run startup migrations ────────────────────────────────────
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(@"
+            ALTER TABLE ""BoardColumns"" ADD COLUMN IF NOT EXISTS ""ColumnRole"" text NULL;
+        ");
+        Console.WriteLine("[Startup] ColumnRole migration applied.");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] Migration warning: {ex.Message}");
+    }
+}
+
 // IMPORTANT ORDER
 app.UseCors("AllowFrontend");
 
