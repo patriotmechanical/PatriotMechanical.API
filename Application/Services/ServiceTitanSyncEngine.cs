@@ -560,7 +560,77 @@ namespace PatriotMechanical.API.Application.Services
                 Console.WriteLine($"[AutoBoard] Assignment export failed (non-fatal): {ex.Message}");
             }
 
+            // ─── Sync hold reasons → board columns (runs every sync) ───
+            await SyncHoldReasonsToColumnsAsync();
+
             await AutoBoardFromAppointmentsAsync(jobAppointments, jobsWithTechAssigned);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // SYNC HOLD REASONS → BOARD COLUMNS
+        // Pulls active hold reasons from ST and creates a board column
+        // for each one that doesn't already exist (by name, case-insensitive).
+        // Runs on every sync — safe to call repeatedly, never deletes columns.
+        // ═══════════════════════════════════════════════════════════════
+        public async Task SyncHoldReasonsToColumnsAsync()
+        {
+            try
+            {
+                var raw = await _service.GetHoldReasonsAsync();
+                var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+
+                if (!parsed.TryGetProperty("data", out var data)) return;
+
+                var existingColumns = await _context.BoardColumns.ToListAsync();
+                var existingNames = existingColumns
+                    .Select(c => c.Name.ToLower())
+                    .ToHashSet();
+
+                var maxSort = existingColumns.Any()
+                    ? existingColumns.Max(c => c.SortOrder)
+                    : -1;
+
+                int added = 0;
+
+                foreach (var reason in data.EnumerateArray())
+                {
+                    var name = reason.TryGetProperty("name", out var nameProp)
+                        ? nameProp.GetString() ?? ""
+                        : "";
+                    var active = !reason.TryGetProperty("active", out var activeProp)
+                        || activeProp.GetBoolean();
+
+                    if (string.IsNullOrWhiteSpace(name) || !active) continue;
+                    if (existingNames.Contains(name.ToLower())) continue;
+
+                    _context.BoardColumns.Add(new BoardColumn
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = name,
+                        Color = "#334155",
+                        SortOrder = ++maxSort,
+                        IsDefault = false,
+                        ColumnRole = null
+                    });
+
+                    existingNames.Add(name.ToLower());
+                    added++;
+                }
+
+                if (added > 0)
+                {
+                    await _context.SaveChangesAsync();
+                    Console.WriteLine($"[HoldReasonSync] Added {added} new board column(s) from ST hold reasons.");
+                }
+                else
+                {
+                    Console.WriteLine("[HoldReasonSync] No new hold reasons to add.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HoldReasonSync] Failed (non-fatal): {ex.Message}");
+            }
         }
 
         private async Task AutoBoardFromAppointmentsAsync(Dictionary<long, List<ApptInfo>> jobAppointments, HashSet<long> jobsWithTechAssigned)
@@ -668,23 +738,41 @@ namespace PatriotMechanical.API.Application.Services
             await SyncHoldReasonsToBoard();
         }
 
-        // ── Hold reason ID → board column name mapping (mirrors BoardController) ──
-        // IDs filled in after running GET /servicetitan/hold-reasons
-        private static readonly Dictionary<long, string> HoldReasonColumnMap = new()
-        {
-            { 6275L, "Need to Return" },  // ST: "Need to return"
-            { 1750L, "Waiting Parts" },   // ST: "Waiting for materials"
-            { 6154L, "Parts on Order" },  // ST: "Order Parts"
-            { 6153L, "Waiting Quote" },   // ST: "Needs Quote"
-        };
-
+        // ═══════════════════════════════════════════════════════════════
+        // SYNC HOLD REASONS → BOARD CARDS
+        // Builds a live ID → name map from ST, then moves any board card
+        // whose job has an appointment on hold to the matching column.
+        // ═══════════════════════════════════════════════════════════════
         private async Task SyncHoldReasonsToBoard()
         {
-            if (!HoldReasonColumnMap.Any()) return; // not configured yet
+            // Build a live ID → name map from ST
+            Dictionary<long, string> holdReasonMap = new();
+            try
+            {
+                var raw = await _service.GetHoldReasonsAsync();
+                var parsed = JsonSerializer.Deserialize<JsonElement>(raw);
+                if (parsed.TryGetProperty("data", out var data))
+                {
+                    foreach (var reason in data.EnumerateArray())
+                    {
+                        if (reason.TryGetProperty("id", out var idProp) &&
+                            reason.TryGetProperty("name", out var nameProp))
+                        {
+                            holdReasonMap[idProp.GetInt64()] = nameProp.GetString() ?? "";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HoldSync] Could not fetch hold reasons: {ex.Message}");
+                return;
+            }
 
-            // Find all appointments currently on hold with a mapped reason
+            if (!holdReasonMap.Any()) return;
+
             var holdAppts = await _context.Appointments
-                .Where(a => a.HoldReasonId != null && HoldReasonColumnMap.Keys.Contains(a.HoldReasonId.Value))
+                .Where(a => a.HoldReasonId != null && holdReasonMap.Keys.Contains(a.HoldReasonId.Value))
                 .ToListAsync();
 
             if (!holdAppts.Any()) return;
@@ -693,12 +781,11 @@ namespace PatriotMechanical.API.Application.Services
 
             foreach (var appt in holdAppts)
             {
-                var columnName = HoldReasonColumnMap[appt.HoldReasonId!.Value];
+                var columnName = holdReasonMap[appt.HoldReasonId!.Value];
                 var targetColumn = boardColumns.FirstOrDefault(c =>
                     c.Name.Equals(columnName, StringComparison.OrdinalIgnoreCase));
                 if (targetColumn == null) continue;
 
-                // Find the board card for this job
                 var wo = await _context.WorkOrders
                     .FirstOrDefaultAsync(w => w.ServiceTitanJobId == appt.ServiceTitanJobId);
                 if (wo == null) continue;
@@ -707,7 +794,6 @@ namespace PatriotMechanical.API.Application.Services
                     .FirstOrDefaultAsync(c => c.JobNumber == wo.JobNumber);
                 if (card == null) continue;
 
-                // Only move if not already in the target column
                 if (card.BoardColumnId == targetColumn.Id) continue;
 
                 card.BoardColumnId = targetColumn.Id;
@@ -759,175 +845,6 @@ namespace PatriotMechanical.API.Application.Services
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // APPOINTMENTS SYNC — today + next 3 days
-        // ═══════════════════════════════════════════════════════════════
-        public async Task SyncAppointmentsAsync()
-        {
-            var todayUtc = DateTime.UtcNow.Date;
-            var windowEnd = todayUtc.AddDays(4);
-
-            // ── Step 1: Fetch appointments from ST ─────────────────
-            string raw;
-            try { raw = await _service.GetAppointmentsAsync(todayUtc, windowEnd); }
-            catch { return; }
-
-            JsonElement parsed;
-            try { parsed = JsonSerializer.Deserialize<JsonElement>(raw); }
-            catch { return; }
-
-            if (!parsed.TryGetProperty("data", out var appts)) return;
-
-            // ── Step 2: Collect ST appt IDs from response ──────────
-            var incomingApptIds = new List<long>();
-            foreach (var appt in appts.EnumerateArray())
-            {
-                if (appt.TryGetProperty("id", out var idProp) && idProp.ValueKind == JsonValueKind.Number)
-                    incomingApptIds.Add(idProp.GetInt64());
-            }
-
-            // Delete existing rows for these specific ST appt IDs (avoids duplicates)
-            if (incomingApptIds.Any())
-            {
-                var staleAppts = await _context.Appointments
-                    .Where(a => incomingApptIds.Contains(a.ServiceTitanAppointmentId))
-                    .ToListAsync();
-                _context.Appointments.RemoveRange(staleAppts);
-                await _context.SaveChangesAsync();
-            }
-
-            // ── Step 3: Insert fresh appointment rows ──────────────
-            var newAppts = new List<PatriotMechanical.API.Domain.Entities.Appointment>();
-            foreach (var appt in appts.EnumerateArray())
-            {
-                try
-                {
-                    var apptId = appt.GetProperty("id").GetInt64();
-
-                    long jobId = 0;
-                    if (appt.TryGetProperty("jobId", out var jobProp) && jobProp.ValueKind == JsonValueKind.Number)
-                        jobId = jobProp.GetInt64();
-
-                    long locationId = 0;
-                    if (appt.TryGetProperty("locationId", out var locProp) && locProp.ValueKind == JsonValueKind.Number)
-                        locationId = locProp.GetInt64();
-
-                    DateTime start = DateTime.MinValue, end = DateTime.MinValue;
-                    if (appt.TryGetProperty("start", out var startProp) && startProp.ValueKind == JsonValueKind.String)
-                        DateTime.TryParse(startProp.GetString(), null,
-                            System.Globalization.DateTimeStyles.AssumeUniversal |
-                            System.Globalization.DateTimeStyles.AdjustToUniversal, out start);
-                    if (appt.TryGetProperty("end", out var endProp) && endProp.ValueKind == JsonValueKind.String)
-                        DateTime.TryParse(endProp.GetString(), null,
-                            System.Globalization.DateTimeStyles.AssumeUniversal |
-                            System.Globalization.DateTimeStyles.AdjustToUniversal, out end);
-
-                    if (start == DateTime.MinValue) continue;
-
-                    string status = "Scheduled";
-                    if (appt.TryGetProperty("status", out var statusProp) && statusProp.ValueKind == JsonValueKind.String)
-                        status = statusProp.GetString() ?? "Scheduled";
-
-                    long? holdReasonId = null;
-                    if (appt.TryGetProperty("holdReasonId", out var holdProp) && holdProp.ValueKind == JsonValueKind.Number)
-                        holdReasonId = holdProp.GetInt64();
-
-                    Guid? workOrderId = null;
-                    if (jobId > 0)
-                    {
-                        var wo = await _context.WorkOrders
-                            .Where(w => w.ServiceTitanJobId == jobId)
-                            .Select(w => new { w.Id })
-                            .FirstOrDefaultAsync();
-                        workOrderId = wo?.Id;
-                    }
-
-                    newAppts.Add(new PatriotMechanical.API.Domain.Entities.Appointment
-                    {
-                        Id = Guid.NewGuid(),
-                        ServiceTitanAppointmentId = apptId,
-                        ServiceTitanJobId = jobId,
-                        ServiceTitanLocationId = locationId,
-                        WorkOrderId = workOrderId,
-                        Start = start,
-                        End = end,
-                        Status = status,
-                        HoldReasonId = holdReasonId,
-                        LastSyncedAt = DateTime.UtcNow
-                    });
-                }
-                catch { /* skip malformed */ }
-            }
-
-            _context.Appointments.AddRange(newAppts);
-            await _context.SaveChangesAsync();
-
-            // ── Step 4: Fetch tech assignments via list endpoint ────
-            // Uses appointmentIds filter — targeted, no pagination issues
-            if (!newAppts.Any()) return;
-
-            var apptLookup = newAppts.ToDictionary(a => a.ServiceTitanAppointmentId, a => a.Id);
-            var stApptIds = newAppts.Select(a => a.ServiceTitanAppointmentId);
-
-            string assignRaw;
-            try { assignRaw = await _service.GetAppointmentAssignmentsAsync(stApptIds); }
-            catch { return; }
-
-            JsonElement assignParsed;
-            try { assignParsed = JsonSerializer.Deserialize<JsonElement>(assignRaw); }
-            catch { return; }
-
-            if (!assignParsed.TryGetProperty("data", out var assignments)) return;
-
-            // Also update TechnicianCount on the appointment rows
-            var techCountByAppt = new Dictionary<long, int>();
-
-            foreach (var assign in assignments.EnumerateArray())
-            {
-                try
-                {
-                    long stApptId = 0, stTechId = 0, stJobId = 0;
-                    if (assign.TryGetProperty("appointmentId", out var aIdProp) && aIdProp.ValueKind == JsonValueKind.Number)
-                        stApptId = aIdProp.GetInt64();
-                    if (assign.TryGetProperty("technicianId", out var tIdProp) && tIdProp.ValueKind == JsonValueKind.Number)
-                        stTechId = tIdProp.GetInt64();
-                    if (assign.TryGetProperty("jobId", out var jIdProp) && jIdProp.ValueKind == JsonValueKind.Number)
-                        stJobId = jIdProp.GetInt64();
-
-                    string techName = "";
-                    if (assign.TryGetProperty("technicianName", out var tNameProp) && tNameProp.ValueKind == JsonValueKind.String)
-                        techName = tNameProp.GetString() ?? "";
-
-                    bool active = true;
-                    if (assign.TryGetProperty("active", out var activeProp) && activeProp.ValueKind == JsonValueKind.False)
-                        active = false;
-
-                    if (!active || stApptId == 0 || !apptLookup.ContainsKey(stApptId)) continue;
-
-                    techCountByAppt[stApptId] = techCountByAppt.GetValueOrDefault(stApptId, 0) + 1;
-
-                    _context.AppointmentTechnicians.Add(new PatriotMechanical.API.Domain.Entities.AppointmentTechnician
-                    {
-                        Id = Guid.NewGuid(),
-                        AppointmentId = apptLookup[stApptId],
-                        ServiceTitanTechnicianId = stTechId,
-                        TechnicianName = techName,
-                        ServiceTitanJobId = stJobId,
-                        ServiceTitanAppointmentId = stApptId
-                    });
-                }
-                catch { /* skip malformed */ }
-            }
-
-            // Patch TechnicianCount back onto the appointment rows
-            foreach (var appt in newAppts.Where(a => techCountByAppt.ContainsKey(a.ServiceTitanAppointmentId)))
-            {
-                var tracked = await _context.Appointments.FindAsync(appt.Id);
-                if (tracked != null) tracked.TechnicianCount = techCountByAppt[appt.ServiceTitanAppointmentId];
-            }
-
-            await _context.SaveChangesAsync();
-        }
-         // ═══════════════════════════════════════════════════════════════
         // ESTIMATES (list endpoint, status=Open)
         // ═══════════════════════════════════════════════════════════════
 
