@@ -31,7 +31,7 @@ namespace PatriotMechanical.API.Application.Services
 
                         await engine.SyncCustomersAsync(fullSync: false);
                         await engine.SyncJobsAsync(fullSync: false);
-                        await engine.SyncAppointmentsAsync();
+                        await engine.SyncAppointmentsAndAutoBoardAsync();
                         await engine.SyncEstimatesAsync();
                     }
                 }
