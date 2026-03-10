@@ -1250,6 +1250,8 @@ async function addBoardColumn() {
         toast(`Column "${name}" added.`, "success");
     } else { toast("Failed to add column.", "error"); }
 }
+
+async function addBoardCard() {
     const jobNumber = document.getElementById("boardJobNumber").value.trim();
     const columnId = document.getElementById("boardColumnSelect").value;
     const note = document.getElementById("boardInitialNote").value.trim();
