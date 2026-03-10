@@ -1204,10 +1204,52 @@ async function dropCard(columnId, bodyEl) {
 
 function showAddCardForm() { document.getElementById("addCardForm").classList.remove("hidden"); document.getElementById("boardJobNumber").focus(); }
 function hideAddCardForm() { document.getElementById("addCardForm").classList.add("hidden"); }
-function showAddColumnForm() { document.getElementById("addColumnForm").classList.remove("hidden"); document.getElementById("boardNewColName").focus(); }
+function showAddColumnForm() {
+    document.getElementById("addColumnForm").classList.remove("hidden");
+    document.getElementById("boardNewColName").focus();
+    loadHoldReasonsDropdown();
+}
 function hideAddColumnForm() { document.getElementById("addColumnForm").classList.add("hidden"); }
 
-async function addBoardCard() {
+async function loadHoldReasonsDropdown() {
+    const select = document.getElementById("boardNewColHoldReason");
+    if (!select) return;
+    select.innerHTML = '<option value="">None — custom column</option>';
+    try {
+        const res = await api("/board/hold-reasons");
+        if (!res || !res.ok) return;
+        const reasons = await res.json();
+        reasons.forEach(r => {
+            const opt = document.createElement("option");
+            opt.value = r.id;
+            opt.textContent = r.name;
+            select.appendChild(opt);
+        });
+    } catch (e) {
+        console.warn("Could not load hold reasons:", e);
+    }
+}
+
+async function addBoardColumn() {
+    const name = document.getElementById("boardNewColName").value.trim();
+    const color = document.getElementById("boardNewColColor").value;
+    if (!name) { toast("Enter a column name.", "error"); return; }
+
+    const holdReasonVal = document.getElementById("boardNewColHoldReason")?.value || "";
+    const serviceTitanHoldReasonId = holdReasonVal ? parseInt(holdReasonVal) : null;
+
+    const res = await api("/board/columns", {
+        method: "POST",
+        body: JSON.stringify({ name, color, columnRole: null, serviceTitanHoldReasonId })
+    });
+
+    if (res && res.ok) {
+        document.getElementById("boardNewColName").value = "";
+        hideAddColumnForm();
+        await loadBoard();
+        toast(`Column "${name}" added.`, "success");
+    } else { toast("Failed to add column.", "error"); }
+}
     const jobNumber = document.getElementById("boardJobNumber").value.trim();
     const columnId = document.getElementById("boardColumnSelect").value;
     const note = document.getElementById("boardInitialNote").value.trim();
@@ -1228,23 +1270,6 @@ async function addBoardCard() {
     hideAddCardForm();
     await loadBoard();
     toast(`Job #${jobNumber} added to board.`, "success");
-}
-
-async function addBoardColumn() {
-    const name = document.getElementById("boardNewColName").value.trim();
-    const color = document.getElementById("boardNewColColor").value;
-
-    if (!name) { toast("Enter a column name.", "error"); return; }
-
-    const role = document.getElementById("boardNewColRole")?.value || "";
-const res = await api("/board/columns", { method: "POST", body: JSON.stringify({ name, color, columnRole: role || null }) });
-
-    if (res && res.ok) {
-        document.getElementById("boardNewColName").value = "";
-        hideAddColumnForm();
-        await loadBoard();
-        toast(`Column "${name}" added.`, "success");
-    } else { toast("Failed to add column.", "error"); }
 }
 
 async function openCardModal(card, col) {

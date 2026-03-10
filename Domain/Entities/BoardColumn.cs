@@ -13,6 +13,10 @@ namespace PatriotMechanical.API.Domain.Entities
         // Null = no auto-placement. Values: "WaitingToSchedule", "NeedToReturn"
         public string? ColumnRole { get; set; }
 
+        // When set, this column is tied to a specific ST hold reason.
+        // Cards with this hold reason are automatically placed here.
+        public long? ServiceTitanHoldReasonId { get; set; }
+
         public List<BoardCard> Cards { get; set; } = new();
     }
 }

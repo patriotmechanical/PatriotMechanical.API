@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PatriotMechanical.API.Domain.Entities;
 using PatriotMechanical.API.Infrastructure.Data;
+using PatriotMechanical.API.Application.Services;
 using System.Security.Claims;
 
 namespace PatriotMechanical.API.Controllers
@@ -13,10 +14,12 @@ namespace PatriotMechanical.API.Controllers
     public class BoardController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly ServiceTitanService _stService;
 
-        public BoardController(AppDbContext context)
+        public BoardController(AppDbContext context, ServiceTitanService stService)
         {
             _context = context;
+            _stService = stService;
         }
 
         // GET /board
@@ -33,39 +36,6 @@ namespace PatriotMechanical.API.Controllers
                     .ThenInclude(card => card.Notes.OrderByDescending(n => n.CreatedAt))
                 .ToListAsync();
 
-            if (columns.Count == 0)
-            {
-                var defaults = new[]
-                {
-                    ("Waiting to Schedule", "#2563eb", 0, "WaitingToSchedule"),
-                    ("Need to Return",       "#dc2626", 1, "NeedToReturn"),
-                    ("Waiting Parts",        "#d97706", 2, (string?)null),
-                    ("Parts on Order",       "#ea580c", 3, (string?)null),
-                    ("Waiting Quote",        "#9333ea", 4, (string?)null),
-                    ("Quote Sent",           "#16a34a", 5, (string?)null)
-                };
-
-                foreach (var (name, color, order, role) in defaults)
-                {
-                    _context.BoardColumns.Add(new BoardColumn
-                    {
-                        Id = Guid.NewGuid(),
-                        Name = name,
-                        Color = color,
-                        SortOrder = order,
-                        IsDefault = true,
-                        ColumnRole = role
-                    });
-                }
-
-                await _context.SaveChangesAsync();
-
-                columns = await _context.BoardColumns
-                    .OrderBy(c => c.SortOrder)
-                    .Include(c => c.Cards)
-                    .ToListAsync();
-            }
-
             return Ok(columns.Select(col => new
             {
                 col.Id,
@@ -74,6 +44,7 @@ namespace PatriotMechanical.API.Controllers
                 col.SortOrder,
                 col.IsDefault,
                 col.ColumnRole,
+                col.ServiceTitanHoldReasonId,
                 Cards = col.Cards.Select(card => new
                 {
                     card.Id,
@@ -93,6 +64,41 @@ namespace PatriotMechanical.API.Controllers
             }));
         }
 
+        // GET /board/hold-reasons
+        // Returns active hold reasons from ServiceTitan for the Add Column dropdown
+        [HttpGet("hold-reasons")]
+        public async Task<IActionResult> GetHoldReasons()
+        {
+            try
+            {
+                var raw = await _stService.GetHoldReasonsAsync();
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(raw);
+
+                if (!parsed.TryGetProperty("data", out var data))
+                    return Ok(new List<object>());
+
+                var result = new List<object>();
+                foreach (var reason in data.EnumerateArray())
+                {
+                    var active = !reason.TryGetProperty("active", out var activeProp) || activeProp.GetBoolean();
+                    if (!active) continue;
+
+                    result.Add(new
+                    {
+                        id = reason.GetProperty("id").GetInt64(),
+                        name = reason.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : ""
+                    });
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[HoldReasons] Failed: {ex.Message}");
+                return Ok(new List<object>());
+            }
+        }
+
         // POST /board/columns
         [HttpPost("columns")]
         public async Task<IActionResult> AddColumn([FromBody] AddColumnRequest req)
@@ -106,13 +112,14 @@ namespace PatriotMechanical.API.Controllers
                 Color = req.Color ?? "#334155",
                 SortOrder = maxOrder + 1,
                 IsDefault = false,
-                ColumnRole = string.IsNullOrWhiteSpace(req.ColumnRole) ? null : req.ColumnRole
+                ColumnRole = string.IsNullOrWhiteSpace(req.ColumnRole) ? null : req.ColumnRole,
+                ServiceTitanHoldReasonId = req.ServiceTitanHoldReasonId
             };
 
             _context.BoardColumns.Add(col);
             await _context.SaveChangesAsync();
 
-            return Ok(new { col.Id, col.Name, col.Color, col.SortOrder, col.ColumnRole });
+            return Ok(new { col.Id, col.Name, col.Color, col.SortOrder, col.ColumnRole, col.ServiceTitanHoldReasonId });
         }
 
         // DELETE /board/columns/{id}
@@ -121,7 +128,6 @@ namespace PatriotMechanical.API.Controllers
         {
             var col = await _context.BoardColumns.FindAsync(id);
             if (col == null) return NotFound();
-            if (col.IsDefault) return BadRequest(new { message = "Cannot delete a default column." });
 
             _context.BoardColumns.Remove(col);
             await _context.SaveChangesAsync();
@@ -138,9 +144,11 @@ namespace PatriotMechanical.API.Controllers
             if (req.Name != null) col.Name = req.Name;
             if (req.Color != null) col.Color = req.Color;
             if (req.ColumnRole != null) col.ColumnRole = req.ColumnRole == "" ? null : req.ColumnRole;
+            if (req.ServiceTitanHoldReasonId.HasValue)
+                col.ServiceTitanHoldReasonId = req.ServiceTitanHoldReasonId == 0 ? null : req.ServiceTitanHoldReasonId;
 
             await _context.SaveChangesAsync();
-            return Ok(new { col.Id, col.Name, col.Color, col.ColumnRole });
+            return Ok(new { col.Id, col.Name, col.Color, col.ColumnRole, col.ServiceTitanHoldReasonId });
         }
 
         // POST /board/cards
@@ -260,7 +268,6 @@ namespace PatriotMechanical.API.Controllers
         }
 
         // POST /board/migrate/assign-roles
-        // One-time migration: assigns ColumnRole to existing columns by name matching
         [HttpPost("migrate/assign-roles")]
         public async Task<IActionResult> AssignRolesByName()
         {
@@ -269,7 +276,7 @@ namespace PatriotMechanical.API.Controllers
 
             foreach (var col in columns)
             {
-                if (col.ColumnRole != null) continue; // already assigned, skip
+                if (col.ColumnRole != null) continue;
 
                 var lower = col.Name.ToLower();
 
@@ -297,6 +304,7 @@ namespace PatriotMechanical.API.Controllers
         public string Name { get; set; } = null!;
         public string? Color { get; set; }
         public string? ColumnRole { get; set; }
+        public long? ServiceTitanHoldReasonId { get; set; }
     }
 
     public class UpdateColumnRequest
@@ -304,6 +312,7 @@ namespace PatriotMechanical.API.Controllers
         public string? Name { get; set; }
         public string? Color { get; set; }
         public string? ColumnRole { get; set; }
+        public long? ServiceTitanHoldReasonId { get; set; }
     }
 
     public class AddCardRequest

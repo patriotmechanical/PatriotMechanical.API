@@ -569,7 +569,8 @@ namespace PatriotMechanical.API.Application.Services
         // ═══════════════════════════════════════════════════════════════
         // SYNC HOLD REASONS → BOARD COLUMNS
         // Pulls active hold reasons from ST and creates a board column
-        // for each one that doesn't already exist (by name, case-insensitive).
+        // for each one that doesn't already exist (by ST hold reason ID).
+        // Stores ServiceTitanHoldReasonId on each column for reliable matching.
         // Runs on every sync — safe to call repeatedly, never deletes columns.
         // ═══════════════════════════════════════════════════════════════
         public async Task SyncHoldReasonsToColumnsAsync()
@@ -582,6 +583,12 @@ namespace PatriotMechanical.API.Application.Services
                 if (!parsed.TryGetProperty("data", out var data)) return;
 
                 var existingColumns = await _context.BoardColumns.ToListAsync();
+
+                // Match by ST hold reason ID (most reliable), fall back to name
+                var existingByStId = existingColumns
+                    .Where(c => c.ServiceTitanHoldReasonId.HasValue)
+                    .ToDictionary(c => c.ServiceTitanHoldReasonId!.Value);
+
                 var existingNames = existingColumns
                     .Select(c => c.Name.ToLower())
                     .ToHashSet();
@@ -594,6 +601,9 @@ namespace PatriotMechanical.API.Application.Services
 
                 foreach (var reason in data.EnumerateArray())
                 {
+                    if (!reason.TryGetProperty("id", out var idProp)) continue;
+                    var stId = idProp.GetInt64();
+
                     var name = reason.TryGetProperty("name", out var nameProp)
                         ? nameProp.GetString() ?? ""
                         : "";
@@ -601,7 +611,19 @@ namespace PatriotMechanical.API.Application.Services
                         || activeProp.GetBoolean();
 
                     if (string.IsNullOrWhiteSpace(name) || !active) continue;
-                    if (existingNames.Contains(name.ToLower())) continue;
+
+                    // If a column already exists for this ST hold reason ID, skip
+                    if (existingByStId.ContainsKey(stId)) continue;
+
+                    // If a column exists with the same name but no ST ID, stamp it
+                    var matchByName = existingColumns.FirstOrDefault(c =>
+                        c.Name.Equals(name, StringComparison.OrdinalIgnoreCase) &&
+                        !c.ServiceTitanHoldReasonId.HasValue);
+                    if (matchByName != null)
+                    {
+                        matchByName.ServiceTitanHoldReasonId = stId;
+                        continue;
+                    }
 
                     _context.BoardColumns.Add(new BoardColumn
                     {
@@ -610,14 +632,15 @@ namespace PatriotMechanical.API.Application.Services
                         Color = "#334155",
                         SortOrder = ++maxSort,
                         IsDefault = false,
-                        ColumnRole = null
+                        ColumnRole = null,
+                        ServiceTitanHoldReasonId = stId
                     });
 
                     existingNames.Add(name.ToLower());
                     added++;
                 }
 
-                if (added > 0)
+                if (added > 0 || _context.ChangeTracker.HasChanges())
                 {
                     await _context.SaveChangesAsync();
                     Console.WriteLine($"[HoldReasonSync] Added {added} new board column(s) from ST hold reasons.");
@@ -740,8 +763,10 @@ namespace PatriotMechanical.API.Application.Services
 
         // ═══════════════════════════════════════════════════════════════
         // SYNC HOLD REASONS → BOARD CARDS
-        // Builds a live ID → name map from ST, then moves any board card
-        // whose job has an appointment on hold to the matching column.
+        // - Jobs with a hold reason are moved to the matching column
+        // - Jobs whose hold reason was cleared are removed from the board
+        // Matches by ServiceTitanHoldReasonId on the column (reliable),
+        // falls back to name matching.
         // ═══════════════════════════════════════════════════════════════
         private async Task SyncHoldReasonsToBoard()
         {
@@ -771,19 +796,22 @@ namespace PatriotMechanical.API.Application.Services
 
             if (!holdReasonMap.Any()) return;
 
+            var boardColumns = await _context.BoardColumns.ToListAsync();
+
+            // ─── MOVE: jobs with an active hold reason → correct column ───
             var holdAppts = await _context.Appointments
                 .Where(a => a.HoldReasonId != null && holdReasonMap.Keys.Contains(a.HoldReasonId.Value))
                 .ToListAsync();
 
-            if (!holdAppts.Any()) return;
-
-            var boardColumns = await _context.BoardColumns.ToListAsync();
-
             foreach (var appt in holdAppts)
             {
-                var columnName = holdReasonMap[appt.HoldReasonId!.Value];
-                var targetColumn = boardColumns.FirstOrDefault(c =>
-                    c.Name.Equals(columnName, StringComparison.OrdinalIgnoreCase));
+                var holdReasonId = appt.HoldReasonId!.Value;
+
+                // Match column by ST hold reason ID first, then by name
+                var targetColumn = boardColumns.FirstOrDefault(c => c.ServiceTitanHoldReasonId == holdReasonId)
+                    ?? boardColumns.FirstOrDefault(c =>
+                        c.Name.Equals(holdReasonMap[holdReasonId], StringComparison.OrdinalIgnoreCase));
+
                 if (targetColumn == null) continue;
 
                 var wo = await _context.WorkOrders
@@ -797,7 +825,42 @@ namespace PatriotMechanical.API.Application.Services
                 if (card.BoardColumnId == targetColumn.Id) continue;
 
                 card.BoardColumnId = targetColumn.Id;
-                Console.WriteLine($"[HoldSync] Moved card {wo.JobNumber} to '{columnName}' based on ST hold reason.");
+                Console.WriteLine($"[HoldSync] Moved card {wo.JobNumber} to '{targetColumn.Name}' based on ST hold reason.");
+            }
+
+            // ─── REMOVE: jobs whose hold reason was cleared ───
+            // Find all board cards whose job has NO active hold appointment
+            var holdJobIds = holdAppts.Select(a => a.ServiceTitanJobId).ToHashSet();
+
+            var holdReasonColumnIds = boardColumns
+                .Where(c => c.ServiceTitanHoldReasonId.HasValue)
+                .Select(c => c.Id)
+                .ToHashSet();
+
+            if (holdReasonColumnIds.Any())
+            {
+                var cardsInHoldColumns = await _context.BoardCards
+                    .Include(c => c.WorkOrder)
+                    .Where(c => holdReasonColumnIds.Contains(c.BoardColumnId))
+                    .ToListAsync();
+
+                int removed = 0;
+                foreach (var card in cardsInHoldColumns)
+                {
+                    var stJobId = card.WorkOrder?.ServiceTitanJobId ?? 0;
+                    if (stJobId == 0) continue;
+
+                    // If this job is NOT in the active hold list, remove from board
+                    if (!holdJobIds.Contains(stJobId))
+                    {
+                        _context.BoardCards.Remove(card);
+                        removed++;
+                        Console.WriteLine($"[HoldSync] Removed card {card.JobNumber} — hold reason cleared in ST.");
+                    }
+                }
+
+                if (removed > 0)
+                    Console.WriteLine($"[HoldSync] Removed {removed} card(s) with cleared hold reasons.");
             }
 
             await _context.SaveChangesAsync();
