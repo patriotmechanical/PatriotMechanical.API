@@ -70,13 +70,39 @@ using (var scope = app.Services.CreateScope())
     {
         await db.Database.ExecuteSqlRawAsync(@"
             ALTER TABLE ""BoardColumns"" ADD COLUMN IF NOT EXISTS ""ColumnRole"" text NULL;
-            ALTER TABLE ""WorkOrders"" ADD COLUMN IF NOT EXISTS ""HoldReasonId"" bigint NULL;
+            ALTER TABLE ""BoardColumns"" ADD COLUMN IF NOT EXISTS ""ServiceTitanHoldReasonId"" bigint NULL;
         ");
-        Console.WriteLine("[Startup] ColumnRole + HoldReasonId migrations applied.");
+        Console.WriteLine("[Startup] Schema migrations applied.");
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[Startup] Migration warning: {ex.Message}");
+    }
+
+    // ─── One-time: delete hardcoded default columns so board starts fresh ───
+    // Only runs if the old defaults (IsDefault=true) still exist with no ST hold reason ID
+    try
+    {
+        var defaultCols = await db.BoardColumns
+            .Where(c => c.IsDefault && c.ServiceTitanHoldReasonId == null)
+            .ToListAsync();
+
+        if (defaultCols.Any())
+        {
+            // Move any cards off these columns before deleting
+            var defaultColIds = defaultCols.Select(c => c.Id).ToList();
+            var orphanCards = await db.Set<PatriotMechanical.API.Domain.Entities.BoardCard>()
+                .Where(c => defaultColIds.Contains(c.BoardColumnId))
+                .ToListAsync();
+            db.RemoveRange(orphanCards);
+            db.RemoveRange(defaultCols);
+            await db.SaveChangesAsync();
+            Console.WriteLine($"[Startup] Removed {defaultCols.Count} hardcoded default columns and {orphanCards.Count} orphan cards.");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] Default column cleanup warning: {ex.Message}");
     }
 }
 
