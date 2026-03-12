@@ -404,7 +404,7 @@ public class MigrateController : ControllerBase
     {
         try
         {
-            await _syncEngine.SyncAppointmentsAsync();
+            await _syncEngine.SyncAppointmentsAndAutoBoardAsync();
             var count = await _context.Appointments.CountAsync();
             return Ok(new { message = "Appointment sync complete.", totalInDb = count });
         }
@@ -657,60 +657,6 @@ public class MigrateController : ControllerBase
         catch (Exception ex)
         {
             return Ok(new { error = ex.Message });
-        }
-    }
-
-    /// <summary>
-    /// POST /migrate/backfill-hold-reasons
-    /// Fetches each open WorkOrder from ST individually and updates HoldReasonId.
-    /// Run once after deploying HoldReasonId on WorkOrder.
-    /// </summary>
-    [HttpPost("backfill-hold-reasons")]
-    public async Task<IActionResult> BackfillHoldReasons([FromServices] ServiceTitanService stService)
-    {
-        try
-        {
-            var workOrders = await _context.WorkOrders
-                .Where(w => w.Status != "Completed" && w.Status != "Canceled" && w.Status != "Cancelled")
-                .ToListAsync();
-
-            int updated = 0;
-            int errors = 0;
-
-            foreach (var wo in workOrders)
-            {
-                try
-                {
-                    var raw = await stService.GetRawJobByIdAsync(wo.ServiceTitanJobId);
-                    var job = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(raw);
-
-                    long? holdReasonId = null;
-                    if (job.TryGetProperty("holdReasonId", out var hrProp) &&
-                        hrProp.ValueKind == System.Text.Json.JsonValueKind.Number)
-                        holdReasonId = hrProp.GetInt64();
-
-                    if (wo.HoldReasonId != holdReasonId)
-                    {
-                        wo.HoldReasonId = holdReasonId;
-                        updated++;
-                    }
-                }
-                catch
-                {
-                    errors++;
-                }
-            }
-
-            await _context.SaveChangesAsync();
-
-            // Now run board sync to place cards
-            await _syncEngine.SyncAppointmentsAndAutoBoardAsync();
-
-            return Ok(new { message = $"Backfill complete. Checked {workOrders.Count} jobs, updated {updated}, errors {errors}. Board sync triggered." });
-        }
-        catch (Exception ex)
-        {
-            return Ok(new { error = ex.Message, stack = ex.StackTrace?.Substring(0, Math.Min(500, ex.StackTrace?.Length ?? 0)) });
         }
     }
 }
