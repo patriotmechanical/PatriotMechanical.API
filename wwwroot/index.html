@@ -156,6 +156,23 @@
                         </div>
                     </div>
 
+                    <!-- Schedule Panel (full-width, tabbed) -->
+                    <div class="panel dash-panel" id="panel-schedule" style="margin-bottom:16px;">
+                        <div class="dash-panel-header">
+                            <div class="sched-tabs">
+                                <button class="sched-tab active" id="schedTabToday" onclick="switchSchedTab('today')">Today <span class="sched-tab-count" id="schedTabTodayCount">0</span></button>
+                                <button class="sched-tab" id="schedTabTomorrow" onclick="switchSchedTab('tomorrow')">Tomorrow <span class="sched-tab-count" id="schedTabTomorrowCount">0</span></button>
+                                <button class="sched-tab" id="schedTabDayAfter" onclick="switchSchedTab('dayafter')">— <span class="sched-tab-count" id="schedTabDayAfterCount">0</span></button>
+                            </div>
+                        </div>
+                        <div id="schedBody">
+                            <table class="data-table">
+                                <thead><tr><th>Technician</th><th>Job #</th><th>Customer</th><th>Service Location</th><th>Time</th></tr></thead>
+                                <tbody id="schedTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- Ops KPI row: Open WOs / Need to Schedule / Overdue PMs -->
                     <div class="ops-kpi-row" style="margin-bottom:16px;">
                         <div class="kpi-card kpi-red kpi-clickable" onclick="openOpsDrilldown(0)" title="Click to see all open WOs">
@@ -173,23 +190,7 @@
                             <div class="kpi-value" id="kpiOverduePm">0</div>
                             <div class="kpi-sub" id="kpiPmSub">180+ days</div>
                         </div>
-                    </div>
 
-                    <!-- Schedule Panel (full-width, tabbed) -->
-                    <div class="panel dash-panel" id="panel-schedule" style="margin-bottom:16px;">
-                        <div class="dash-panel-header">
-                            <div class="sched-tabs">
-                                <button class="sched-tab active" id="schedTabToday" onclick="switchSchedTab('today')">Today <span class="sched-tab-count" id="schedTabTodayCount">0</span></button>
-                                <button class="sched-tab" id="schedTabTomorrow" onclick="switchSchedTab('tomorrow')">Tomorrow <span class="sched-tab-count" id="schedTabTomorrowCount">0</span></button>
-                                <button class="sched-tab" id="schedTabDayAfter" onclick="switchSchedTab('dayafter')">— <span class="sched-tab-count" id="schedTabDayAfterCount">0</span></button>
-                            </div>
-                        </div>
-                        <div id="schedBody">
-                            <table class="data-table">
-                                <thead><tr><th>Technician</th><th>Job #</th><th>Customer</th><th>Service Location</th><th>Time</th></tr></thead>
-                                <tbody id="schedTableBody"></tbody>
-                            </table>
-                        </div>
                     </div>
 
                     <!-- Main 3-col grid -->
@@ -298,13 +299,6 @@
                             <button class="btn-secondary" onclick="showAddCardForm()">+ Add Work Order</button>
                             <button class="btn-secondary" onclick="showAddColumnForm()">+ Add Column</button>
                         </div>
-                    </div>
-
-                    <div class="board-filter-bar">
-                        <input type="text" id="boardSearchInput" placeholder="Filter by job # or customer..." oninput="filterBoardCards()" class="board-search-input" />
-                        <label class="board-filter-toggle">
-                            <input type="checkbox" id="boardRiskFilter" onchange="filterBoardCards()" /> Risk only
-                        </label>
                     </div>
 
                     <!-- Add Card Form (hidden by default) -->
