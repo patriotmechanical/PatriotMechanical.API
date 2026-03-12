@@ -404,7 +404,7 @@ public class MigrateController : ControllerBase
     {
         try
         {
-            await _syncEngine.SyncAppointmentsAndAutoBoardAsync();
+            await _syncEngine.SyncAppointmentsAsync();
             var count = await _context.Appointments.CountAsync();
             return Ok(new { message = "Appointment sync complete.", totalInDb = count });
         }
